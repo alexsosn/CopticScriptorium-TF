@@ -73,13 +73,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Check out pinned Coptic Scriptorium source
+      - name: Check out pinned Coptic Scriptorium TT sources
         uses: actions/checkout@v4
         with:
           repository: CopticScriptorium/corpora
           ref: ${{ env.UPSTREAM_COMMIT }}
           path: upstream
           fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /meta.json
+            /*/*_TT/**
+            /*/*_TT.zip
       - name: Verify pinned upstream source
         working-directory: upstream
         run: test "$(git rev-parse HEAD)" = "$UPSTREAM_COMMIT"
