@@ -1,8 +1,8 @@
 """Pure inventory analysis for Coptic Scriptorium issue #1.
 
-This module intentionally performs no network access.  It consumes a Git Trees API
+This module intentionally performs no network access. It consumes a Git Trees API
 payload (or an equivalent JSON object produced from a local checkout) and returns a
-deterministically ordered report.  Network/download concerns belong to a separate
+deterministically ordered report. Network/download concerns belong to a separate
 transport layer so the coverage logic can be tested independently.
 """
 
@@ -22,12 +22,7 @@ RECORD_EXTENSIONS = {
 
 
 def classify_format_directory(path: str) -> tuple[str, str, str] | None:
-    """Classify a canonical top-level corpus/dataset_FORMAT directory.
-
-    Returns ``(corpus, dataset, format)``.  Only the observed two-component
-    topology is classified here; deeper or malformed shapes remain visible to the
-    inventory instead of being silently normalized into the canonical grammar.
-    """
+    """Classify a canonical top-level ``corpus/dataset_FORMAT`` directory."""
 
     parts = PurePosixPath(path).parts
     if len(parts) != 2:
@@ -41,8 +36,37 @@ def classify_format_directory(path: str) -> tuple[str, str, str] | None:
     return None
 
 
-def _record_identity(path: str, format_directories: dict[str, tuple[str, str]]) -> tuple[str, str, str] | None:
-    """Return ``(dataset_key, format, record_id)`` for record-oriented exports."""
+def classify_format_archive(path: str) -> tuple[str, str, str] | None:
+    """Classify a canonical top-level ``corpus/dataset_FORMAT.zip`` archive."""
+
+    parts = PurePosixPath(path).parts
+    if len(parts) != 2:
+        return None
+
+    corpus, filename = parts
+    for fmt in FORMAT_SUFFIXES:
+        suffix = f"_{fmt}.zip"
+        if filename.endswith(suffix) and len(filename) > len(suffix):
+            return corpus, filename[: -len(suffix)], fmt
+    return None
+
+
+def _new_dataset() -> dict[str, Any]:
+    return {
+        "formats": set(),
+        "format_directories": {},
+        "format_artifacts": {},
+        "blob_counts": {},
+        "records": {},
+        "unexpected_files": [],
+    }
+
+
+def _record_identity(
+    path: str,
+    format_directories: dict[str, tuple[str, str]],
+) -> tuple[str, str, str] | None:
+    """Return ``(dataset_key, format, record_id)`` for visible record exports."""
 
     for directory, (dataset_key, fmt) in format_directories.items():
         extension = RECORD_EXTENSIONS.get(fmt)
@@ -64,11 +88,12 @@ def _record_identity(path: str, format_directories: dict[str, tuple[str, str]]) 
 
 
 def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
-    """Analyze one complete recursive Git tree payload.
+    """Analyze one complete assembled Git tree payload.
 
-    A truncated Git Trees response is rejected.  Treating a truncated response as a
-    complete census would recreate a class of silent source-loss bugs seen in prior
-    converter projects.
+    A truncated response is rejected. Format presence is kept separate from record
+    visibility: some upstream corpora package TT/PAULA/ANNIS as opaque ZIP blobs,
+    so their records cannot be called missing merely because the Git tree cannot see
+    archive members.
     """
 
     if payload.get("truncated"):
@@ -102,34 +127,51 @@ def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
                 corpus, dataset_name, fmt = classified
                 dataset_key = f"{corpus}/{dataset_name}"
                 format_directories[path] = (dataset_key, fmt)
-                dataset = datasets.setdefault(
-                    dataset_key,
-                    {
-                        "formats": set(),
-                        "format_directories": {},
-                        "blob_counts": {},
-                        "records": {},
-                        "unexpected_files": [],
-                    },
-                )
+                dataset = datasets.setdefault(dataset_key, _new_dataset())
                 dataset["formats"].add(fmt)
                 dataset["format_directories"][fmt] = path
+                dataset["format_artifacts"].setdefault(fmt, []).append(
+                    {
+                        "kind": "directory",
+                        "path": path,
+                        "sha": str(entry.get("sha", "")),
+                    }
+                )
                 dataset["blob_counts"].setdefault(fmt, 0)
 
-        if entry_type == "blob" and entry.get("size") == 0:
-            zero_byte_blobs.append({"path": path, "sha": str(entry.get("sha", ""))})
+        if entry_type == "blob":
+            archived = classify_format_archive(path)
+            if archived is not None:
+                corpus, dataset_name, fmt = archived
+                dataset_key = f"{corpus}/{dataset_name}"
+                dataset = datasets.setdefault(dataset_key, _new_dataset())
+                dataset["formats"].add(fmt)
+                dataset["format_artifacts"].setdefault(fmt, []).append(
+                    {
+                        "kind": "archive",
+                        "path": path,
+                        "sha": str(entry.get("sha", "")),
+                        "size": int(entry.get("size", 0)),
+                    }
+                )
+                dataset["blob_counts"][fmt] = dataset["blob_counts"].get(fmt, 0) + 1
 
-        if entry_type == "blob" and path == "meta.json":
-            meta_json = {
-                "path": path,
-                "sha": str(entry.get("sha", "")),
-                "size": int(entry.get("size", 0)),
-            }
+            if entry.get("size") == 0:
+                zero_byte_blobs.append(
+                    {"path": path, "sha": str(entry.get("sha", ""))}
+                )
 
-    # Count files beneath each known format directory and collect record-oriented
-    # counterparts.  PAULA and ANNIS are deliberately excluded from basename-level
-    # record matching because they are component/corpus-oriented exports rather than
-    # one-file-per-document in the observed topology.
+            if path == "meta.json":
+                meta_json = {
+                    "path": path,
+                    "sha": str(entry.get("sha", "")),
+                    "size": int(entry.get("size", 0)),
+                }
+
+    # Count files beneath visible format directories and collect record-oriented
+    # counterparts. PAULA and ANNIS are deliberately excluded from basename-level
+    # record matching: their observed exports are component/corpus-oriented rather
+    # than uniformly one-file-per-document.
     directories_longest_first = dict(
         sorted(format_directories.items(), key=lambda item: (-len(item[0]), item[0]))
     )
@@ -142,11 +184,9 @@ def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
             continue
 
         containing: tuple[str, str] | None = None
-        containing_dir: str | None = None
         for directory, value in directories_longest_first.items():
             if path.startswith(f"{directory}/"):
                 containing = value
-                containing_dir = directory
                 break
 
         if containing is not None:
@@ -170,20 +210,43 @@ def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
         record_map[fmt] = path
 
     final_datasets: dict[str, dict[str, Any]] = {}
-    record_formats = sorted(RECORD_EXTENSIONS)
 
     for dataset_key in sorted(datasets):
         raw = datasets[dataset_key]
         records: dict[str, dict[str, str]] = {}
         missing_counterparts: dict[str, list[str]] = {}
 
+        archive_formats = {
+            fmt
+            for fmt, artifacts in raw["format_artifacts"].items()
+            if any(artifact["kind"] == "archive" for artifact in artifacts)
+        }
+        visible_record_formats = sorted(
+            fmt for fmt in RECORD_EXTENSIONS if fmt in raw["format_directories"]
+        )
+        record_comparison_coverage: dict[str, str] = {}
+        for fmt in sorted(RECORD_EXTENSIONS):
+            if fmt in raw["format_directories"]:
+                record_comparison_coverage[fmt] = "visible"
+            elif fmt in archive_formats:
+                record_comparison_coverage[fmt] = "archive"
+            else:
+                record_comparison_coverage[fmt] = "absent"
+
         for record_id in sorted(raw["records"]):
             mapping = raw["records"][record_id]
             ordered_mapping = {fmt: mapping[fmt] for fmt in sorted(mapping)}
             records[record_id] = ordered_mapping
-            missing = [fmt for fmt in record_formats if fmt not in mapping]
+            missing = [fmt for fmt in visible_record_formats if fmt not in mapping]
             if missing:
                 missing_counterparts[record_id] = missing
+
+        ordered_artifacts: dict[str, list[dict[str, Any]]] = {}
+        for fmt in sorted(raw["format_artifacts"]):
+            ordered_artifacts[fmt] = sorted(
+                raw["format_artifacts"][fmt],
+                key=lambda artifact: (artifact["kind"], artifact["path"]),
+            )
 
         final_datasets[dataset_key] = {
             "formats": sorted(raw["formats"]),
@@ -191,9 +254,11 @@ def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
                 fmt: raw["format_directories"][fmt]
                 for fmt in sorted(raw["format_directories"])
             },
+            "format_artifacts": ordered_artifacts,
             "blob_counts": {
                 fmt: raw["blob_counts"][fmt] for fmt in sorted(raw["blob_counts"])
             },
+            "record_comparison_coverage": record_comparison_coverage,
             "records": records,
             "missing_counterparts": missing_counterparts,
             "unexpected_files": sorted(raw["unexpected_files"]),
@@ -204,7 +269,9 @@ def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
         "tree_complete": True,
         "top_level_corpora": sorted(set(top_level_corpora)),
         "meta_json": meta_json,
-        "zero_byte_blobs": sorted(zero_byte_blobs, key=lambda item: (item["path"], item["sha"])),
+        "zero_byte_blobs": sorted(
+            zero_byte_blobs, key=lambda item: (item["path"], item["sha"])
+        ),
         "datasets": final_datasets,
     }
 
