@@ -12,6 +12,7 @@ from collections import Counter
 import argparse
 import json
 from pathlib import Path
+import re
 from typing import Any, Iterator
 
 
@@ -27,6 +28,9 @@ COLUMN_NAMES = (
     "DEPS",
     "MISC",
 )
+BASIC_ID_RE = re.compile(r"[1-9][0-9]*")
+MULTIWORD_ID_RE = re.compile(r"([1-9][0-9]*)-([1-9][0-9]*)")
+EMPTY_NODE_ID_RE = re.compile(r"([1-9][0-9]*)\.([1-9][0-9]*)")
 
 
 def _iter_conllu_files(root: Path) -> Iterator[Path]:
@@ -153,12 +157,12 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
 
             row = dict(zip(COLUMN_NAMES, columns, strict=True))
             row_id = row["ID"]
-            if row_id.isdigit():
+            if BASIC_ID_RE.fullmatch(row_id):
                 token_id = int(row_id)
-                if token_id <= 0:
+                if any(existing_id == token_id for existing_id, _head, _line in sentence_rows):
                     errors.append(
                         {
-                            "kind": "invalid_token_id",
+                            "kind": "duplicate_token_id",
                             "source": source,
                             "line": line_number,
                             "id": row_id,
@@ -182,9 +186,26 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
                     seen_misc.add(key)
                 if row["DEPS"] != "_":
                     enhanced_deps_rows += 1
-            elif "-" in row_id:
-                multiword_rows += 1
-            elif "." in row_id:
+                continue
+
+            multiword_match = MULTIWORD_ID_RE.fullmatch(row_id)
+            if multiword_match is not None:
+                start, end = (int(value) for value in multiword_match.groups())
+                if start < end:
+                    multiword_rows += 1
+                else:
+                    errors.append(
+                        {
+                            "kind": "invalid_id",
+                            "source": source,
+                            "line": line_number,
+                            "id": row_id,
+                        }
+                    )
+                continue
+
+            empty_match = EMPTY_NODE_ID_RE.fullmatch(row_id)
+            if empty_match is not None:
                 empty_node_rows += 1
                 for key in _attribute_keys(row["FEATS"]):
                     feats_occurrences[key] += 1
@@ -192,15 +213,20 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
                 for key in _attribute_keys(row["MISC"]):
                     misc_occurrences[key] += 1
                     seen_misc.add(key)
+                continue
+
+            if row_id.isdigit():
+                kind = "invalid_token_id"
             else:
-                errors.append(
-                    {
-                        "kind": "invalid_id",
-                        "source": source,
-                        "line": line_number,
-                        "id": row_id,
-                    }
-                )
+                kind = "invalid_id"
+            errors.append(
+                {
+                    "kind": kind,
+                    "source": source,
+                    "line": line_number,
+                    "id": row_id,
+                }
+            )
 
         flush_sentence()
         for key in seen_feats:
