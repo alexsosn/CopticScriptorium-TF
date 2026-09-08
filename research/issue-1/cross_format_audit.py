@@ -20,7 +20,7 @@ import zipfile
 
 ATTR_RE = re.compile(r'\s+([A-Za-z_][A-Za-z0-9_.:-]*)\s*=\s*"([^"]*)"')
 NORM_TAG_RE = re.compile(r'<norm\b((?:[^">]|"[^"]*")*)>', re.DOTALL)
-SHARED_FIELDS = ("func", "lemma", "norm", "pos")
+SHARED_FIELDS = ("func", "head", "lemma", "norm", "pos")
 
 
 def _scan_attributes(fragment: str) -> dict[str, str]:
@@ -41,18 +41,103 @@ def _scan_attributes(fragment: str) -> dict[str, str]:
     return attrs
 
 
-def _tt_tokens(text: str) -> list[dict[str, str | None]]:
-    tokens: list[dict[str, str | None]] = []
-    for match in NORM_TAG_RE.finditer(text):
+def _tt_tokens(text: str) -> list[dict[str, Any]]:
+    raw_tokens: list[dict[str, str]] = []
+    id_to_position: dict[str, int] = {}
+
+    for position, match in enumerate(NORM_TAG_RE.finditer(text), start=1):
         attrs = _scan_attributes(match.group(1))
-        tokens.append({field: attrs.get(field) for field in SHARED_FIELDS})
+        xml_id = attrs.get("xml:id")
+        if xml_id:
+            if xml_id in id_to_position:
+                raise ValueError(f"duplicate TT token xml:id {xml_id!r}")
+            id_to_position[xml_id] = position
+        raw_tokens.append(attrs)
+
+    tokens: list[dict[str, Any]] = []
+    for attrs in raw_tokens:
+        raw_head = attrs.get("head")
+        if raw_head:
+            target = raw_head[1:] if raw_head.startswith("#") else raw_head
+            if target not in id_to_position:
+                raise ValueError(f"unresolved TT dependency head {raw_head!r}")
+            normalized_head: int | None = id_to_position[target]
+        elif attrs.get("func") == "root":
+            normalized_head = 0
+        else:
+            normalized_head = None
+
+        tokens.append(
+            {
+                "norm": attrs.get("norm"),
+                "lemma": attrs.get("lemma"),
+                "pos": attrs.get("pos"),
+                "func": attrs.get("func"),
+                "head": normalized_head,
+            }
+        )
     return tokens
 
 
-def _conllu_tokens(text: str) -> list[dict[str, str | None]]:
-    tokens: list[dict[str, str | None]] = []
+def _conllu_tokens(text: str) -> list[dict[str, Any]]:
+    tokens: list[dict[str, Any]] = []
+    sentence_rows: list[tuple[int, list[str], int]] = []
+
+    def flush_sentence() -> None:
+        nonlocal sentence_rows
+        if not sentence_rows:
+            return
+
+        start_position = len(tokens)
+        local_to_absolute: dict[int, int] = {}
+        for offset, (local_id, _columns, line_number) in enumerate(
+            sentence_rows, start=1
+        ):
+            if local_id in local_to_absolute:
+                raise ValueError(
+                    f"duplicate CoNLL-U token id {local_id} at line {line_number}"
+                )
+            local_to_absolute[local_id] = start_position + offset
+
+        for local_id, columns, line_number in sentence_rows:
+            def value(column: str) -> str | None:
+                return None if column == "_" else column
+
+            raw_head = columns[6]
+            if raw_head == "_":
+                normalized_head: int | None = None
+            else:
+                try:
+                    head_id = int(raw_head)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"invalid CoNLL-U HEAD {raw_head!r} at line {line_number}"
+                    ) from exc
+                if head_id == 0:
+                    normalized_head = 0
+                elif head_id in local_to_absolute:
+                    normalized_head = local_to_absolute[head_id]
+                else:
+                    raise ValueError(
+                        f"unresolved CoNLL-U HEAD {head_id} at line {line_number}"
+                    )
+
+            tokens.append(
+                {
+                    "norm": value(columns[1]),
+                    "lemma": value(columns[2]),
+                    "pos": value(columns[4]),
+                    "func": value(columns[7]),
+                    "head": normalized_head,
+                }
+            )
+        sentence_rows = []
+
     for line_number, line in enumerate(text.splitlines(), start=1):
-        if not line or line.startswith("#"):
+        if not line:
+            flush_sentence()
+            continue
+        if line.startswith("#"):
             continue
         columns = line.split("\t")
         if len(columns) != 10:
@@ -60,18 +145,9 @@ def _conllu_tokens(text: str) -> list[dict[str, str | None]]:
         row_id = columns[0]
         if not row_id.isdigit():
             continue
+        sentence_rows.append((int(row_id), columns, line_number))
 
-        def value(column: str) -> str | None:
-            return None if column == "_" else column
-
-        tokens.append(
-            {
-                "norm": value(columns[1]),
-                "lemma": value(columns[2]),
-                "pos": value(columns[4]),
-                "func": value(columns[7]),
-            }
-        )
+    flush_sentence()
     return tokens
 
 
