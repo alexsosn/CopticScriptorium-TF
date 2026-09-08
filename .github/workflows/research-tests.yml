@@ -101,6 +101,10 @@ jobs:
         run: >-
           python research/issue-1/cross_format_audit.py upstream
           --output research/issue-1/cross-format-audit.json
+      - name: Reconcile global meta.json with TT documents
+        run: >-
+          python research/issue-1/meta_json_audit.py upstream
+          --output research/issue-1/meta-json-audit.json
       - uses: actions/upload-artifact@v4
         with:
           name: issue1-semantic-audit
@@ -117,5 +121,11 @@ jobs:
         with:
           name: issue1-cross-format-audit
           path: research/issue-1/cross-format-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-meta-json-audit
+          path: research/issue-1/meta-json-audit.json
           if-no-files-found: error
           retention-days: 14
