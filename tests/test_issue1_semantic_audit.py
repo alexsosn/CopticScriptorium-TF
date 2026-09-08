@@ -52,6 +52,21 @@ class SemanticAuditContractTests(unittest.TestCase):
         self.assertEqual(attrs["title"], "A & B")
         self.assertEqual(attrs["license"], "<a href='x'>CC</a>")
 
+    def test_source_native_meta_lexer_preserves_and_classifies_duplicates(self):
+        parsed = self.audit.scan_meta_line(
+            '<meta title="A &amp; B" people="A" people="A" places="X" places="Y">'
+        )
+        self.assertEqual(parsed["attributes"]["title"], "A & B")
+        self.assertEqual(parsed["attributes"]["people"], "A")
+        self.assertEqual(parsed["attributes"]["places"], "X")
+        self.assertEqual(
+            parsed["duplicates"],
+            {
+                "people": {"values": ["A", "A"], "conflict": False},
+                "places": {"values": ["X", "Y"], "conflict": True},
+            },
+        )
+
     def test_audits_directory_and_zip_packed_tt_documents(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -90,9 +105,39 @@ class SemanticAuditContractTests(unittest.TestCase):
         self.assertEqual(report["layer_presence"]["page"], 1)
         self.assertEqual(report["layer_presence"]["column"], 1)
         self.assertEqual(report["layer_presence"]["line"], 1)
+        self.assertEqual(report["duplicate_meta_attributes"]["document_count"], 0)
         self.assertEqual(report["meta_json"]["present"], True)
         self.assertEqual(report["meta_json"]["top_level_type"], "object")
         self.assertEqual(report["meta_json"]["top_level_size"], 2)
+        self.assertEqual(report["meta_json"]["sample_keys"], ["demo:one", "packed:two"])
+
+    def test_duplicate_metadata_is_measured_without_silent_overwrite(self):
+        duplicate = '''<meta corpus="demo" document_cts_urn="urn:cts:demo:dup" license="CC" title="Dup" people="A" people="A" places="X" places="Y">
+<norm xml:id="u1" func="root" norm="x">x</norm>
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            direct = root / "demo" / "demo_TT"
+            direct.mkdir(parents=True)
+            (direct / "dup.tt").write_text(duplicate, encoding="utf-8")
+            report = self.audit.audit_upstream(root)
+
+        self.assertEqual(report["errors"], [])
+        summary = report["duplicate_meta_attributes"]
+        self.assertEqual(summary["document_count"], 1)
+        self.assertEqual(summary["equal_value_occurrences"], 1)
+        self.assertEqual(summary["conflicting_occurrences"], 1)
+        self.assertEqual(summary["key_document_counts"], {"people": 1, "places": 1})
+        self.assertEqual(
+            summary["conflict_examples"],
+            [
+                {
+                    "source": "demo/demo_TT/dup.tt",
+                    "key": "places",
+                    "values": ["X", "Y"],
+                }
+            ],
+        )
 
     def test_missing_or_malformed_meta_is_reported_not_silently_skipped(self):
         with tempfile.TemporaryDirectory() as tmp:
