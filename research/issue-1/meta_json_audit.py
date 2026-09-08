@@ -2,9 +2,9 @@
 
 The upstream meta.json is keyed by source-record basename, while the same scholarly
 record can appear in more than one TT corpus (for example source corpus plus the
-coptic-treebank convenience corpus).  This audit therefore permits multiple TT
+coptic-treebank convenience corpus). This audit therefore permits multiple TT
 copies per global metadata key, rejects ambiguous case-insensitive meta.json keys,
-and measures disagreements without resolving them.
+and measures disagreements and asymmetric field coverage without resolving them.
 """
 
 from __future__ import annotations
@@ -114,6 +114,12 @@ def _load_meta_json(root: Path) -> tuple[dict[str, Any], dict[str, str]]:
     return value, technical_to_literal
 
 
+def _scalar_text(value: Any) -> str | None:
+    if isinstance(value, (dict, list)):
+        return None
+    return "" if value is None else str(value)
+
+
 def audit_upstream(root: Path | str) -> dict[str, Any]:
     root_path = Path(root)
     meta, meta_index = _load_meta_json(root_path)
@@ -125,6 +131,10 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     copy_counts: Counter[str] = Counter()
     mismatch_counts: Counter[str] = Counter()
     mismatch_examples: list[dict[str, Any]] = []
+    meta_missing_in_tt_counts: Counter[str] = Counter()
+    tt_missing_in_meta_counts: Counter[str] = Counter()
+    meta_missing_in_tt_examples: list[dict[str, Any]] = []
+    tt_missing_in_meta_examples: list[dict[str, Any]] = []
 
     for document in documents:
         technical = document["record"].casefold()
@@ -143,13 +153,38 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             continue
 
         attrs = document["attributes"]
+
+        for field in sorted(set(meta_value) - set(attrs)):
+            json_text = _scalar_text(meta_value[field])
+            if json_text is None:
+                continue
+            meta_missing_in_tt_counts[field] += 1
+            if len(meta_missing_in_tt_examples) < 100:
+                meta_missing_in_tt_examples.append(
+                    {
+                        "record": literal_key,
+                        "source": document["source"],
+                        "field": field,
+                        "meta_json": json_text,
+                    }
+                )
+
+        for field in sorted(set(attrs) - set(meta_value)):
+            tt_missing_in_meta_counts[field] += 1
+            if len(tt_missing_in_meta_examples) < 100:
+                tt_missing_in_meta_examples.append(
+                    {
+                        "record": literal_key,
+                        "source": document["source"],
+                        "field": field,
+                        "tt": attrs[field],
+                    }
+                )
+
         for field in sorted(set(attrs) & set(meta_value)):
             tt_value = attrs[field]
-            json_value = meta_value[field]
-            if isinstance(json_value, (dict, list)):
-                continue
-            json_text = "" if json_value is None else str(json_value)
-            if tt_value == json_text:
+            json_text = _scalar_text(meta_value[field])
+            if json_text is None or tt_value == json_text:
                 continue
             mismatch_counts[field] += 1
             if len(mismatch_examples) < 100:
@@ -177,6 +212,16 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             key: mismatch_counts[key] for key in sorted(mismatch_counts)
         },
         "field_mismatch_examples": mismatch_examples,
+        "meta_fields_missing_in_tt_counts": {
+            key: meta_missing_in_tt_counts[key]
+            for key in sorted(meta_missing_in_tt_counts)
+        },
+        "meta_fields_missing_in_tt_examples": meta_missing_in_tt_examples,
+        "tt_fields_missing_in_meta_counts": {
+            key: tt_missing_in_meta_counts[key]
+            for key in sorted(tt_missing_in_meta_counts)
+        },
+        "tt_fields_missing_in_meta_examples": tt_missing_in_meta_examples,
     }
     return {
         "tt_document_count": len(documents),
