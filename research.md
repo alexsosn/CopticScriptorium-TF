@@ -1,143 +1,164 @@
 # Research: Coptic Scriptorium → Text-Fabric
 
-## Scope
+## Scope and pinned evidence
 
-This document records the initial research baseline for converting the public `CopticScriptorium/corpora` repository to Text-Fabric. Findings are preliminary until issue #1 completes a corpus-wide inventory.
+Issue #1 establishes the source-of-truth contract for Coptic Scriptorium → Text-Fabric conversion. The corpus-wide measurements in this document are pinned to:
 
-## Upstream representations
+- upstream repository: `CopticScriptorium/corpora`;
+- upstream commit: `3ac067f1709a0012daf39ea8da2fac79980176a5`;
+- upstream `meta.json` blob: `a0aa597fb413a63cb7b17f02570a4a5da166f45c`, 2,461,846 bytes.
 
-The upstream README documents multiple representations of the same documents:
+The research workflow runs deterministic inventory, TT semantic census, CoNLL-U feature/validity census, TT↔CoNLL-U parity, and `meta.json` reconciliation against that exact revision. The detailed field decision is in `research/issue-1/SOURCE_AUTHORITY_MATRIX.md`; licensing evidence is in `research/issue-1/LICENSE_FINDINGS.md`.
 
-- CoNLL-U
-- relANNIS
-- PAULA XML
-- TEI XML
-- TreeTagger SGML (`*.tt`)
+## Corpus topology
 
-Upstream states that `*.tt` files generally contain the most complete document annotations. Corpus-level metadata is available in PAULA XML and relANNIS; document metadata is aggregated in `meta.json` and is also commonly present in the first `<meta ...>` line of `*.tt` files.
+The pinned source contains 79 top-level corpus directories and 78 detected corpus datasets. All 78 expose TT, CoNLL-U, PAULA and relANNIS packaging; 76 expose TEI. Packaging is not uniform: some large datasets expose TT or CoNLL-U as archives rather than visible per-record directories, so absence from GitHub code search or a directory listing is not evidence that a representation is absent.
 
-This means the converter must not begin by choosing the easiest format. Issue #1 will establish a field-by-field authority matrix and measure disagreements between representations.
+The inventory found no zero-byte Git blobs at the pinned revision. Record-counterpart claims are made only where the representation is actually visible; opaque archives are classified as archives rather than guessed to contain or omit particular records.
+
+## Canonical document stream
+
+Upstream states that TreeTagger SGML (`*.tt`) generally contains the most complete document annotation, and corpus-wide research supports using TT as the source-native document stream.
+
+The TT census contains 2,628 documents:
+
+- 2,067 read from archive packaging;
+- 561 read from visible TT directories;
+- every TT document contains normalized-token markup and dependency `xml:id`/`func`/`head` structure;
+- 1,490 contain `orig`/`orig_group`, `translation`, and the richer source stream associated with manually/recurrently represented documents;
+- 1,652 contain entity markup; 1,326 contain entity identity/Wikification data;
+- layout evidence occurs independently of token structure: page markup in 419 documents, column markup in 338, and line markup in 356.
+
+A layout boundary can occur inside the rendered character content of a normalized linguistic token. The production parser therefore needs an event/stack or interval-aware model; ordinary XML containment assumptions and line-oriented parsing are unsafe.
+
+TT metadata also has source anomalies that must remain visible. Sixty-four TT documents have duplicate metadata attribute names; six duplicate occurrences contain conflicting values rather than identical repetition. A source-native metadata lexer therefore preserves duplicate values and conflict evidence instead of relying on an XML parser that would reject or overwrite them.
+
+## TT ↔ CoNLL-U identity and parity
+
+There are 1,717 CoNLL-U source paths with matching TT source-record identities. CoNLL-U is not a complete replacement for TT:
+
+- 911 additional TT records in `sahidic.ot` have no visible CoNLL-U counterpart at the pinned revision;
+- 227 matching CoNLL-U files are whitespace-only placeholders in the aggregate Sahidica NT packaging and contain no semantic token stream;
+- basic CoNLL-U validity checking finds 18 dependency-format errors across nine source files, including token ID `0`, negative HEAD values, and a dangling HEAD; invalid CoNLL-U sources are classified and excluded from semantic merge/parity rather than parsed permissively.
+
+For structurally valid equal-token-count pairs, parity is measured token by token after resolving TT `xml:id`/`head` references and CoNLL-U sentence-local HEAD IDs to document token positions. The previously measured valid corpus showed complete normalized-token agreement and the following shared-field pattern:
+
+- `norm`: no differences;
+- lemma: one CoNLL-U value where TT is absent, no true lemma conflict;
+- XPOS/fine POS: one true disagreement;
+- dependency relation: thousands of true differences, demonstrating that CoNLL-U DEPREL is a normalized/derived syntactic view rather than a byte-equivalent copy of TT `func`;
+- dependency head: most mismatches are CoNLL-U heads supplementing TT tokens with no explicit TT head, plus a very small number of true head disagreements.
+
+The exact final counts are emitted by the pinned `cross-format-audit.json` artifact and must be treated as generated evidence rather than hand-maintained release constants.
+
+## CoNLL-U-only enrichments
+
+CoNLL-U remains important as a supplementary source after structural validation. At the pinned revision the census contains 1,565,983 basic token rows and 485,107 multiword-token rows. No enhanced-DEPS or empty-node rows were observed.
+
+UD FEATS are widespread: all 1,490 non-placeholder documents counted before invalid-source exclusion contain core morphological feature coverage. CoNLL-U MISC also contains enrichments not measured as literal TT equivalents, including:
+
+- `Cxn` / `CxnElt` in 1,042 documents;
+- `Morphs` in 1,419 documents;
+- `Orig` in 1,447 documents;
+- `OrigLang` in 1,452 documents;
+- `Subject` in 13 documents.
+
+Therefore CoNLL-U is a validated supplementary authority for UD morphology/construction/enrichment features. It must not rewrite TT segmentation, original surface, layout, entity semantics, or per-copy metadata.
+
+## `meta.json` reconciliation and metadata merge policy
+
+Global `meta.json` contains 2,390 record keys. All 2,628 TT copies reconcile case-insensitively to those keys with no orphan TT records and no unused `meta.json` records:
+
+- 2,152 global keys map to one TT copy;
+- 238 global keys map to two TT copies.
+
+This is consistent with the repository's documented duplicate/convenience-corpus topology and is one reason `meta.json` cardinality must not be mistaken for TT source-record cardinality.
+
+`meta.json` is useful as a normalized/global metadata reference, but it is not an unconditional overwrite source. Many raw mismatches are representational: for example TT often stores a full HTML license or PATHS link while `meta.json` stores the normalized label/identifier. There are also asymmetric or malformed metadata field names in the global index, including literal keys such as `" segmentation"` and `"msItem_title "`. Those spellings are source evidence and must not be silently trimmed into another field.
+
+Merge contract:
+
+1. per-copy TT `<meta ...>` is authoritative for metadata attached to that specific source record;
+2. `meta.json` supplies global/reference normalization and can fill a TT absence only under an explicitly defined field policy;
+3. a value present on both sides is never silently overwritten when unequal;
+4. literal source values and normalized values should remain distinguishable where normalization is useful;
+5. corpus-level metadata found only in PAULA/relANNIS is dataset provenance and should not automatically be copied onto every document.
+
+## Source-format authority summary
+
+The production converter should begin with the smallest set of parsers that preserves measured semantics:
+
+- **TT:** canonical source-native document stream for original/normalized segmentation, document metadata, layout, translations, entities/identities, source POS/lemma, source dependency relations/heads and annotation quality;
+- **validated CoNLL-U:** supplementary authority for UD FEATS, construction/MISC enrichments, normalized dependency views, and heads absent from TT;
+- **`meta.json`:** global metadata index/reference and normalized metadata evidence, never a blind replacement for TT metadata;
+- **TEI:** presentation/diplomatic cross-check evidence; a production TEI parser should be added only if later research demonstrates a semantic field not preservable from TT plus validated CoNLL-U plus metadata;
+- **PAULA/relANNIS:** corpus-level metadata/evidence; not required as a second token parser unless a concrete unique semantic layer is demonstrated.
+
+This keeps production parsing narrower while retaining a measured escape hatch: if graph-model research in #3 identifies a required field with no authority in TT/validated CoNLL-U/`meta.json`, the missing representation must be researched and tested before adding another parser.
 
 ## Annotation quality metadata
 
-Upstream exposes quality levels for at least:
+TT exposes quality levels for segmentation, tagging, parsing, entities and identities, including `automatic`, `checked`, `gold`, and layer-specific `none`. These values are provenance and user-selectable quality information. They are not destructive preference rules: a gold/treebank copy does not authorize silently deleting an alternate upstream analysis.
 
-- segmentation
-- tagging
-- parsing
-- entities
-- identities
+## Duplicate, overlap and parallel-witness semantics
 
-Values include `automatic`, `checked`, and `gold`. These levels must be preserved as provenance/quality features. They must not be converted into an implicit destructive preference policy.
+The upstream README identifies multiple overlap classes:
 
-## Duplicate, overlap, and parallel-witness semantics
+1. `coptic-treebank` repeats gold treebanked documents also present in source corpora;
+2. individual biblical-book corpora overlap large automatically annotated Sahidic OT/NT collections and can contain different, generally more accurate analyses;
+3. parallel witnesses can be marked `redundant="yes"` while remaining textually distinct.
 
-The upstream README explicitly identifies several overlap classes:
+Issue #2 owns stable scholarly identity, release-scoped source identity, duplicate/alternate-analysis classification, filtering semantics and preferred-analysis selection. Issue #1 therefore preserves copies and evidence rather than deduplicating them.
 
-1. `coptic-treebank` repeats gold treebanked documents that also occur in their source corpora; these copies may be text-identical.
-2. Individual biblical-book corpora such as `sahidica.mark`, `sahidica.1corinthians`, and `sahidic.ruth` overlap larger automatically annotated `sahidica.nt`/`sahidic.ot` collections; analyses can differ and the individual corpora are generally more accurate.
-3. Parallel witnesses are not necessarily text-identical but can be marked `redundant="yes"` for quantitative workflows that want to avoid double counting.
+## Licensing and redistribution
 
-A single `deduplicate=true` rule would collapse distinct scholarly situations. Issue #2 therefore separates stable scholarly identity, release-scoped source-record identity, alternate annotation, identical duplication, and parallel witness relations.
+The measured TT license census is heterogeneous. It includes CC-BY material, BY-SA 3.0/4.0, 11 BY-NC-SA 4.0 documents, Sahidica/Wells academic-use terms, public-domain-text-plus-CC-BY-annotations formulations, and several malformed textual variants of otherwise recognizable license strings. Three TT documents have no `license` attribute at the pinned revision.
 
-## Observed `*.tt` structure
-
-A sampled file (`AP/apophthegmata.patrum_TT/AP.111.poemen.167.tt`) contains document metadata followed by nested structural and linguistic markup including:
-
-- page (`pb_xml_id`), column (`cb_n`), verse-like (`verse_n`), and line (`lb_n`) boundaries;
-- translations;
-- `orig_group` and `norm_group` bound-group structures;
-- `orig` surface segments;
-- `norm` normalized tokens/morphemes with local `xml:id`, `pos`, `lemma`, dependency `func`, and `head`;
-- entity spans with an entity class and a head token.
-
-A line boundary can occur inside the rendered character content belonging to one `norm` token. Therefore a line-oriented parser is unsafe. The parser needs an event/stack representation that allows layout boundaries to intersect token rendering without splitting or dropping the linguistic node.
-
-Dependency IDs such as `u1`/`#u3` are source-local references. They should be resolved within the document and re-expressed as TF edges/features; they are not suitable as global graph IDs.
-
-## Candidate semantic layers to preserve
-
-The schema research should account for at least:
-
-- source record / corpus membership;
-- stable document identifiers such as CTS URNs where present;
-- original orthography and normalized form;
-- orthographic/bound groups and morpheme/token segmentation;
-- lemma and fine-grained POS;
-- sentence boundaries where available;
-- Universal Dependencies heads and relations;
-- named/referring-expression entity spans and head tokens;
-- identity/Wikification links where available;
-- page/column/line/layout information;
-- translations;
-- manuscript, repository, provenance, bibliographic, and geographic metadata;
-- annotation-quality fields;
-- redundancy/overlap information;
-- license and upstream version metadata.
-
-The final node/edge model remains intentionally unresolved pending issues #1–#3.
-
-## Licensing/distribution
-
-Upstream documentation says most documents are CC-BY 3.0 or 4.0, with explicit corpus-level exceptions including a special Sahidica New Testament license and CC-BY-SA material. Individual files also carry license metadata. The converter code can be independently licensed, but publishing generated TF data must wait for a measured license inventory and a policy for mixed-license releases.
+A generated corpus cannot safely receive one blanket data license. Missing/unknown license metadata is fail-closed for publication until resolved. Converter code licensing is separate from generated-data distribution. Follow-up #8 owns the research/design/TDD work for normalized license families, redistribution compatibility, record filtering and a machine-readable attribution/provenance manifest.
 
 ## Lessons from previous TF converter projects
 
 ### Pseudepigrapha-TF
 
-The OCP converter established several practices that should be reused:
+Practices retained here:
 
-- pin an immutable upstream revision;
-- preserve source-relative path, hash, and upstream provenance;
-- keep literal source identifiers while using deterministic technical disambiguation when TF addressing requires uniqueness;
-- test real Text-Fabric behavior, not only an internal graph representation;
-- make node-specific text formats explicit when technical anchors would otherwise render misleading primary text;
-- require an independent raw-source → generated-TF semantic parity report;
-- validate corpus-scale section coverage and graph invariants with linear-time/indexed algorithms rather than slot×section scans;
-- discover full-corpus exceptions through pinned integration CI, then add a failing synthetic fixture before implementing support.
+- pin an immutable upstream revision and source hashes;
+- preserve literal source identifiers plus deterministic technical addressing;
+- test real Text-Fabric behavior rather than only an internal graph;
+- make technical-anchor rendering explicit;
+- require raw-source → generated-TF semantic parity;
+- validate corpus-scale invariants with indexed/linear algorithms;
+- discover real-source exceptions in pinned CI, then add a failing synthetic fixture before adding support.
 
 ### TLHdig-TF
 
-TLHdig exposed failure modes that should be prevented earlier here:
+Failure modes explicitly guarded against:
 
-- XML well-formedness alone cannot prove structure conservation;
-- repairs/normalizations can require philological decisions and must not be hidden as parser cleanup;
-- source coverage needs a balancing ledger: input records = converted + explicitly classified exclusions;
-- ambiguous human-facing section identifiers require a separate unambiguous source-record identity;
-- known-loss/exception allowlists are regression guards, not zero-defect certification;
-- release certification should distinguish regression-valid from research-ready states;
-- published release directories should be immutable and provenance-bound;
-- generated census/structure reports should be the authority for measured counts, not hand-maintained documentation.
+- XML well-formedness cannot prove structure conservation;
+- repairs/normalizations requiring philological decisions cannot hide inside parser cleanup;
+- coverage needs a balancing ledger: input = converted + explicitly classified exclusions;
+- human-facing section labels are not unique source identity;
+- known-loss allowlists are regression guards, not evidence of zero defects;
+- release artifacts must be immutable and provenance-bound;
+- measured reports, not hand-maintained prose, are authoritative for corpus counts.
 
 ### ORACC-TF
 
-ORACC-TF adds an agent-coordination lesson for autonomous development:
+Autonomous-development practices retained here:
 
 - reconcile issue/PR/claim state before implementation;
-- bind one canonical PR to one active task claim;
+- keep one canonical PR per active task;
 - test the exact PR head;
-- invalidate stale review after implementation changes;
-- separate implementation reasoning from independent review reasoning.
+- invalidate review after any implementation change;
+- keep implementation reasoning and final adversarial review logically independent.
 
-Issue #5 will decide how much of that machinery is appropriate for this smaller repository.
+Issue #5 decides the minimal coordination machinery appropriate for this repository.
 
-## Initial architectural risks
+## Remaining design queue
 
-1. **Wrong canonical input.** CoNLL-U is convenient for syntax but may omit original/layout/entity/metadata information; `*.tt` is richer but corpus-level metadata may need merging.
-2. **Crossing semantic/layout boundaries.** Layout tags can interrupt token character content, so naive XML-to-tree assumptions can lose or fragment tokens.
-3. **False deduplication.** Identical copies, alternate analyses, and parallel witnesses require different treatment.
-4. **Misleading TF sections.** Biblical and non-biblical corpora have different citation systems; a universal fabricated `book/chapter/verse` projection could misrepresent sources.
-5. **Local IDs leaking globally.** Upstream XML IDs are document-local.
-6. **Technical-anchor text leakage.** Non-slot nodes can render unrelated slot text unless formats/anchors are designed explicitly.
-7. **Silent format disagreement.** Merging metadata/annotations by precedence without measuring disagreement can hide upstream inconsistencies.
-8. **Mixed licensing.** Generated corpus redistribution cannot be assumed from converter-code licensing.
-9. **Scale.** The upstream repository is large; synthetic tests need a pinned corpus-scale validation path and explicit performance budget.
+- #2: document identity, overlap, redundancy and release-stable addressing;
+- #3: Text-Fabric graph model for segmentation, syntax, entities, layout and translations;
+- #5: autonomous-agent coordination protocol;
+- #8: mixed-license release policy and machine-readable attribution manifest.
 
-## Research queue
-
-- #1: source-format inventory and canonical conversion contract
-- #2: identity/overlap/redundancy/addressing policy
-- #3: TF graph-model design
-- #5: autonomous-agent coordination protocol
-
-Implementation tickets should be derived from reviewed outputs of these research/design tasks rather than pre-created against an unreviewed schema.
+Production converter tickets should be derived from the reviewed outputs of #1–#3 rather than pre-created against an unreviewed graph schema.
