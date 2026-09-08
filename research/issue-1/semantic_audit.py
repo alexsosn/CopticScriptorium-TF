@@ -1,25 +1,31 @@
 """Corpus-wide semantic census for Coptic Scriptorium TreeTagger exports.
 
-The upstream ``*.tt`` representation is overlapping SGML, not ordinary XML.  This
-module therefore parses only the standalone first ``<meta ...>`` start tag as XML
-and treats the remainder as text for conservative layer-presence measurements.
-It supports both visible ``*_TT`` directories and opaque ``*_TT.zip`` packages.
+The upstream ``*.tt`` representation is overlapping SGML, not ordinary XML. This
+module therefore treats the document stream as text. The standalone first
+``<meta ...>`` line is parsed both with a strict XML helper (useful for fixtures and
+well-formed records) and with a source-native attribute lexer that preserves real
+upstream duplicate attributes instead of silently overwriting them.
+
+Both visible ``*_TT`` directories and opaque ``*_TT.zip`` packages are supported.
 """
 
 from __future__ import annotations
 
 from collections import Counter
 import argparse
+import html
 import json
 from pathlib import Path
 import re
-from typing import Any, Iterable, Iterator
+from typing import Any, Iterator
 import xml.etree.ElementTree as ET
 import zipfile
 
 
 QUALITY_FIELDS = ("segmentation", "tagging", "parsing", "entities", "identities")
 REQUIRED_METADATA = ("corpus", "document_cts_urn", "license", "title")
+META_NAME_RE = r"[A-Za-z_][A-Za-z0-9_.:-]*"
+META_ATTRIBUTE_RE = re.compile(rf'\s+({META_NAME_RE})="([^"]*)"')
 
 LAYER_PATTERNS: dict[str, re.Pattern[str]] = {
     "orig_group": re.compile(r"<orig_group\b"),
@@ -41,11 +47,7 @@ LAYER_PATTERNS: dict[str, re.Pattern[str]] = {
 
 
 def parse_meta_line(line: str) -> dict[str, str]:
-    """Parse one standalone TT ``<meta ...>`` start tag.
-
-    Only this autonomous tag is parsed as XML.  Parsing the complete TT stream as
-    XML would be incorrect because layout and linguistic spans may overlap.
-    """
+    """Strictly parse one XML-well-formed TT ``<meta ...>`` start tag."""
 
     stripped = line.strip().lstrip("\ufeff")
     if not stripped.startswith("<meta") or not stripped.endswith(">"):
@@ -63,13 +65,67 @@ def parse_meta_line(line: str) -> dict[str, str]:
     return dict(element.attrib)
 
 
+def scan_meta_line(line: str) -> dict[str, Any]:
+    """Lex a source TT meta line while preserving duplicate attributes.
+
+    Coptic Scriptorium contains meta tags with repeated XML attribute names. They
+    are invalid XML but have an unambiguous SGML-like surface grammar: whitespace,
+    an attribute name, ``=``, and a double-quoted value. This lexer validates that
+    the complete line conforms to that grammar, decodes character references, and
+    reports every repeated value. The first literal value is exposed in
+    ``attributes`` for census calculations; duplicate/conflict information remains
+    explicit so production conversion cannot mistake that choice for a resolution
+    policy.
+    """
+
+    stripped = line.strip().lstrip("\ufeff")
+    if not stripped.startswith("<meta") or not stripped.endswith(">"):
+        raise ValueError("not a complete <meta ...> start tag")
+
+    body_end = -2 if stripped.endswith("/>") else -1
+    body = stripped[len("<meta") : body_end]
+    position = 0
+    pairs: list[tuple[str, str]] = []
+
+    while position < len(body):
+        if body[position:].strip() == "":
+            break
+        match = META_ATTRIBUTE_RE.match(body, position)
+        if match is None:
+            column = len("<meta") + position + 1
+            raise ValueError(f"malformed meta attribute syntax near column {column}")
+        name = match.group(1)
+        value = html.unescape(match.group(2))
+        pairs.append((name, value))
+        position = match.end()
+
+    if not pairs and body.strip():
+        raise ValueError("malformed meta attribute syntax")
+
+    values_by_name: dict[str, list[str]] = {}
+    attributes: dict[str, str] = {}
+    for name, value in pairs:
+        values_by_name.setdefault(name, []).append(value)
+        attributes.setdefault(name, value)
+
+    duplicates = {
+        name: {
+            "values": values,
+            "conflict": len(set(values)) > 1,
+        }
+        for name, values in sorted(values_by_name.items())
+        if len(values) > 1
+    }
+    return {"attributes": attributes, "duplicates": duplicates}
+
+
 def _first_meta_line(text: str) -> str | None:
     for line in text.splitlines():
         stripped = line.strip().lstrip("\ufeff")
         if stripped.startswith("<meta"):
             return stripped
         if stripped:
-            # Upstream TT metadata is expected before semantic content.  Stop at the
+            # Upstream TT metadata is expected before semantic content. Stop at the
             # first substantive non-meta line so a later literal is not mistaken for
             # document metadata.
             return None
@@ -116,6 +172,18 @@ def iter_tt_documents(root: Path) -> Iterator[tuple[str, str, str]]:
     yield from _iter_archive_tt(root)
 
 
+def _shape_of(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return {
+            "type": "object",
+            "size": len(value),
+            "keys": sorted(str(key) for key in value)[:20],
+        }
+    if isinstance(value, list):
+        return {"type": "array", "size": len(value)}
+    return {"type": type(value).__name__, "value": value}
+
+
 def _meta_json_summary(root: Path) -> dict[str, Any]:
     path = root / "meta.json"
     if not path.is_file():
@@ -123,6 +191,8 @@ def _meta_json_summary(root: Path) -> dict[str, Any]:
             "present": False,
             "top_level_type": None,
             "top_level_size": None,
+            "sample_keys": [],
+            "sample_entries": [],
             "error": None,
         }
     try:
@@ -132,22 +202,39 @@ def _meta_json_summary(root: Path) -> dict[str, Any]:
             "present": True,
             "top_level_type": None,
             "top_level_size": None,
+            "sample_keys": [],
+            "sample_entries": [],
             "error": str(exc),
         }
 
+    sample_keys: list[str] = []
+    sample_entries: list[dict[str, Any]] = []
     if isinstance(value, dict):
         top_type = "object"
         size = len(value)
+        ordered_keys = sorted(value, key=lambda key: str(key))
+        sample_keys = [str(key) for key in ordered_keys[:10]]
+        sample_entries = [
+            {"key": str(key), "value_shape": _shape_of(value[key])}
+            for key in ordered_keys[:3]
+        ]
     elif isinstance(value, list):
         top_type = "array"
         size = len(value)
+        sample_entries = [
+            {"index": index, "value_shape": _shape_of(item)}
+            for index, item in enumerate(value[:3])
+        ]
     else:
         top_type = type(value).__name__
         size = None
+        sample_entries = [{"value_shape": _shape_of(value)}]
     return {
         "present": True,
         "top_level_type": top_type,
         "top_level_size": size,
+        "sample_keys": sample_keys,
+        "sample_entries": sample_entries,
         "error": None,
     }
 
@@ -170,6 +257,12 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     errors: list[dict[str, str]] = []
     documents: list[dict[str, Any]] = []
 
+    duplicate_document_count = 0
+    duplicate_equal_count = 0
+    duplicate_conflict_count = 0
+    duplicate_key_documents: Counter[str] = Counter()
+    duplicate_conflicts: list[dict[str, Any]] = []
+
     for source_id, packaging_kind, text in iter_tt_documents(root_path):
         packaging[packaging_kind] += 1
         layer_flags = {
@@ -181,15 +274,34 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
 
         meta_line = _first_meta_line(text)
         attrs: dict[str, str] | None = None
+        duplicates: dict[str, dict[str, Any]] = {}
         if meta_line is None:
             errors.append({"kind": "missing_meta", "source": source_id})
         else:
             try:
-                attrs = parse_meta_line(meta_line)
+                scanned = scan_meta_line(meta_line)
+                attrs = scanned["attributes"]
+                duplicates = scanned["duplicates"]
             except ValueError as exc:
                 errors.append(
                     {"kind": "malformed_meta", "source": source_id, "detail": str(exc)}
                 )
+
+        if duplicates:
+            duplicate_document_count += 1
+            for key, duplicate in sorted(duplicates.items()):
+                duplicate_key_documents[key] += 1
+                if duplicate["conflict"]:
+                    duplicate_conflict_count += 1
+                    duplicate_conflicts.append(
+                        {
+                            "source": source_id,
+                            "key": key,
+                            "values": duplicate["values"],
+                        }
+                    )
+                else:
+                    duplicate_equal_count += 1
 
         if attrs is not None:
             metadata_keys.update(attrs.keys())
@@ -236,6 +348,16 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "redundant_values": _ordered_counter(redundant),
         "missing_metadata": missing_metadata,
         "layer_presence": layer_presence,
+        "duplicate_meta_attributes": {
+            "document_count": duplicate_document_count,
+            "equal_value_occurrences": duplicate_equal_count,
+            "conflicting_occurrences": duplicate_conflict_count,
+            "key_document_counts": _ordered_counter(duplicate_key_documents),
+            "conflict_examples": sorted(
+                duplicate_conflicts,
+                key=lambda item: (item["source"], item["key"]),
+            )[:50],
+        },
         "meta_json": _meta_json_summary(root_path),
         "errors": sorted(
             errors,
