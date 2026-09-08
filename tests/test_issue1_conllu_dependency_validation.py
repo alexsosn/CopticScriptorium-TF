@@ -28,13 +28,7 @@ class ConlluDependencyValidationTests(unittest.TestCase):
 1\ta\ta\tNOUN\tN\t_\t3\tdep\t_\t_
 2\tb\tb\tVERB\tV\t_\t-1\troot\t_\t_
 '''
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            directory = root / "bad" / "bad_CONLLU"
-            directory.mkdir(parents=True)
-            (directory / "bad.conllu").write_text(source, encoding="utf-8")
-            report = self.audit.audit_upstream(root)
-
+        report = self._audit("bad", source)
         self.assertEqual(
             report["errors"],
             [
@@ -64,14 +58,61 @@ class ConlluDependencyValidationTests(unittest.TestCase):
 1\ta\ta\tNOUN\tN\t_\t2\tnsubj\t_\t_
 2\tb\tb\tVERB\tV\t_\t0\troot\t_\t_
 '''
+        report = self._audit("ok", source)
+        self.assertEqual(report["errors"], [])
+
+    def test_duplicate_basic_token_id_is_rejected(self):
+        source = '''# sent_id = duplicate-s1
+1\ta\ta\tNOUN\tN\t_\t0\troot\t_\t_
+1\tb\tb\tNOUN\tN\t_\t0\troot\t_\t_
+'''
+        report = self._audit("duplicate", source)
+        self.assertEqual(
+            report["errors"],
+            [
+                {
+                    "kind": "duplicate_token_id",
+                    "source": "duplicate/duplicate_CONLLU/duplicate.conllu",
+                    "line": 3,
+                    "id": "1",
+                }
+            ],
+        )
+
+    def test_malformed_multiword_and_empty_node_ids_are_not_accepted_by_punctuation(self):
+        source = '''# sent_id = malformed-s1
+foo-bar\tx\t_\t_\t_\t_\t_\t_\t_\t_
+a.b\tx\t_\t_\t_\t_\t_\t_\t_\t_
+1\ta\ta\tNOUN\tN\t_\t0\troot\t_\t_
+'''
+        report = self._audit("malformed", source)
+        self.assertEqual(
+            report["errors"],
+            [
+                {
+                    "kind": "invalid_id",
+                    "source": "malformed/malformed_CONLLU/malformed.conllu",
+                    "line": 2,
+                    "id": "foo-bar",
+                },
+                {
+                    "kind": "invalid_id",
+                    "source": "malformed/malformed_CONLLU/malformed.conllu",
+                    "line": 3,
+                    "id": "a.b",
+                },
+            ],
+        )
+        self.assertEqual(report["multiword_rows"], 0)
+        self.assertEqual(report["empty_node_rows"], 0)
+
+    def _audit(self, name: str, source: str):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            directory = root / "ok" / "ok_CONLLU"
+            directory = root / name / f"{name}_CONLLU"
             directory.mkdir(parents=True)
-            (directory / "ok.conllu").write_text(source, encoding="utf-8")
-            report = self.audit.audit_upstream(root)
-
-        self.assertEqual(report["errors"], [])
+            (directory / f"{name}.conllu").write_text(source, encoding="utf-8")
+            return self.audit.audit_upstream(root)
 
 
 if __name__ == "__main__":
