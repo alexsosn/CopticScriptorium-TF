@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - research/source-contract
 
 permissions:
   contents: read
@@ -19,3 +20,26 @@ jobs:
           python-version: "3.12"
       - name: Run research tooling tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+  issue1-inventory:
+    runs-on: ubuntu-latest
+    needs: unittest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build pinned upstream inventory
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python research/issue-1/fetch_inventory.py
+          --repository CopticScriptorium/corpora
+          --commit 3ac067f1709a0012daf39ea8da2fac79980176a5
+          --output research/issue-1/inventory.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-source-inventory
+          path: research/issue-1/inventory.json
+          if-no-files-found: error
+          retention-days: 14
