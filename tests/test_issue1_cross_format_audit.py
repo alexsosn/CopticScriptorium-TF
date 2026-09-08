@@ -57,7 +57,10 @@ class CrossFormatAuditTests(unittest.TestCase):
         self.assertEqual(report["tt_only"], [])
         self.assertEqual(report["conllu_only"], [])
         self.assertEqual(report["token_count_mismatches"], [])
-        self.assertEqual(report["field_mismatch_counts"], {"func": 0, "lemma": 0, "norm": 0, "pos": 0})
+        self.assertEqual(
+            report["field_mismatch_counts"],
+            {"func": 0, "head": 0, "lemma": 0, "norm": 0, "pos": 0},
+        )
         self.assertEqual(
             report["case_variant_pairs"],
             [
@@ -85,6 +88,7 @@ class CrossFormatAuditTests(unittest.TestCase):
         self.assertEqual(report["compared_document_count"], 1)
         self.assertEqual(report["tt_packaging"], {"archive": 1})
         self.assertEqual(report["field_mismatch_counts"]["norm"], 0)
+        self.assertEqual(report["field_mismatch_counts"]["head"], 0)
 
     def test_whitespace_only_conllu_counterpart_is_a_placeholder_not_token_drift(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -133,10 +137,15 @@ class CrossFormatAuditTests(unittest.TestCase):
         self.assertEqual(report["compared_document_count"], 1)
         self.assertEqual(
             report["field_mismatch_counts"],
-            {"func": 1, "lemma": 1, "norm": 1, "pos": 1},
+            {"func": 1, "head": 0, "lemma": 1, "norm": 1, "pos": 1},
         )
-        examples = {(item["field"], item["token_index"]) for item in report["field_mismatch_examples"]}
-        self.assertEqual(examples, {("lemma", 1), ("norm", 2), ("pos", 2), ("func", 2)})
+        examples = {
+            (item["field"], item["token_index"])
+            for item in report["field_mismatch_examples"]
+        }
+        self.assertEqual(
+            examples, {("lemma", 1), ("norm", 2), ("pos", 2), ("func", 2)}
+        )
 
     def test_reports_unpaired_and_token_count_mismatch_documents(self):
         short_conllu = "1\tⲁ\tⲁ\tVERB\tV\t_\t0\troot\t_\t_\n"
