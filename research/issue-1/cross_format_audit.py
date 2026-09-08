@@ -21,6 +21,8 @@ import zipfile
 ATTR_RE = re.compile(r'\s+([A-Za-z_][A-Za-z0-9_.:-]*)\s*=\s*"([^"]*)"')
 NORM_TAG_RE = re.compile(r'<norm\b((?:[^">]|"[^"]*")*)>', re.DOTALL)
 SHARED_FIELDS = ("func", "head", "lemma", "norm", "pos")
+MISMATCH_CATEGORIES = ("different", "missing_in_conllu", "missing_in_tt")
+EXAMPLES_PER_FIELD = 20
 
 
 def _scan_attributes(fragment: str) -> dict[str, str]:
@@ -99,7 +101,7 @@ def _conllu_tokens(text: str) -> list[dict[str, Any]]:
                 )
             local_to_absolute[local_id] = start_position + offset
 
-        for local_id, columns, line_number in sentence_rows:
+        for _local_id, columns, line_number in sentence_rows:
             def value(column: str) -> str | None:
                 return None if column == "_" else column
 
@@ -246,6 +248,14 @@ def _index(
     return indexed
 
 
+def _mismatch_category(tt_value: Any, conllu_value: Any) -> str:
+    if tt_value is None and conllu_value is not None:
+        return "missing_in_tt"
+    if conllu_value is None and tt_value is not None:
+        return "missing_in_conllu"
+    return "different"
+
+
 def audit_upstream(root: Path | str) -> dict[str, Any]:
     root_path = Path(root)
     tt_records = list(_direct_tt_records(root_path)) + list(_archive_tt_records(root_path))
@@ -271,6 +281,11 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     conllu_placeholders: list[dict[str, str]] = []
     token_count_mismatches: list[dict[str, Any]] = []
     mismatch_counts: Counter[str] = Counter({field: 0 for field in SHARED_FIELDS})
+    mismatch_categories: dict[str, Counter[str]] = {
+        field: Counter({category: 0 for category in MISMATCH_CATEGORIES})
+        for field in SHARED_FIELDS
+    }
+    mismatch_example_counts: Counter[str] = Counter()
     mismatch_examples: list[dict[str, Any]] = []
     compared_document_count = 0
     compared_tokens = 0
@@ -329,20 +344,25 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             zip(tt_tokens, conllu_tokens, strict=True), start=1
         ):
             for field in SHARED_FIELDS:
-                if tt_token[field] == conllu_token[field]:
+                tt_value = tt_token[field]
+                conllu_value = conllu_token[field]
+                if tt_value == conllu_value:
                     continue
                 mismatch_counts[field] += 1
-                if len(mismatch_examples) < 100:
+                category = _mismatch_category(tt_value, conllu_value)
+                mismatch_categories[field][category] += 1
+                if mismatch_example_counts[field] < EXAMPLES_PER_FIELD:
                     mismatch_examples.append(
                         {
                             "dataset": dataset,
                             "record": tt["record"],
                             "token_index": token_index,
                             "field": field,
-                            "tt": tt_token[field],
-                            "conllu": conllu_token[field],
+                            "tt": tt_value,
+                            "conllu": conllu_value,
                         }
                     )
+                    mismatch_example_counts[field] += 1
 
     conllu_placeholders = sorted(
         conllu_placeholders,
@@ -369,6 +389,13 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "compared_tokens": compared_tokens,
         "field_mismatch_counts": {
             field: mismatch_counts[field] for field in sorted(SHARED_FIELDS)
+        },
+        "field_mismatch_categories": {
+            field: {
+                category: mismatch_categories[field][category]
+                for category in sorted(MISMATCH_CATEGORIES)
+            }
+            for field in sorted(SHARED_FIELDS)
         },
         "field_mismatch_examples": mismatch_examples,
     }
