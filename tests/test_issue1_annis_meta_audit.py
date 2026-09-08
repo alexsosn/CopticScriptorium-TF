@@ -27,6 +27,7 @@ ANNOTATIONS = """1\tNULL\ttitle\tOne
 1\tNULL\tlicense\t<a href='x'>CC</a>
 2\tNULL\ttitle\tTwo
 2\tNULL\textra\tANNIS only
+2\tNULL\tescaped\tLine\\tTabbed\\\\Tail
 3\tNULL\tdescription\tDataset description
 """
 
@@ -47,7 +48,7 @@ class AnnisMetaAuditTests(unittest.TestCase):
                 json.dumps(
                     {
                         "one": {"title": "One", "license": "CC", "meta_only": "M"},
-                        "two": {"title": "Two"},
+                        "two": {"title": "Two", "escaped": "Line\tTabbed\\Tail"},
                     }
                 ),
                 encoding="utf-8",
@@ -87,7 +88,12 @@ class AnnisMetaAuditTests(unittest.TestCase):
                 archive.writestr("packed_ANNIS/corpus.annis", CORPUS)
                 archive.writestr("packed_ANNIS/corpus_annotation.annis", ANNOTATIONS)
             (root / "meta.json").write_text(
-                json.dumps({"one": {"title": "One"}, "two": {"title": "Two"}}),
+                json.dumps(
+                    {
+                        "one": {"title": "One"},
+                        "two": {"title": "Two", "escaped": "Line\tTabbed\\Tail"},
+                    }
+                ),
                 encoding="utf-8",
             )
 
