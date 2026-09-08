@@ -6,13 +6,13 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = ROOT / "research" / "issue-1" / "semantic_audit.py"
+MODULE_PATH = ROOT / "research" / "issue-1" / "meta_json_audit.py"
 
 
 def load_module():
-    spec = importlib.util.spec_from_file_location("issue1_semantic_audit_meta", MODULE_PATH)
+    spec = importlib.util.spec_from_file_location("issue1_meta_json_audit", MODULE_PATH)
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load semantic audit module from {MODULE_PATH}")
+        raise RuntimeError(f"cannot load meta.json audit module from {MODULE_PATH}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
