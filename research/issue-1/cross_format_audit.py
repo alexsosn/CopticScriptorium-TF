@@ -115,6 +115,10 @@ def _conllu_tokens(text: str) -> list[dict[str, Any]]:
                     raise ValueError(
                         f"invalid CoNLL-U HEAD {raw_head!r} at line {line_number}"
                     ) from exc
+                if head_id < 0:
+                    raise ValueError(
+                        f"invalid CoNLL-U HEAD {head_id} at line {line_number}"
+                    )
                 if head_id == 0:
                     normalized_head = 0
                 elif head_id in local_to_absolute:
@@ -145,9 +149,20 @@ def _conllu_tokens(text: str) -> list[dict[str, Any]]:
         if len(columns) != 10:
             raise ValueError(f"invalid CoNLL-U column count at line {line_number}")
         row_id = columns[0]
-        if not row_id.isdigit():
+        if row_id.isdigit():
+            local_id = int(row_id)
+            if local_id <= 0:
+                raise ValueError(
+                    f"invalid CoNLL-U token id {local_id} at line {line_number}"
+                )
+            sentence_rows.append((local_id, columns, line_number))
+        elif re.fullmatch(r"-\d+", row_id):
+            raise ValueError(
+                f"invalid CoNLL-U token id {row_id} at line {line_number}"
+            )
+        else:
+            # Multiword token and empty-node rows are not basic syntactic tokens.
             continue
-        sentence_rows.append((int(row_id), columns, line_number))
 
     flush_sentence()
     return tokens
@@ -279,6 +294,8 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     packaging: Counter[str] = Counter(record["packaging"] for record in tt_records)
     case_variants: list[dict[str, str]] = []
     conllu_placeholders: list[dict[str, str]] = []
+    malformed_tt_documents: list[dict[str, str]] = []
+    malformed_conllu_documents: list[dict[str, str]] = []
     token_count_mismatches: list[dict[str, Any]] = []
     mismatch_counts: Counter[str] = Counter({field: 0 for field in SHARED_FIELDS})
     mismatch_categories: dict[str, Counter[str]] = {
@@ -314,14 +331,25 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
 
         try:
             tt_tokens = _tt_tokens(tt["text"])
-            conllu_tokens = _conllu_tokens(conllu["text"])
         except ValueError as exc:
-            token_count_mismatches.append(
+            malformed_tt_documents.append(
                 {
                     "dataset": dataset,
                     "record": tt["record"],
-                    "tt_tokens": None,
-                    "conllu_tokens": None,
+                    "source": tt["source"],
+                    "error": str(exc),
+                }
+            )
+            continue
+
+        try:
+            conllu_tokens = _conllu_tokens(conllu["text"])
+        except ValueError as exc:
+            malformed_conllu_documents.append(
+                {
+                    "dataset": dataset,
+                    "record": conllu["record"],
+                    "source": conllu["source"],
                     "error": str(exc),
                 }
             )
@@ -368,6 +396,14 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         conllu_placeholders,
         key=lambda item: (item["dataset"], item["record"], item["source"]),
     )
+    malformed_tt_documents = sorted(
+        malformed_tt_documents,
+        key=lambda item: (item["dataset"], item["record"], item["source"]),
+    )
+    malformed_conllu_documents = sorted(
+        malformed_conllu_documents,
+        key=lambda item: (item["dataset"], item["record"], item["source"]),
+    )
     return {
         "tt_document_count": len(tt_records),
         "conllu_document_count": len(conllu_records),
@@ -375,6 +411,8 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "compared_document_count": compared_document_count,
         "conllu_placeholder_count": len(conllu_placeholders),
         "conllu_placeholders": conllu_placeholders,
+        "malformed_tt_documents": malformed_tt_documents,
+        "malformed_conllu_documents": malformed_conllu_documents,
         "tt_packaging": {key: packaging[key] for key in sorted(packaging)},
         "tt_only": tt_only,
         "conllu_only": conllu_only,
