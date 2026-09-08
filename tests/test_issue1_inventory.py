@@ -50,6 +50,23 @@ class InventoryContractTests(unittest.TestCase):
         self.assertIsNone(classify("AP/not_a_format_suffix"))
         self.assertIsNone(classify("too/deep/name_TT/child"))
 
+    def test_classifies_archive_packaged_formats_without_treating_archive_as_directory(self):
+        classify = self.inventory.classify_format_archive
+        self.assertEqual(
+            classify("sahidica.nt/sahidica.nt_TT.zip"),
+            ("sahidica.nt", "sahidica.nt", "TT"),
+        )
+        self.assertEqual(
+            classify("sahidica.nt/sahidica.nt_PAULA.zip"),
+            ("sahidica.nt", "sahidica.nt", "PAULA"),
+        )
+        self.assertEqual(
+            classify("sahidica.nt/sahidica.nt_ANNIS.zip"),
+            ("sahidica.nt", "sahidica.nt", "ANNIS"),
+        )
+        self.assertIsNone(classify("AP/apophthegmata.patrum_TT/AP.004.tt"))
+        self.assertIsNone(classify("sahidica.nt/sahidica.nt_TT.tar.gz"))
+
     def test_rejects_truncated_recursive_tree(self):
         payload = dict(self.payload)
         payload["truncated"] = True
@@ -74,9 +91,41 @@ class InventoryContractTests(unittest.TestCase):
         self.assertNotIn("PAULA", dataset["records"]["AP.004.poemen.65"])
         self.assertNotIn("ANNIS", dataset["records"]["AP.004.poemen.65"])
 
-    def test_reports_asymmetric_record_counterparts(self):
+    def test_reports_archive_packaging_and_does_not_claim_opaque_tt_records_are_missing(self):
+        report = self.inventory.analyze_tree(self.payload)
+        dataset = report["datasets"]["sahidica.nt/sahidica.nt"]
+        self.assertEqual(
+            dataset["formats"],
+            ["ANNIS", "CONLLU", "PAULA", "TT"],
+        )
+        self.assertEqual(
+            dataset["format_artifacts"]["TT"],
+            [
+                {
+                    "kind": "archive",
+                    "path": "sahidica.nt/sahidica.nt_TT.zip",
+                    "sha": "nt-tt",
+                    "size": 5749949,
+                }
+            ],
+        )
+        self.assertEqual(
+            dataset["record_comparison_coverage"],
+            {"CONLLU": "visible", "TEI": "absent", "TT": "archive"},
+        )
+        self.assertEqual(
+            dataset["records"]["1Cor_04"],
+            {"CONLLU": "sahidica.nt/sahidica.nt_CONLLU/1Cor_04.conllu"},
+        )
+        self.assertEqual(dataset["missing_counterparts"], {})
+
+    def test_reports_asymmetric_record_counterparts_only_across_visible_record_formats(self):
         report = self.inventory.analyze_tree(self.payload)
         dataset = report["datasets"]["AP/apophthegmata.patrum"]
+        self.assertEqual(
+            dataset["record_comparison_coverage"],
+            {"CONLLU": "visible", "TEI": "visible", "TT": "visible"},
+        )
         self.assertEqual(
             dataset["missing_counterparts"],
             {
