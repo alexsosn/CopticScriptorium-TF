@@ -40,9 +40,13 @@ Parallel claim/lease machinery is intentionally deferred to issue #5; until it e
 
 ## Coptic Scriptorium parser constraints already observed
 
-Do not parse `*.tt` as a line-oriented token format. Structural tags such as page/column/line boundaries can occur inside the rendered content of one normalized token. Use a proper event/stack model and preserve the relationship among `orig_group`, `norm_group`, `orig`, and `norm`.
+Do not treat `*.tt` as XML or as a line-oriented token format. The sampled TreeTagger SGML contains overlapping markup: a line span can close while a `norm` token remains open, the next line can open, and only then does the token close. Structural layout spans and linguistic spans therefore do not form one properly nested tree.
 
-Upstream-local XML IDs such as `u1` and dependency heads such as `#u3` are document-local source identifiers; never use them directly as globally unique TF node IDs.
+The parser design must preserve intersecting annotation layers explicitly. A strict XML parser or a single ordinary stack/tree is insufficient unless a separately researched normalization step first converts the SGML to an equivalent lossless representation and proves parity. Any such normalization needs tests showing that token text, layout boundaries, and source offsets survive unchanged.
+
+Preserve the relationships among `orig_group`, `norm_group`, `orig`, and `norm` even when layout markup crosses them.
+
+Upstream-local XML-like IDs such as `u1` and dependency heads such as `#u3` are document-local source identifiers; never use them directly as globally unique TF node IDs.
 
 ## Review standard
 
