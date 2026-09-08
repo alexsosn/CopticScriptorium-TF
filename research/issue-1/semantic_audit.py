@@ -25,7 +25,7 @@ import zipfile
 QUALITY_FIELDS = ("segmentation", "tagging", "parsing", "entities", "identities")
 REQUIRED_METADATA = ("corpus", "document_cts_urn", "license", "title")
 META_NAME_RE = r"[A-Za-z_][A-Za-z0-9_.:-]*"
-META_ATTRIBUTE_RE = re.compile(rf'\s+({META_NAME_RE})="([^"]*)"')
+META_ATTRIBUTE_RE = re.compile(rf'\s+({META_NAME_RE})\s*=\s*"([^"]*)"')
 
 LAYER_PATTERNS: dict[str, re.Pattern[str]] = {
     "orig_group": re.compile(r"<orig_group\b"),
@@ -70,12 +70,12 @@ def scan_meta_line(line: str) -> dict[str, Any]:
 
     Coptic Scriptorium contains meta tags with repeated XML attribute names. They
     are invalid XML but have an unambiguous SGML-like surface grammar: whitespace,
-    an attribute name, ``=``, and a double-quoted value. This lexer validates that
-    the complete line conforms to that grammar, decodes character references, and
-    reports every repeated value. The first literal value is exposed in
-    ``attributes`` for census calculations; duplicate/conflict information remains
-    explicit so production conversion cannot mistake that choice for a resolution
-    policy.
+    an attribute name, optional whitespace around ``=``, and a double-quoted value.
+    This lexer validates that the complete line conforms to that grammar, decodes
+    character references, and reports every repeated value. The first literal value
+    is exposed in ``attributes`` for census calculations; duplicate/conflict
+    information remains explicit so production conversion cannot mistake that
+    choice for a resolution policy.
     """
 
     stripped = line.strip().lstrip("\ufeff")
@@ -125,16 +125,11 @@ def _first_meta_line(text: str) -> str | None:
         if stripped.startswith("<meta"):
             return stripped
         if stripped:
-            # Upstream TT metadata is expected before semantic content. Stop at the
-            # first substantive non-meta line so a later literal is not mistaken for
-            # document metadata.
             return None
     return None
 
 
 def _iter_directory_tt(root: Path) -> Iterator[tuple[str, str, str]]:
-    """Yield ``(source_id, packaging, text)`` from visible *_TT directories."""
-
     for directory in sorted(
         (path for path in root.rglob("*_TT") if path.is_dir()),
         key=lambda path: path.as_posix(),
@@ -149,8 +144,6 @@ def _iter_directory_tt(root: Path) -> Iterator[tuple[str, str, str]]:
 
 
 def _iter_archive_tt(root: Path) -> Iterator[tuple[str, str, str]]:
-    """Yield TT documents from *_TT.zip packages without extracting them."""
-
     for archive_path in sorted(root.rglob("*_TT.zip"), key=lambda path: path.as_posix()):
         archive_rel = archive_path.relative_to(root).as_posix()
         with zipfile.ZipFile(archive_path) as archive:
@@ -166,8 +159,6 @@ def _iter_archive_tt(root: Path) -> Iterator[tuple[str, str, str]]:
 
 
 def iter_tt_documents(root: Path) -> Iterator[tuple[str, str, str]]:
-    """Yield all direct and archive-packed TT documents deterministically."""
-
     yield from _iter_directory_tt(root)
     yield from _iter_archive_tt(root)
 
@@ -244,8 +235,6 @@ def _ordered_counter(counter: Counter[str]) -> dict[str, int]:
 
 
 def audit_upstream(root: Path | str) -> dict[str, Any]:
-    """Build a deterministic semantic census for one pinned upstream checkout."""
-
     root_path = Path(root)
     packaging: Counter[str] = Counter()
     metadata_keys: Counter[str] = Counter()
@@ -294,11 +283,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
                 if duplicate["conflict"]:
                     duplicate_conflict_count += 1
                     duplicate_conflicts.append(
-                        {
-                            "source": source_id,
-                            "key": key,
-                            "values": duplicate["values"],
-                        }
+                        {"source": source_id, "key": key, "values": duplicate["values"]}
                     )
                 else:
                     duplicate_equal_count += 1
@@ -332,13 +317,9 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             }
         )
 
-    document_count = len(documents)
     all_missing_fields = sorted(set(REQUIRED_METADATA) | set(QUALITY_FIELDS) | {"redundant"})
-    missing_metadata = {field: missing[field] for field in all_missing_fields}
-    layer_presence = {layer: layers[layer] for layer in sorted(LAYER_PATTERNS)}
-
     return {
-        "document_count": document_count,
+        "document_count": len(documents),
         "source_packaging": _ordered_counter(packaging),
         "metadata_key_presence": _ordered_counter(metadata_keys),
         "quality_values": {
@@ -346,8 +327,8 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         },
         "license_values": _ordered_counter(licenses),
         "redundant_values": _ordered_counter(redundant),
-        "missing_metadata": missing_metadata,
-        "layer_presence": layer_presence,
+        "missing_metadata": {field: missing[field] for field in all_missing_fields},
+        "layer_presence": {layer: layers[layer] for layer in sorted(LAYER_PATTERNS)},
         "duplicate_meta_attributes": {
             "document_count": duplicate_document_count,
             "equal_value_occurrences": duplicate_equal_count,
