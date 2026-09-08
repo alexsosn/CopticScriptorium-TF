@@ -2,8 +2,8 @@
 
 This research tool measures which annotations exist in CoNLL-U independently of
 TreeTagger SGML, especially UD-normalized morphology and MISC enrichments such as
-construction annotations. It does not choose merge precedence; it produces the
-evidence required to make that decision explicitly.
+construction annotations. It also validates the basic sentence-local dependency
+shape needed for safe cross-format alignment. It does not choose merge precedence.
 """
 
 from __future__ import annotations
@@ -81,10 +81,52 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         seen_misc: set[str] = set()
         file_token_rows = 0
         newdoc_ids: list[str] = []
+        sentence_rows: list[tuple[int, str, int]] = []
+
+        def flush_sentence() -> None:
+            nonlocal sentence_rows
+            if not sentence_rows:
+                return
+            ids = {token_id for token_id, _head, _line in sentence_rows}
+            for _token_id, head, line_number in sentence_rows:
+                if head == "_":
+                    continue
+                try:
+                    head_id = int(head)
+                except ValueError:
+                    errors.append(
+                        {
+                            "kind": "invalid_head",
+                            "source": source,
+                            "line": line_number,
+                            "head": head,
+                        }
+                    )
+                    continue
+                if head_id < 0:
+                    errors.append(
+                        {
+                            "kind": "invalid_head",
+                            "source": source,
+                            "line": line_number,
+                            "head": head,
+                        }
+                    )
+                elif head_id > 0 and head_id not in ids:
+                    errors.append(
+                        {
+                            "kind": "dangling_head",
+                            "source": source,
+                            "line": line_number,
+                            "head": head,
+                        }
+                    )
+            sentence_rows = []
 
         text = path.read_text(encoding="utf-8", errors="replace")
         for line_number, line in enumerate(text.splitlines(), start=1):
             if not line:
+                flush_sentence()
                 continue
             if line.startswith("#"):
                 content = line[1:].strip()
@@ -112,8 +154,21 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             row = dict(zip(COLUMN_NAMES, columns, strict=True))
             row_id = row["ID"]
             if row_id.isdigit():
+                token_id = int(row_id)
+                if token_id <= 0:
+                    errors.append(
+                        {
+                            "kind": "invalid_token_id",
+                            "source": source,
+                            "line": line_number,
+                            "id": row_id,
+                        }
+                    )
+                    continue
+
                 token_rows += 1
                 file_token_rows += 1
+                sentence_rows.append((token_id, row["HEAD"], line_number))
                 if row["UPOS"] != "_":
                     upos[row["UPOS"]] += 1
                 if row["XPOS"] != "_":
@@ -147,6 +202,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
                     }
                 )
 
+        flush_sentence()
         for key in seen_feats:
             feats_documents[key] += 1
         for key in seen_misc:
