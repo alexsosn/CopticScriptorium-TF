@@ -51,6 +51,9 @@ class CrossFormatAuditTests(unittest.TestCase):
         self.assertEqual(report["tt_document_count"], 1)
         self.assertEqual(report["conllu_document_count"], 1)
         self.assertEqual(report["paired_document_count"], 1)
+        self.assertEqual(report["compared_document_count"], 1)
+        self.assertEqual(report["conllu_placeholder_count"], 0)
+        self.assertEqual(report["conllu_placeholders"], [])
         self.assertEqual(report["tt_only"], [])
         self.assertEqual(report["conllu_only"], [])
         self.assertEqual(report["token_count_mismatches"], [])
@@ -79,8 +82,37 @@ class CrossFormatAuditTests(unittest.TestCase):
             report = self.audit.audit_upstream(root)
 
         self.assertEqual(report["paired_document_count"], 1)
+        self.assertEqual(report["compared_document_count"], 1)
         self.assertEqual(report["tt_packaging"], {"archive": 1})
         self.assertEqual(report["field_mismatch_counts"]["norm"], 0)
+
+    def test_whitespace_only_conllu_counterpart_is_a_placeholder_not_token_drift(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            tt_dir = root / "aggregate" / "aggregate_TT"
+            conllu_dir = root / "aggregate" / "aggregate_CONLLU"
+            tt_dir.mkdir(parents=True)
+            conllu_dir.mkdir(parents=True)
+            (tt_dir / "one.tt").write_text(TT, encoding="utf-8")
+            (conllu_dir / "one.conllu").write_text("\n", encoding="utf-8")
+
+            report = self.audit.audit_upstream(root)
+
+        self.assertEqual(report["paired_document_count"], 1)
+        self.assertEqual(report["compared_document_count"], 0)
+        self.assertEqual(report["conllu_placeholder_count"], 1)
+        self.assertEqual(
+            report["conllu_placeholders"],
+            [
+                {
+                    "dataset": "aggregate/aggregate",
+                    "record": "one",
+                    "source": "aggregate/aggregate_CONLLU/one.conllu",
+                }
+            ],
+        )
+        self.assertEqual(report["token_count_mismatches"], [])
+        self.assertEqual(report["compared_tokens"], 0)
 
     def test_reports_token_and_shared_field_mismatches_without_resolving_them(self):
         mismatching = '''# newdoc id = demo:one
@@ -98,6 +130,7 @@ class CrossFormatAuditTests(unittest.TestCase):
             report = self.audit.audit_upstream(root)
 
         self.assertEqual(report["token_count_mismatches"], [])
+        self.assertEqual(report["compared_document_count"], 1)
         self.assertEqual(
             report["field_mismatch_counts"],
             {"func": 1, "lemma": 1, "norm": 1, "pos": 1},
@@ -120,6 +153,7 @@ class CrossFormatAuditTests(unittest.TestCase):
             report = self.audit.audit_upstream(root)
 
         self.assertEqual(report["paired_document_count"], 1)
+        self.assertEqual(report["compared_document_count"], 0)
         self.assertEqual(report["tt_only"], ["demo/demo:tt-only"])
         self.assertEqual(report["conllu_only"], ["demo/demo:conllu-only"])
         self.assertEqual(
