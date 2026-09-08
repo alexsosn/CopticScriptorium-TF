@@ -19,6 +19,7 @@ RECORD_EXTENSIONS = {
     "TEI": ".xml",
     "TT": ".tt",
 }
+RECORD_ID_PREFERENCE = ("TT", "CONLLU", "TEI")
 
 
 def classify_format_directory(path: str) -> tuple[str, str, str] | None:
@@ -66,7 +67,7 @@ def _record_identity(
     path: str,
     format_directories: dict[str, tuple[str, str]],
 ) -> tuple[str, str, str] | None:
-    """Return ``(dataset_key, format, record_id)`` for visible record exports."""
+    """Return ``(dataset_key, format, literal_record_id)`` for visible exports."""
 
     for directory, (dataset_key, fmt) in format_directories.items():
         extension = RECORD_EXTENSIONS.get(fmt)
@@ -87,6 +88,16 @@ def _record_identity(
     return None
 
 
+def _display_record_id(record: dict[str, dict[str, str]]) -> str:
+    """Choose a stable literal ID while preserving every per-format spelling."""
+
+    variants = record["ids"]
+    for fmt in RECORD_ID_PREFERENCE:
+        if fmt in variants:
+            return variants[fmt]
+    return min(variants.values())
+
+
 def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
     """Analyze one complete assembled Git tree payload.
 
@@ -94,6 +105,12 @@ def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
     visibility: some upstream corpora package TT/PAULA/ANNIS as opaque ZIP blobs,
     so their records cannot be called missing merely because the Git tree cannot see
     archive members.
+
+    Visible record basenames are matched using ``casefold()`` because upstream has
+    real case-only filename drift between formats (for example ``AP.*`` in TT/CoNLL-U
+    versus ``ap.*`` in TEI). Literal basenames remain recorded per format. If two
+    files from the same format collapse to one case-insensitive key, analysis fails
+    instead of silently choosing one.
     """
 
     if payload.get("truncated"):
@@ -201,19 +218,33 @@ def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
         record = _record_identity(path, directories_longest_first)
         if record is None:
             continue
-        dataset_key, fmt, record_id = record
-        record_map = datasets[dataset_key]["records"].setdefault(record_id, {})
-        if fmt in record_map:
+        dataset_key, fmt, literal_record_id = record
+        comparison_key = literal_record_id.casefold()
+        record_group = datasets[dataset_key]["records"].setdefault(
+            comparison_key,
+            {"paths": {}, "ids": {}},
+        )
+        if fmt in record_group["paths"]:
+            existing_id = record_group["ids"][fmt]
+            if existing_id.casefold() == comparison_key and existing_id != literal_record_id:
+                raise ValueError(
+                    "case-insensitive record collision "
+                    f"for {fmt} in dataset {dataset_key}: "
+                    f"{existing_id!r} versus {literal_record_id!r}"
+                )
             raise ValueError(
-                f"duplicate {fmt} record identity {record_id!r} in dataset {dataset_key}"
+                f"duplicate {fmt} record identity {literal_record_id!r} "
+                f"in dataset {dataset_key}"
             )
-        record_map[fmt] = path
+        record_group["paths"][fmt] = path
+        record_group["ids"][fmt] = literal_record_id
 
     final_datasets: dict[str, dict[str, Any]] = {}
 
     for dataset_key in sorted(datasets):
         raw = datasets[dataset_key]
         records: dict[str, dict[str, str]] = {}
+        record_id_variants: dict[str, dict[str, str]] = {}
         missing_counterparts: dict[str, list[str]] = {}
 
         archive_formats = {
@@ -233,13 +264,21 @@ def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
             else:
                 record_comparison_coverage[fmt] = "absent"
 
-        for record_id in sorted(raw["records"]):
-            mapping = raw["records"][record_id]
-            ordered_mapping = {fmt: mapping[fmt] for fmt in sorted(mapping)}
-            records[record_id] = ordered_mapping
+        ordered_groups = sorted(
+            raw["records"].values(),
+            key=lambda group: (_display_record_id(group).casefold(), _display_record_id(group)),
+        )
+        for group in ordered_groups:
+            display_id = _display_record_id(group)
+            mapping = group["paths"]
+            variants = group["ids"]
+            records[display_id] = {fmt: mapping[fmt] for fmt in sorted(mapping)}
+            record_id_variants[display_id] = {
+                fmt: variants[fmt] for fmt in sorted(variants)
+            }
             missing = [fmt for fmt in visible_record_formats if fmt not in mapping]
             if missing:
-                missing_counterparts[record_id] = missing
+                missing_counterparts[display_id] = missing
 
         ordered_artifacts: dict[str, list[dict[str, Any]]] = {}
         for fmt in sorted(raw["format_artifacts"]):
@@ -260,6 +299,7 @@ def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
             },
             "record_comparison_coverage": record_comparison_coverage,
             "records": records,
+            "record_id_variants": record_id_variants,
             "missing_counterparts": missing_counterparts,
             "unexpected_files": sorted(raw["unexpected_files"]),
         }
