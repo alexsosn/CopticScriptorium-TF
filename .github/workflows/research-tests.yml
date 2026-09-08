@@ -73,7 +73,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Check out pinned Coptic Scriptorium TT sources
+      - name: Check out pinned Coptic Scriptorium TT and CoNLL-U sources
         uses: actions/checkout@v4
         with:
           repository: CopticScriptorium/corpora
@@ -85,6 +85,7 @@ jobs:
             /meta.json
             /*/*_TT/**
             /*/*_TT.zip
+            /*/*_CONLLU/**
       - name: Verify pinned upstream source
         working-directory: upstream
         run: test "$(git rev-parse HEAD)" = "$UPSTREAM_COMMIT"
@@ -92,9 +93,19 @@ jobs:
         run: >-
           python research/issue-1/semantic_audit.py upstream
           --output research/issue-1/semantic-audit.json
+      - name: Build corpus-wide CoNLL-U enrichment audit
+        run: >-
+          python research/issue-1/conllu_audit.py upstream
+          --output research/issue-1/conllu-audit.json
       - uses: actions/upload-artifact@v4
         with:
           name: issue1-semantic-audit
           path: research/issue-1/semantic-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-conllu-audit
+          path: research/issue-1/conllu-audit.json
           if-no-files-found: error
           retention-days: 14
