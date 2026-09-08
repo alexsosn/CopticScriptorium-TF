@@ -12,7 +12,7 @@ from collections import Counter
 import argparse
 import html
 import json
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 from typing import Any, Iterator
 import zipfile
@@ -60,8 +60,10 @@ def _conllu_tokens(text: str) -> list[dict[str, str | None]]:
         row_id = columns[0]
         if not row_id.isdigit():
             continue
+
         def value(column: str) -> str | None:
             return None if column == "_" else column
+
         tokens.append(
             {
                 "norm": value(columns[1]),
@@ -151,7 +153,9 @@ def _conllu_records(root: Path) -> Iterator[dict[str, Any]]:
             }
 
 
-def _index(records: Iterator[dict[str, Any]], representation: str) -> dict[tuple[str, str], dict[str, Any]]:
+def _index(
+    records: Iterator[dict[str, Any]], representation: str
+) -> dict[tuple[str, str], dict[str, Any]]:
     indexed: dict[tuple[str, str], dict[str, Any]] = {}
     for record in records:
         key = (record["dataset"], record["record"].casefold())
@@ -177,7 +181,10 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     conllu_keys = set(conllu_index)
     paired_keys = sorted(tt_keys & conllu_keys)
 
-    tt_only = [f"{dataset}:{tt_index[(dataset, key)]['record']}" for dataset, key in sorted(tt_keys - conllu_keys)]
+    tt_only = [
+        f"{dataset}:{tt_index[(dataset, key)]['record']}"
+        for dataset, key in sorted(tt_keys - conllu_keys)
+    ]
     conllu_only = [
         f"{dataset}:{conllu_index[(dataset, key)]['record']}"
         for dataset, key in sorted(conllu_keys - tt_keys)
@@ -185,9 +192,11 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
 
     packaging: Counter[str] = Counter(record["packaging"] for record in tt_records)
     case_variants: list[dict[str, str]] = []
+    conllu_placeholders: list[dict[str, str]] = []
     token_count_mismatches: list[dict[str, Any]] = []
     mismatch_counts: Counter[str] = Counter({field: 0 for field in SHARED_FIELDS})
     mismatch_examples: list[dict[str, Any]] = []
+    compared_document_count = 0
     compared_tokens = 0
 
     for dataset, key in paired_keys:
@@ -201,6 +210,16 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
                     "conllu_record": conllu["record"],
                 }
             )
+
+        if not conllu["text"].strip():
+            conllu_placeholders.append(
+                {
+                    "dataset": dataset,
+                    "record": conllu["record"],
+                    "source": conllu["source"],
+                }
+            )
+            continue
 
         try:
             tt_tokens = _tt_tokens(tt["text"])
@@ -228,6 +247,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             )
             continue
 
+        compared_document_count += 1
         compared_tokens += len(tt_tokens)
         for token_index, (tt_token, conllu_token) in enumerate(
             zip(tt_tokens, conllu_tokens, strict=True), start=1
@@ -248,10 +268,17 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
                         }
                     )
 
+    conllu_placeholders = sorted(
+        conllu_placeholders,
+        key=lambda item: (item["dataset"], item["record"], item["source"]),
+    )
     return {
         "tt_document_count": len(tt_records),
         "conllu_document_count": len(conllu_records),
         "paired_document_count": len(paired_keys),
+        "compared_document_count": compared_document_count,
+        "conllu_placeholder_count": len(conllu_placeholders),
+        "conllu_placeholders": conllu_placeholders,
         "tt_packaging": {key: packaging[key] for key in sorted(packaging)},
         "tt_only": tt_only,
         "conllu_only": conllu_only,
@@ -264,7 +291,9 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             key=lambda item: (item["dataset"], item["record"]),
         ),
         "compared_tokens": compared_tokens,
-        "field_mismatch_counts": {field: mismatch_counts[field] for field in sorted(SHARED_FIELDS)},
+        "field_mismatch_counts": {
+            field: mismatch_counts[field] for field in sorted(SHARED_FIELDS)
+        },
         "field_mismatch_examples": mismatch_examples,
     }
 
@@ -275,7 +304,9 @@ def render_report_json(report: dict[str, Any]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("upstream", type=Path, help="Pinned CopticScriptorium/corpora checkout")
+    parser.add_argument(
+        "upstream", type=Path, help="Pinned CopticScriptorium/corpora checkout"
+    )
     parser.add_argument("--output", type=Path, help="Write report here instead of stdout")
     args = parser.parse_args(argv)
     rendered = render_report_json(audit_upstream(args.upstream))
