@@ -10,11 +10,20 @@ on:
 permissions:
   contents: read
 
+env:
+  UPSTREAM_COMMIT: 3ac067f1709a0012daf39ea8da2fac79980176a5
+
 jobs:
   unittest:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -26,6 +35,12 @@ jobs:
     needs: unittest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -35,11 +50,46 @@ jobs:
         run: >-
           python research/issue-1/fetch_inventory.py
           --repository CopticScriptorium/corpora
-          --commit 3ac067f1709a0012daf39ea8da2fac79980176a5
+          --commit "$UPSTREAM_COMMIT"
           --output research/issue-1/inventory.json
       - uses: actions/upload-artifact@v4
         with:
           name: issue1-source-inventory
           path: research/issue-1/inventory.json
+          if-no-files-found: error
+          retention-days: 14
+
+  issue1-semantic-audit:
+    runs-on: ubuntu-latest
+    needs: unittest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check out pinned Coptic Scriptorium source
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: ${{ env.UPSTREAM_COMMIT }}
+          path: upstream
+          fetch-depth: 1
+      - name: Verify pinned upstream source
+        working-directory: upstream
+        run: test "$(git rev-parse HEAD)" = "$UPSTREAM_COMMIT"
+      - name: Build corpus-wide TT semantic audit
+        run: >-
+          python research/issue-1/semantic_audit.py upstream
+          --output research/issue-1/semantic-audit.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-semantic-audit
+          path: research/issue-1/semantic-audit.json
           if-no-files-found: error
           retention-days: 14
