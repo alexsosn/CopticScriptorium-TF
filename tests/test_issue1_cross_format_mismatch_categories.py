@@ -46,13 +46,37 @@ class CrossFormatMismatchCategoryTests(unittest.TestCase):
         self.assertEqual(
             report["field_mismatch_categories"],
             {
-                "func": {"different": 1, "missing_in_conllu": 0, "missing_in_tt": 0},
-                "head": {"different": 0, "missing_in_conllu": 0, "missing_in_tt": 1},
-                "lemma": {"different": 0, "missing_in_conllu": 0, "missing_in_tt": 1},
-                "norm": {"different": 0, "missing_in_conllu": 0, "missing_in_tt": 0},
-                "pos": {"different": 0, "missing_in_conllu": 0, "missing_in_tt": 0},
+                "func": {"different": 1, "missing_in_conllu": 0, "missing_in_tt": 0, "serialization_equivalent": 0},
+                "head": {"different": 0, "missing_in_conllu": 0, "missing_in_tt": 1, "serialization_equivalent": 0},
+                "lemma": {"different": 0, "missing_in_conllu": 0, "missing_in_tt": 1, "serialization_equivalent": 0},
+                "norm": {"different": 0, "missing_in_conllu": 0, "missing_in_tt": 0, "serialization_equivalent": 0},
+                "pos": {"different": 0, "missing_in_conllu": 0, "missing_in_tt": 0, "serialization_equivalent": 0},
             },
         )
+
+    def test_xml_entity_escaping_in_conllu_is_serialization_equivalent_for_text_fields(self):
+        tt = '''<meta corpus="demo">
+<norm xml:id="u1" func="root" pos="N" lemma="a&lt;b&gt;" norm="a&lt;b&gt;">a&lt;b&gt;</norm>
+'''
+        conllu = '''# sent_id = demo-s1
+1\ta&amp;lt;b&amp;gt;\ta&amp;lt;b&amp;gt;\tNOUN\tN\t_\t0\troot\t_\t_
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            tt_dir = root / "demo" / "demo_TT"
+            conllu_dir = root / "demo" / "demo_CONLLU"
+            tt_dir.mkdir(parents=True)
+            conllu_dir.mkdir(parents=True)
+            (tt_dir / "one.tt").write_text(tt, encoding="utf-8")
+            (conllu_dir / "one.conllu").write_text(conllu, encoding="utf-8")
+            report = self.audit.audit_upstream(root)
+
+        self.assertEqual(report["field_mismatch_counts"]["norm"], 1)
+        self.assertEqual(report["field_mismatch_counts"]["lemma"], 1)
+        self.assertEqual(report["field_mismatch_categories"]["norm"]["different"], 0)
+        self.assertEqual(report["field_mismatch_categories"]["lemma"]["different"], 0)
+        self.assertEqual(report["field_mismatch_categories"]["norm"]["serialization_equivalent"], 1)
+        self.assertEqual(report["field_mismatch_categories"]["lemma"]["serialization_equivalent"], 1)
 
 
 if __name__ == "__main__":
