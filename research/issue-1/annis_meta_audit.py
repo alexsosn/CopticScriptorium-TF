@@ -165,9 +165,17 @@ def _archive_table_pair(
         )
     if len(candidates) != 1:
         layouts = ", ".join(candidate[0] for candidate in candidates) or "none"
+        basenames = sorted(
+            {
+                Path(name).name
+                for name in archive.namelist()
+                if not name.endswith("/")
+            }
+        )
+        available = ", ".join(basenames) or "<empty>"
         raise ValueError(
             f"relANNIS archive {source} expected exactly one metadata table layout; "
-            f"found {layouts}"
+            f"found {layouts}; available basenames: {available}"
         )
     _label, corpus_member, annotation_member = candidates[0]
     return corpus_member, annotation_member
