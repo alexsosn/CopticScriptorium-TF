@@ -17,7 +17,6 @@ import xml.etree.ElementTree as ET
 
 
 TEI_NS = "http://www.tei-c.org/ns/1.0"
-XML_NS = "http://www.w3.org/XML/1998/namespace"
 
 
 def _local_name(tag: str) -> str:
@@ -48,6 +47,17 @@ def _dataset_directories(root: Path) -> list[tuple[str, Path]]:
     return datasets
 
 
+def _tei_files(directory: Path) -> list[Path]:
+    return sorted(
+        (
+            path
+            for path in directory.rglob("*")
+            if path.is_file() and path.suffix.casefold() == ".xml"
+        ),
+        key=lambda path: path.as_posix(),
+    )
+
+
 def _has(root: ET.Element, tag: str) -> bool:
     return root.find(f".//{_tei(tag)}") is not None
 
@@ -57,7 +67,11 @@ def _sentence_translation(root: ET.Element) -> bool:
 
 
 def _word_split_by_layout(word: ET.Element) -> bool:
-    return any(_local_name(element.tag) in {"pb", "cb", "lb"} for element in word.iter() if element is not word)
+    return any(
+        _local_name(element.tag) in {"pb", "cb", "lb"}
+        for element in word.iter()
+        if element is not word
+    )
 
 
 def audit_upstream(root: Path | str) -> dict[str, Any]:
@@ -83,9 +97,9 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     words_split_by_layout = 0
 
     for dataset, directory in datasets:
-        for path in sorted(directory.rglob("*.xml"), key=lambda item: item.as_posix()):
+        for path in _tei_files(directory):
             relative_record = path.relative_to(directory).as_posix()
-            record = relative_record[:-4]
+            record = relative_record[: -len(path.suffix)]
             key = (dataset, record.casefold())
             if key in records:
                 previous = records[key]
@@ -148,7 +162,10 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "documents_with_line_breaks": documents_with_line_breaks,
         "words_split_by_layout": words_split_by_layout,
         "records": [records[key] for key in sorted(records)],
-        "errors": sorted(errors, key=lambda error: (error["source"], error["kind"], error["detail"])),
+        "errors": sorted(
+            errors,
+            key=lambda error: (error["source"], error["kind"], error["detail"]),
+        ),
     }
 
 
