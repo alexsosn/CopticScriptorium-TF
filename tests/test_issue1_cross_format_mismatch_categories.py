@@ -59,7 +59,7 @@ class CrossFormatMismatchCategoryTests(unittest.TestCase):
 <norm xml:id="u1" func="root" pos="N" lemma="a&lt;b&gt;" norm="a&lt;b&gt;">a&lt;b&gt;</norm>
 '''
         conllu = '''# sent_id = demo-s1
-1\ta&amp;lt;b&amp;gt;\ta&amp;lt;b&amp;gt;\tNOUN\tN\t_\t0\troot\t_\t_
+1\ta&lt;b&gt;\ta&lt;b&gt;\tNOUN\tN\t_\t0\troot\t_\t_
 '''
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
