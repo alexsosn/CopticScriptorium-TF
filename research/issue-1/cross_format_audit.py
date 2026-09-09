@@ -26,17 +26,18 @@ MISMATCH_CATEGORIES = ("different", "missing_in_conllu", "missing_in_tt")
 EXAMPLES_PER_FIELD = 20
 
 
-def _load_id_contract():
-    module_path = Path(__file__).with_name("conllu_id_contract.py")
-    spec = importlib.util.spec_from_file_location("issue1_cross_conllu_id_contract", module_path)
+def _load_sibling(name: str, filename: str):
+    module_path = Path(__file__).with_name(filename)
+    spec = importlib.util.spec_from_file_location(name, module_path)
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load CoNLL-U ID contract from {module_path}")
+        raise RuntimeError(f"cannot load research module from {module_path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-ID_CONTRACT = _load_id_contract()
+ID_CONTRACT = _load_sibling("issue1_cross_conllu_id_contract", "conllu_id_contract.py")
+SOURCES = _load_sibling("issue1_cross_conllu_sources", "conllu_sources.py")
 
 
 def _scan_attributes(fragment: str) -> dict[str, str]:
@@ -245,29 +246,6 @@ def _archive_tt_records(root: Path) -> Iterator[dict[str, Any]]:
                 }
 
 
-def _conllu_records(root: Path) -> Iterator[dict[str, Any]]:
-    for directory in sorted(
-        (path for path in root.rglob("*_CONLLU") if path.is_dir()),
-        key=lambda path: path.as_posix(),
-    ):
-        relative_dir = directory.relative_to(root)
-        parts = relative_dir.parts
-        if len(parts) != 2 or not parts[1].endswith("_CONLLU"):
-            continue
-        corpus = parts[0]
-        dataset_name = parts[1][:-7]
-        dataset = f"{corpus}/{dataset_name}"
-        for path in sorted(directory.rglob("*.conllu"), key=lambda item: item.as_posix()):
-            relative_record = path.relative_to(directory).as_posix()
-            record = relative_record[:-7]
-            yield {
-                "dataset": dataset,
-                "record": record,
-                "source": path.relative_to(root).as_posix(),
-                "text": path.read_text(encoding="utf-8", errors="replace"),
-            }
-
-
 def _index(
     records: Iterator[dict[str, Any]], representation: str
 ) -> dict[tuple[str, str], dict[str, Any]]:
@@ -296,7 +274,7 @@ def _mismatch_category(tt_value: Any, conllu_value: Any) -> str:
 def audit_upstream(root: Path | str) -> dict[str, Any]:
     root_path = Path(root)
     tt_records = list(_direct_tt_records(root_path)) + list(_archive_tt_records(root_path))
-    conllu_records = list(_conllu_records(root_path))
+    conllu_records = list(SOURCES.iter_conllu_records(root_path))
     tt_index = _index(iter(tt_records), "TT")
     conllu_index = _index(iter(conllu_records), "CoNLL-U")
 
