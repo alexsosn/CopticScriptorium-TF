@@ -129,6 +129,23 @@ class AnnisMetaAuditTests(unittest.TestCase):
         self.assertEqual(report["document_count"], 2)
         self.assertEqual(report["corpus_node_count"], 1)
 
+    def test_unsupported_archive_reports_available_basenames(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            corpus = root / "unknown"
+            corpus.mkdir()
+            with zipfile.ZipFile(corpus / "unknown_ANNIS.zip", "w") as archive:
+                archive.writestr("unknown/corpus.txt", CORPUS)
+                archive.writestr("unknown/corpus_annotation.txt", ANNOTATIONS)
+                archive.writestr("unknown/node.tab", "")
+            (root / "meta.json").write_text(json.dumps({}), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                ValueError,
+                r"available basenames: corpus\.txt, corpus_annotation\.txt, node\.tab",
+            ):
+                self.audit.audit_upstream(root)
+
     def test_casefold_collision_in_annis_document_names_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
