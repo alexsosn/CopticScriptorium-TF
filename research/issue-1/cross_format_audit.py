@@ -216,7 +216,7 @@ def _direct_tt_records(root: Path) -> Iterator[dict[str, Any]]:
                 "record": record,
                 "source": path.relative_to(root).as_posix(),
                 "packaging": "directory",
-                "text": path.read_text(encoding="utf-8", errors="replace"),
+                "text": path.read_text(encoding="utf-8"),
             }
 
 
@@ -247,7 +247,7 @@ def _archive_tt_records(root: Path) -> Iterator[dict[str, Any]]:
                     "record": record,
                     "source": f"{relative.as_posix()}!/{member}",
                     "packaging": "archive",
-                    "text": archive.read(member).decode("utf-8", errors="replace"),
+                    "text": archive.read(member).decode("utf-8"),
                 }
 
 
