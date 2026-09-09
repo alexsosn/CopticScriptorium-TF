@@ -1,10 +1,12 @@
 # Issue #1 semantic source samples
 
-Status: **sample evidence, not yet a corpus-wide authority decision**.
+Status: **sample evidence supporting the corpus-wide authority decision**.
 
 Research census commit: `3ac067f1709a0012daf39ea8da2fac79980176a5`.
 
-Official upstream release immediately preceding that commit: `v6.3.0`, tag commit `d6332e37c7f92c737f51deb4f6e7ee872bfd603f`, published 2026-07-22. The research commit is two commits ahead of the release tag. GitHub compare reports one changed corpus file between the tag and research commit: `shenoute-errs/shenoute.errs_TT/shenoute.errs.XG336-343.tt`, whose metadata changes `people="-"` to `people="none"`. Final TF provenance therefore needs both a release label and an exact source commit; they are not interchangeable.
+Official upstream release immediately preceding that commit: `v6.3.0`, tag commit `d6332e37c7f92c737f51deb4f6e7ee872bfd603f`, published 2026-07-22. The research commit is two commits ahead of the release tag. GitHub compare reports one changed corpus file between the tag and research commit: `shenoute-errs/shenoute.errs_TT/shenoute.errs.XG336-343.tt`, whose metadata changes `people="-"` to `people="none"`. TF provenance therefore needs both a release label and an exact source commit; they are not interchangeable.
+
+The hand-inspected samples below were used to formulate hypotheses. Final source authority is determined by the corpus-wide machine-generated audits summarized in `research.md` and `SOURCE_AUTHORITY_MATRIX.md`; sample observations do not override those measurements.
 
 ## Source-shape evidence
 
@@ -29,14 +31,13 @@ This corpus uses a different physical packaging:
 - `sahidica.nt_TT.zip`
 - `sahidica.nt_CONLLU/`
 
-No sibling TEI artifact was observed at the top level. This invalidates any inventory algorithm that equates format presence with a `_FORMAT/` directory or calls a CoNLL-U document “missing TT” merely because TT members are hidden inside an archive.
+No sibling TEI artifact was observed at the top level. The final inventory therefore distinguishes format presence, directory/archive packaging, record-level visibility and actual missing counterparts instead of inferring one from another.
 
-The inventory therefore distinguishes:
+### `bohairic.ot`
 
-1. format presence;
-2. packaging (`directory` vs `archive`);
-3. record-level visibility in the Git tree;
-4. missing counterparts only among formats whose record members are actually visible.
+Corpus-wide relANNIS inspection established a distinct package shape: `bohairic.ot_ANNIS.zip` contains ANNIS configuration/visualization assets (`annis.version`, `resolver_vis_map.annis`, `corpus.properties`, CSS/fonts and related files) but no `corpus.annis`/`corpus_annotation.annis` or legacy `.tab` metadata tables.
+
+The final relANNIS census records this package explicitly as metadata-unavailable rather than silently skipping it or inventing a third metadata layout. Its 507 `meta.json` identities exactly account for the 507 global metadata records not represented by the 77 parseable relANNIS metadata datasets.
 
 ## Paired sample: AP.004.poemen.65
 
@@ -70,7 +71,7 @@ Observed strengths:
 - morpheme elements;
 - language and rendition/highlight spans.
 
-In this sample TEI does not expose the UD dependency arcs or the entity identity layer in the same direct form as TT. It also does not expose the sampled Arabic translation layer.
+In this sample TEI does not expose UD dependency arcs or the entity identity layer in the same direct form as TT, and it does not expose the sampled Arabic translation layer. No corpus-wide evidence in issue #1 demonstrated a required TEI-only semantic field, so TEI remains validation/presentation evidence rather than a mandatory second production token parser.
 
 ### CoNLL-U
 
@@ -87,7 +88,7 @@ Observed strengths:
 - original-form residue, entity spans/identities, original language and morph decomposition in MISC;
 - construction (`Cxn`/`CxnElt`) annotations on some tokens.
 
-CoNLL-U drops the full manuscript/layout/formatting structure and is therefore not suitable as the sole canonical source. Conversely, the sampled normalized UD FEATS/construction annotations are richer/more normalized than the literal attributes visible on corresponding TT tokens, so CoNLL-U cannot be discarded without a field-level parity check.
+The corpus-wide parity audit confirmed the sample hypothesis: CoNLL-U is not a replacement for TT, but structurally valid CoNLL-U contributes measured supplementary UD morphology, construction/MISC enrichment and some dependency heads absent from TT.
 
 ## Documentary sample: CPR 4.16
 
@@ -99,15 +100,15 @@ Paths sampled:
 
 The TEI header records CTS identity, author, papyri.info source, annotation/translation responsibility, CC-BY 4.0 license, object type, repository/collection/inventory number, language and bibliography. The TT header carries corresponding document metadata plus annotation-quality and entity/identity fields. CoNLL-U supplies normalized UD morphology/dependencies and entity encoding but not the full codicological/layout metadata.
 
-The same split of responsibilities seen in AP therefore also appears in a documentary corpus family.
+This sample supports the same division of responsibilities measured corpus-wide.
 
 ## Bohairic sample: Jonah 1
 
 Path: `bohairic-jonah/bohairic.jonah_TT/bohairic.Jonah_01.tt`
 
-Observed differences from the Sahidic literary sample are data values, not a different TT grammar: Bohairic language, book/chapter metadata, digital-edition provenance, public-domain Coptic text plus CC-BY 4.0 annotations/files, parsing automatic, segmentation/tagging checked, entity/identity values `none`, and contextual LXX English translation. The same orig/norm groups and UD local-token/dependency attributes are present.
+Observed differences from the Sahidic literary sample are data values rather than a different TT grammar: Bohairic language, book/chapter metadata, digital-edition provenance, public-domain Coptic text plus CC-BY 4.0 annotations/files, parsing automatic, segmentation/tagging checked, entity/identity values `none`, and contextual LXX English translation. The same orig/norm groups and UD local-token/dependency attributes are present.
 
-This supports one parser grammar across at least sampled Sahidic and Bohairic TT, while feature presence/quality must remain data-driven rather than assumed.
+The corpus-wide TT census did not require a dialect-specific parser grammar.
 
 ## Treebank copy vs source corpus: XH204-216
 
@@ -117,76 +118,32 @@ Treebank path: `coptic-treebank/coptic.treebank_TT/XH204-216.tt`
 
 Upstream documentation describes treebank documents as identical to their source-corpus documents, but the two current TT blobs are not byte-identical:
 
-- source blob SHA: `4a0fad1a7e116b3b17d3a8d1054ac56f7a4b249e`
-- treebank blob SHA: `3f72359386e0dba64d9130c95e4516c4a38dd0e8`
+- source blob SHA: `4a0fad1a7e116b3b17d3a8d1054ac56f7a4b249e`;
+- treebank blob SHA: `3f72359386e0dba64d9130c95e4516c4a38dd0e8`.
 
-The first metadata line already differs: the treebank copy includes `Arabic_translation="Philippe Zaher"`, while the sampled source-corpus copy does not. Both share the same scholarly CTS identity.
-
-Consequences for issue #2:
-
-- byte equality is insufficient as the definition of duplicate/identity;
-- a corpus membership/export record and a scholarly document identity need separate representation;
-- deduplication requires layer-aware comparison and an explicit preferred-source policy;
-- provenance must retain which physical source copy supplied each merged field if fields differ.
+The treebank copy includes `Arabic_translation="Philippe Zaher"` while the sampled source-corpus copy does not, even though both share the same scholarly CTS identity. Corpus-wide `meta.json` reconciliation later measured 238 global identities with two TT copies, confirming that physical source copy and scholarly document identity must remain distinct. Issue #2 owns deduplication/preference semantics.
 
 ## Parallel witness sample: Abraham Our Father XL93-94
 
 Path: `abraham/shenoute.abraham_TT/XL93-94.tt`
 
-Observed metadata:
+Observed metadata includes `redundant="yes"`, CTS identity `urn:cts:copticLit:shenoute.abraham.monbxl:23-24`, and a `witness` relation to `urn:cts:copticLit:shenoute.abraham.monbya:21-27`, which is present as `YA535-540.tt`.
 
-- `redundant="yes"`;
-- document CTS URN `urn:cts:copticLit:shenoute.abraham.monbxl:23-24`;
-- `witness="urn:cts:copticLit:shenoute.abraham.monbya:21-27"`;
-- `previous` and `next` also point at that CTS URN in this record;
-- gold segmentation/tagging/parsing/entities/identities;
-- deprecated CTS URN retained separately.
+`redundant=yes` is therefore not a sufficient identity model. The explicit witness relation is scholarly data to preserve; issue #2 owns its final graph/selection semantics.
 
-The referenced witness is present as `abraham/shenoute.abraham_TT/YA535-540.tt` with CTS URN `urn:cts:copticLit:shenoute.abraham.monbya:21-27`.
+## Translation-delivery wording
 
-`redundant=yes` is therefore not a sufficient identity model by itself. At least one observed record supplies an explicit inter-witness scholarly relation that should be preserved.
+The v6.3.0 release text says Arabic translations are available in ANNIS, while pinned TT samples visibly contain Arabic translation metadata/content as well. Issue #1 therefore does not encode an “ANNIS-only Arabic” assumption from release prose. TT remains the source-native translation stream unless a later graph-model requirement demonstrates a concrete missing layer.
 
-## Translation-layer conflict to measure
+## Final sample-to-census conclusion
 
-The v6.3.0 release text says Arabic translations are currently available in ANNIS. Current TT samples also visibly contain Arabic translation metadata/content (for example AP.004 and multiple AP records). This may reflect wording about a specific public interface, a post-export difference, or multiple delivery paths. Do not encode an “ANNIS-only Arabic” rule from release prose; measure the actual pinned artifacts.
+The samples motivated the corpus-wide tests, and those tests establish the operative contract:
 
-## Preliminary authority matrix
+- TT is the canonical source-native document stream;
+- structurally validated CoNLL-U is a supplementary authority for measured UD-normalized/enrichment fields;
+- `meta.json` is global/reference metadata, not a blind overwrite source;
+- relANNIS provides measurable corpus/document metadata where its tables are present, with config-only packaging recorded explicitly;
+- TEI and PAULA remain evidence/cross-check sources unless later work demonstrates a required field unavailable from the narrower parser set;
+- source copies, normalized metadata, derived views and scholarly identities retain separate provenance.
 
-| Layer | TT sample | CoNLL-U sample | TEI sample | PAULA / ANNIS | Current research stance |
-|---|---|---|---|---|---|
-| Document CTS identity | yes | document id, not full header parity checked | yes | metadata present in ANNIS | compare; likely TT/metadata merge |
-| Per-document license | yes | not full header | yes | expected metadata | TT/TEI/metadata parity check |
-| Annotation quality | yes | not sampled as full doc metadata | not sampled | ANNIS corpus annotation contains fields | TT + metadata parity check |
-| Original/diplomatic text | yes | residue in MISC | yes, rich rendering | not yet inspected inside PAULA archive | TT/TEI parity check |
-| Normalized groups/tokens | yes | yes | word/phrase representation, not same normalization layer | not yet inspected | TT primary candidate |
-| Lemma/fine POS | yes | yes | yes | likely | compare |
-| UD HEAD/DEPREL | yes | yes | not in sampled TEI | ANNIS likely graph export | TT primary candidate, CoNLL-U verifier |
-| Normalized UD FEATS | limited literal attrs in sample | rich | not in sampled TEI | not yet measured | CoNLL-U supplementary candidate |
-| Entity span/class/head/identity | yes | MISC encoding | not in sampled TEI | ANNIS likely | TT primary candidate |
-| Layout/page/column/line | yes | no full structure | yes | not yet measured | TT/TEI parity check |
-| Highlight/language spans | yes | reduced MISC | yes | not yet measured | TT/TEI parity check |
-| English translation | yes | sentence text_en | yes | likely | compare alignment |
-| Arabic translation | yes in sampled TT | not sampled | absent in sampled TEI | release says ANNIS delivery | measure actual artifacts |
-| Corpus-level metadata | upstream README says incomplete | incomplete | document-oriented | upstream README says PAULA/relANNIS | PAULA/ANNIS/meta required candidate |
-
-## Licensing boundary already established from upstream documentation
-
-The repository is not governed by one uniform data license. Upstream documentation lists the normal CC-BY 3.0/4.0 case and major exceptions including:
-
-- Sahidica New Testament specific license;
-- Canons of Apa Johannes under CC-BY-SA 3.0;
-- Sahidic Old Testament under CC-BY-SA 4.0;
-- per-file licensing metadata.
-
-The converter must carry per-document/per-source license provenance and the release process must not replace it with one repository-level license label.
-
-## Remaining before source authority can be finalized
-
-- complete machine-generated inventory from the pinned tree, including archive packaging;
-- inspect archive contents for record-level coverage where needed;
-- measure TT ↔ CoNLL-U UD field parity beyond hand samples;
-- measure TT ↔ TEI diplomatic/layout parity;
-- inspect PAULA and ANNIS metadata contents systematically and compare them with TT/meta.json;
-- quantify metadata conflicts rather than choose precedence by convenience;
-- classify every missing/opaque/empty/malformed source shape;
-- independent adversarial review of the final authority/merge recommendation.
+The remaining work after issue #1 is design/implementation work in #2, #3, #5 and #8 plus the independent adversarial review of this exact final research head.
