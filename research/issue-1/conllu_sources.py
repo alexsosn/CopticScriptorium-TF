@@ -46,15 +46,18 @@ def _archive_records(root: Path) -> Iterator[dict[str, Any]]:
                 if member.endswith("/") or not member.lower().endswith(".conllu"):
                     continue
                 found = True
-                if not member.startswith(expected_prefix):
+                if "/" not in member:
+                    logical = member
+                elif member.startswith(expected_prefix):
+                    logical = member[len(expected_prefix):]
+                    if not logical or "/" in logical:
+                        raise ValueError(
+                            f"unsupported CoNLL-U archive member layout in {relative.as_posix()}: {member!r}"
+                        )
+                else:
                     raise ValueError(
                         f"unsupported CoNLL-U archive member layout in {relative.as_posix()}: "
-                        f"{member!r} does not start with {expected_prefix!r}"
-                    )
-                logical = member[len(expected_prefix):]
-                if not logical or logical.endswith("/"):
-                    raise ValueError(
-                        f"invalid CoNLL-U archive member in {relative.as_posix()}: {member!r}"
+                        f"{member!r} is neither root-level nor under {expected_prefix!r}"
                     )
                 yield {
                     "dataset": dataset,
