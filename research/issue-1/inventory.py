@@ -88,7 +88,7 @@ def _record_identity(
     return None
 
 
-def _display_record_id(record: dict[str, dict[str, str]]) -> str:
+def _display_record_id(record: dict[str, Any]) -> str:
     """Choose a stable literal ID while preserving every per-format spelling."""
 
     variants = record["ids"]
@@ -222,7 +222,7 @@ def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
         comparison_key = literal_record_id.casefold()
         record_group = datasets[dataset_key]["records"].setdefault(
             comparison_key,
-            {"paths": {}, "ids": {}},
+            {"paths": {}, "ids": {}, "artifacts": {}},
         )
         if fmt in record_group["paths"]:
             existing_id = record_group["ids"][fmt]
@@ -238,12 +238,18 @@ def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
             )
         record_group["paths"][fmt] = path
         record_group["ids"][fmt] = literal_record_id
+        record_group["artifacts"][fmt] = {
+            "path": path,
+            "sha": str(entry.get("sha", "")),
+            "size": int(entry.get("size", 0)),
+        }
 
     final_datasets: dict[str, dict[str, Any]] = {}
 
     for dataset_key in sorted(datasets):
         raw = datasets[dataset_key]
         records: dict[str, dict[str, str]] = {}
+        record_artifacts: dict[str, dict[str, dict[str, Any]]] = {}
         record_id_variants: dict[str, dict[str, str]] = {}
         missing_counterparts: dict[str, list[str]] = {}
 
@@ -272,7 +278,11 @@ def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
             display_id = _display_record_id(group)
             mapping = group["paths"]
             variants = group["ids"]
+            artifacts = group["artifacts"]
             records[display_id] = {fmt: mapping[fmt] for fmt in sorted(mapping)}
+            record_artifacts[display_id] = {
+                fmt: artifacts[fmt] for fmt in sorted(artifacts)
+            }
             record_id_variants[display_id] = {
                 fmt: variants[fmt] for fmt in sorted(variants)
             }
@@ -299,6 +309,7 @@ def analyze_tree(payload: dict[str, Any]) -> dict[str, Any]:
             },
             "record_comparison_coverage": record_comparison_coverage,
             "records": records,
+            "record_artifacts": record_artifacts,
             "record_id_variants": record_id_variants,
             "missing_counterparts": missing_counterparts,
             "unexpected_files": sorted(raw["unexpected_files"]),
