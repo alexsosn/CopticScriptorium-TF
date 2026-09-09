@@ -122,6 +122,12 @@ jobs:
         run: >-
           python research/issue-1/paula_audit.py upstream
           --output research/issue-1/paula-audit.json
+      - name: Reconcile PAULA document metadata with TT coverage
+        run: >-
+          python research/issue-1/paula_tt_metadata_audit.py
+          --paula-report research/issue-1/paula-audit.json
+          --tt-report research/issue-1/semantic-audit.json
+          --output research/issue-1/paula-tt-metadata-audit.json
       - name: Audit corpus-wide TEI exports
         run: >-
           python research/issue-1/tei_audit.py upstream
@@ -164,6 +170,12 @@ jobs:
         with:
           name: issue1-paula-audit
           path: research/issue-1/paula-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-paula-tt-metadata-audit
+          path: research/issue-1/paula-tt-metadata-audit.json
           if-no-files-found: error
           retention-days: 14
       - uses: actions/upload-artifact@v4
