@@ -1,44 +1,52 @@
-# Issue #1 — TEI provenance and corpus-wide evidence gate
+# Issue #1 — TEI provenance and corpus-wide evidence
 
 Pinned corpus revision: `CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`.
 
-Independent adversarial review of PR #7 found that TEI, like PAULA, was represented in the source-authority recommendation mainly by hand-inspected samples. Unlike PAULA, TEI cannot be dismissed by the Pepper derivation argument: the public publishing pipeline requests TEI directly from GitDox using the `scriptorium_tei` or `scriptorium_tei_p` stylesheet, while TT is requested separately with `tt_sgml`.
+Independent adversarial review of PR #7 found that TEI, like PAULA, had been represented mainly by samples. Unlike PAULA, TEI cannot be covered by the Pepper derivation argument: the public publishing pipeline requests TEI directly from GitDox with the `scriptorium_tei` or `scriptorium_tei_p` stylesheet, while TT is requested separately as `tt_sgml`. A separate corpus-wide gate was therefore required.
 
-## Measured topology already available
+## Corpus-wide topology and identity
 
-The deterministic pinned source inventory contains:
+The pinned source contains:
 
 - 76 datasets with TEI;
-- 1,458 visible TEI XML records;
+- 1,458 TEI XML paths;
 - no TEI representation for `sahidic.ot/sahidic.ot` or `sahidica.nt/sahidica.nt`;
-- all TEI representations at this revision are visible directory packages rather than opaque archives;
-- 12 visible TEI/TT source identities differ only by filename case;
-- the large Bohairic OT/NT TEI sets are visible while their TT source records are archive-packaged, so a semantic comparison must not infer TT absence from the Git tree.
+- all 1,458 TEI source identities paired to TT identities;
+- no TEI-only source identities and no TT-only identities inside the 76 TEI datasets;
+- 12 AP pairs whose filenames differ only by case.
 
-## Sample evidence to test corpus-wide
+TT archive packaging is opened during pairing, so Bohairic TT records are not falsely reported absent merely because their TEI counterparts are visible directories.
 
-The paired AP and documentary samples show TEI/EpiDoc carrying:
+## Parseability and feature census
 
-- `teiHeader` source/manuscript/responsibility/license metadata;
-- document CTS title references;
-- diplomatic page/column/line and text-part structure;
-- word lemma and fine POS;
-- morpheme segmentation;
-- language and rendition/highlight spans;
-- sentence-level English translations.
+Seventy-three TEI files fail XML parsing with `mismatched tag` errors across 17 top-level corpora. The full generated error ledger records every source path and parse position. The other 1,385 files parse as TEI.
 
-Those same samples do not expose UD dependency arcs or the entity identity graph in the direct form present in TT/CoNLL-U. Sample inspection is not enough to conclude that no production TEI parser is required.
+All 1,385 parseable documents contain:
 
-## Corpus-wide gate
+- `teiHeader`;
+- a CTS-bearing title reference;
+- license metadata;
+- language usage;
+- repository metadata;
+- sentence translation markup;
+- word markup.
 
-Before issue #1 can be finalized, a deterministic TEI audit must:
+Morpheme elements are present in 1,314 parseable documents. Layout coverage includes page breaks in 377 documents, column breaks in 301 and line breaks in 313. Across the parseable corpus, **8,822 words contain page/column/line markup inside `<w>`**, independently confirming that diplomatic layout and linguistic segmentation intersect.
 
-1. balance every pinned TEI XML record and preserve source identity;
-2. reject or explicitly ledger malformed/non-TEI XML rather than silently skipping it;
-3. census TEI element and attribute presence per document, including header metadata, diplomatic/layout elements, words/morphemes, language/rendition and translations;
-4. distinguish header and text-body vocabulary so metadata tags are not conflated with linguistic structure;
-5. pair TEI and TT source records case-insensitively across both visible and archive-packed TT representations;
-6. measure at least token-count/lemma/fine-POS parity where both formats expose the same word layer, and classify unpaired records explicitly;
-7. identify any TEI element/attribute family with no already established TT/CoNLL-U/metadata authority and treat it as a research blocker rather than assuming equivalence.
+## TEI ↔ TT presence reconciliation
 
-The audit is evidence only. A TEI production parser is justified only if this corpus-wide measurement demonstrates a semantic layer that cannot be preserved from the narrower authority set.
+For the semantic families checked by the issue #1 authority decision, TEI contributes no unique presence for:
+
+- CTS identity;
+- lemma;
+- fine POS;
+- translation;
+- page boundaries;
+- column boundaries;
+- line boundaries.
+
+The single measured TEI-only presence is `license` in `book.bartholomew_part3`. TT metadata lacks `license` for Bartholomew parts 1–3; TEI parts 1 and 2 are among the malformed files, while part 3 parses and carries license evidence. This is passed to issue #8 and does not authorize a default license for the other records or publication without policy review.
+
+## Authority conclusion
+
+TEI remains useful diplomatic/presentation and independent validation evidence. Corpus-wide measurement found no required TEI-only semantic layer for the planned production graph, while 73 files are not XML-parseable at the pinned revision. TT retains the source-native event stream for document conversion; a TEI production parser should be introduced only if later graph/schema research identifies a concrete requirement unavailable from TT + validated CoNLL-U + reviewed metadata sources.
