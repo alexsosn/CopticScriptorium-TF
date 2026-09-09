@@ -14,7 +14,7 @@ def classify_metadata_instance(instance: dict[str, Any]) -> tuple[str, str | Non
 
     Coptic Scriptorium PAULA archives use a dataset root followed either by an
     ``anno_*.xml`` corpus metadata member or a document directory containing
-    ``anno_*.xml`` document metadata.  Outer Bohairic wrapper ZIPs add another
+    ``anno_*.xml`` document metadata. Outer Bohairic wrapper ZIPs add another
     ``!/`` prefix, so only the innermost archive member path is structural.
     """
 
@@ -37,10 +37,79 @@ def classify_metadata_instance(instance: dict[str, Any]) -> tuple[str, str | Non
     raise ValueError(f"unsupported PAULA metadata member layout: {member!r}")
 
 
+def classify_tt_document(document: dict[str, Any]) -> tuple[str, str]:
+    """Return literal ``(dataset, record)`` identity from one TT census entry."""
+
+    source = str(document.get("source") or "")
+    if not source:
+        raise ValueError("TT document has no source identity")
+
+    if "!/" in source:
+        archive_source, member = source.split("!/", 1)
+        archive_parts = PurePosixPath(archive_source).parts
+        if len(archive_parts) != 2:
+            raise ValueError(f"unsupported TT archive source layout: {source!r}")
+        corpus, archive_name = archive_parts
+        suffix = "_TT.zip"
+        if not archive_name.endswith(suffix) or len(archive_name) <= len(suffix):
+            raise ValueError(f"unsupported TT archive source layout: {source!r}")
+        dataset_name = archive_name[: -len(suffix)]
+        member_parts = list(PurePosixPath(member).parts)
+        if member_parts and member_parts[0].casefold() == f"{dataset_name}_TT".casefold():
+            member_parts = member_parts[1:]
+        if not member_parts:
+            raise ValueError(f"TT archive source has no record path: {source!r}")
+        record_path = PurePosixPath(*member_parts)
+    else:
+        parts = PurePosixPath(source).parts
+        if len(parts) < 3:
+            raise ValueError(f"unsupported TT directory source layout: {source!r}")
+        corpus, directory_name, *record_parts = parts
+        suffix = "_TT"
+        if not directory_name.endswith(suffix) or len(directory_name) <= len(suffix):
+            raise ValueError(f"unsupported TT directory source layout: {source!r}")
+        dataset_name = directory_name[: -len(suffix)]
+        record_path = PurePosixPath(*record_parts)
+
+    if record_path.suffix.casefold() != ".tt":
+        raise ValueError(f"TT source record is not a .tt file: {source!r}")
+    record = record_path.as_posix()[: -len(record_path.suffix)]
+    if not record:
+        raise ValueError(f"TT source has empty record identity: {source!r}")
+    return f"{corpus}/{dataset_name}", record
+
+
+def _technical_identity(dataset: str, record: str) -> tuple[str, str]:
+    return dataset.casefold(), record.casefold()
+
+
+def _literal_identity(dataset: str, record: str) -> str:
+    return f"{dataset}:{record}"
+
+
+def _record_literal(
+    index: dict[tuple[str, str], tuple[str, str]],
+    dataset: str,
+    record: str,
+    *,
+    representation: str,
+) -> None:
+    key = _technical_identity(dataset, record)
+    literal = (dataset, record)
+    previous = index.get(key)
+    if previous is not None and previous != literal:
+        raise ValueError(
+            f"case-insensitive {representation} document collision: "
+            f"{_literal_identity(*previous)!r} versus {_literal_identity(*literal)!r}"
+        )
+    index[key] = literal
+
+
 def reconcile_reports(paula_report: dict[str, Any], tt_report: dict[str, Any]) -> dict[str, Any]:
     document_counts: Counter[str] = Counter()
     corpus_counts: Counter[str] = Counter()
-    document_records: set[tuple[str, str]] = set()
+    paula_records: dict[tuple[str, str], tuple[str, str]] = {}
+    tt_records: dict[tuple[str, str], tuple[str, str]] = {}
     errors: list[dict[str, str]] = []
 
     for instance in paula_report.get("metadata_feature_instances", []):
@@ -72,9 +141,53 @@ def reconcile_reports(paula_report: dict[str, Any], tt_report: dict[str, Any]) -
         if scope == "document":
             document_counts[feature_type] += 1
             assert record is not None
-            document_records.add((str(instance["dataset"]), record.casefold()))
+            dataset = str(instance["dataset"])
+            try:
+                _record_literal(
+                    paula_records,
+                    dataset,
+                    record,
+                    representation="PAULA",
+                )
+            except ValueError as exc:
+                errors.append(
+                    {
+                        "kind": "paula_document_identity_collision",
+                        "source": str(instance.get("source") or ""),
+                        "type": feature_type,
+                        "detail": str(exc),
+                    }
+                )
         else:
             corpus_counts[feature_type] += 1
+
+    for document in tt_report.get("documents", []):
+        try:
+            dataset, record = classify_tt_document(document)
+            _record_literal(tt_records, dataset, record, representation="TT")
+        except ValueError as exc:
+            errors.append(
+                {
+                    "kind": "unclassified_tt_document_identity",
+                    "source": str(document.get("source") or ""),
+                    "type": "",
+                    "detail": str(exc),
+                }
+            )
+
+    paula_keys = set(paula_records)
+    tt_keys = set(tt_records)
+    matched_keys = paula_keys & tt_keys
+    paula_only_keys = paula_keys - tt_keys
+    tt_only_keys = tt_keys - paula_keys
+    case_variants = [
+        {
+            "paula": _literal_identity(*paula_records[key]),
+            "tt": _literal_identity(*tt_records[key]),
+        }
+        for key in sorted(matched_keys)
+        if paula_records[key] != tt_records[key]
+    ]
 
     tt_counts = {
         str(key): int(value)
@@ -95,7 +208,16 @@ def reconcile_reports(paula_report: dict[str, Any], tt_report: dict[str, Any]) -
             }
 
     return {
-        "paula_document_record_count": len(document_records),
+        "paula_document_record_count": len(paula_records),
+        "tt_document_record_count": len(tt_records),
+        "matched_document_record_count": len(matched_keys),
+        "paula_only_document_records": [
+            _literal_identity(*paula_records[key]) for key in sorted(paula_only_keys)
+        ],
+        "tt_only_document_records": [
+            _literal_identity(*tt_records[key]) for key in sorted(tt_only_keys)
+        ],
+        "case_variant_document_pairs": case_variants,
         "document_field_counts": {key: document_counts[key] for key in sorted(document_counts)},
         "corpus_field_counts": {key: corpus_counts[key] for key in sorted(corpus_counts)},
         "document_fields_only_in_paula": sorted(document_fields - tt_fields),
