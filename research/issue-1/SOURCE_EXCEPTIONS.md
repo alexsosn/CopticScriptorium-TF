@@ -7,10 +7,19 @@ This ledger classifies source shapes discovered by corpus-scale research. Produc
 ## Packaging asymmetry
 
 - TT is directory-packaged for some datasets and ZIP-packaged for others: 561 TT documents are read from visible directories and 2,067 from archives.
-- CoNLL-U, PAULA and ANNIS packaging also varies by corpus.
+- CoNLL-U has 1,717 visible directory records plus 911 root-level `.conllu` members inside `sahidic.ot/sahidic.ot_CONLLU.zip`.
+- PAULA and ANNIS packaging also varies by corpus.
 - Opaque archive packaging is not evidence that a particular record is missing.
 
 Classification: valid source packaging. Transport must open the supported package or report that record-level semantics are unavailable.
+
+## Archive-packaged Sahidic OT CoNLL-U
+
+`sahidic.ot/sahidic.ot_CONLLU.zip` contains 911 `.conllu` records directly at the ZIP root rather than below a `sahidic.ot_CONLLU/` directory prefix. Earlier directory-only semantic audits therefore produced a false `TT-only` classification even though the source package was present in the complete inventory.
+
+The shared CoNLL-U source reader now accepts the two measured dataset-ZIP layouts: root-level `.conllu` members and members directly under the expected `<dataset>_CONLLU/` prefix. Any other nested layout, or an archive with no `.conllu` members, remains fail-closed. After opening the Sahidic OT archive, all 2,628 TT identities have CoNLL-U counterparts and there are no CoNLL-U-only identities.
+
+Classification: valid source packaging and a regression case against inventory/semantic-reader divergence. Packaging must never be translated into semantic absence.
 
 ## One-level Bohairic PAULA wrapper ZIPs
 
@@ -25,12 +34,6 @@ ANNIS source-package accounting finds 78 packages. Seventy-seven contain parseab
 The package is emitted as dataset `bohairic.ot/bohairic.ot`, classification `configuration_only`, with no relANNIS metadata availability. The 507 `meta.json` keys not represented by a relANNIS document all map to `bohairic.ot` TT records, so this package explains the complete relANNIS document-coverage gap.
 
 Classification: valid format asymmetry, explicitly ledgered. Arbitrary archives with no recognized metadata pair still fail; incomplete, duplicate or ambiguous metadata-table layouts are hard errors.
-
-## TT-only CoNLL-U identities
-
-The TT↔CoNLL-U identity audit finds 911 TT source records in `sahidic.ot` with no matching CoNLL-U record. No CoNLL-U-only source identities are observed.
-
-Classification: valid format asymmetry. TT conversion proceeds; CoNLL-U-only enrichments remain absent rather than fabricated.
 
 ## Whitespace-only CoNLL-U placeholders
 
@@ -82,11 +85,18 @@ The machine-generated audit retains every line-specific occurrence. The affected
 - `sahidica.nt/sahidica.nt_CONLLU/41_Mark_07.conllu` — basic token ID `0` (line 632);
 - `sahidica.nt/sahidica.nt_CONLLU/41_Mark_09.conllu` — basic token ID `0` (line 428);
 - `theodosius-alexandria/theodosius.alexandria_CONLLU/Encomium_Michael_BL_OR_7021_part2.conllu` — MWT `73-75` references missing basic word IDs (line 1635);
-- `theodosius-alexandria/theodosius.alexandria_CONLLU/Encomium_Michael_BL_OR_7021_part3.conllu` — MWT `8-10` references missing basic word IDs (line 1130);
+- `theodosius-alexandria/theodosius.alexandria_CONLLU/Encomium_Michael_BL_OR_7021_part3.conllu` — MWT `8-10` references missing basic word IDs (line 1130).
 
 Several documents contain additional errors beyond the representative first failure above. In particular, the previous regex-only MWT handling had missed real ranges whose numeric surface was syntactically plausible but whose endpoint word did not exist in the sentence. For example, `bohairic.nt/bohairic.nt_CONLLU/03_Luke_24.conllu` declares `46-49` although the sentence ends at basic word 48.
 
 Classification: malformed/non-standard supplementary source. TT remains source-native authority. These CoNLL-U documents are excluded from semantic supplementation/parity and are never repaired heuristically. The standalone CoNLL-U audit and TT↔CoNLL-U parity audit share the same sentence-ID validator so an invalid document cannot pass through one path after failing the other.
+
+## CoNLL-U XML-entity serialization differences
+
+Among the 2,361 structurally valid comparable TT↔CoNLL-U documents, four `norm` values and the corresponding four lemma values differ literally only because the CoNLL-U field contains `&lt;`/`&gt;` while TT parsing yields literal `<`/`>`. The audit retains the raw mismatch and both literal values, then records `serialization_equivalent` after exactly one XML-entity decode. There are zero true `norm` conflicts and zero true lemma conflicts; one additional lemma exists only in CoNLL-U.
+
+Classification: serialization difference, not annotation disagreement. No repeated/unbounded entity decoding or destructive source normalization is permitted.
+
 ## Malformed TEI exports
 
 The pinned TEI audit finds 1,458 TEI paths. Seventy-three fail XML parsing with `mismatched tag` errors, spread across 17 top-level corpora; 1,385 parse successfully. The full machine-generated TEI error ledger records every path and parse position. All 1,458 TEI identities still have TT counterparts, so malformed TEI does not imply loss of a source record.
