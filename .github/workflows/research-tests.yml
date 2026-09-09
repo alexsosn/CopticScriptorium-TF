@@ -89,6 +89,7 @@ jobs:
             /*/*_TT/**
             /*/*_TT.zip
             /*/*_CONLLU/**
+            /*/*_CONLLU.zip
             /*/*_TEI/**
             /*/*_ANNIS/corpus.annis
             /*/*_ANNIS/corpus_annotation.annis
