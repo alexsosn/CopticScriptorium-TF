@@ -13,7 +13,7 @@ import argparse
 import importlib.util
 import json
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 
 COLUMN_NAMES = (
@@ -30,26 +30,18 @@ COLUMN_NAMES = (
 )
 
 
-def _load_id_contract():
-    module_path = Path(__file__).with_name("conllu_id_contract.py")
-    spec = importlib.util.spec_from_file_location("issue1_conllu_id_contract", module_path)
+def _load_sibling(name: str, filename: str):
+    module_path = Path(__file__).with_name(filename)
+    spec = importlib.util.spec_from_file_location(name, module_path)
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load CoNLL-U ID contract from {module_path}")
+        raise RuntimeError(f"cannot load research module from {module_path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-ID_CONTRACT = _load_id_contract()
-
-
-def _iter_conllu_files(root: Path) -> Iterator[Path]:
-    directories = sorted(
-        (path for path in root.rglob("*_CONLLU") if path.is_dir()),
-        key=lambda path: path.as_posix(),
-    )
-    for directory in directories:
-        yield from sorted(directory.rglob("*.conllu"), key=lambda path: path.as_posix())
+ID_CONTRACT = _load_sibling("issue1_conllu_id_contract", "conllu_id_contract.py")
+SOURCES = _load_sibling("issue1_conllu_sources", "conllu_sources.py")
 
 
 def _attribute_keys(field: str) -> list[str]:
@@ -88,9 +80,9 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     errors: list[dict[str, Any]] = []
     documents: list[dict[str, Any]] = []
 
-    for path in _iter_conllu_files(root_path):
+    for record in SOURCES.iter_conllu_records(root_path):
         document_count += 1
-        source = path.relative_to(root_path).as_posix()
+        source = str(record["source"])
         seen_feats: set[str] = set()
         seen_misc: set[str] = set()
         file_token_rows = 0
@@ -151,7 +143,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             sentence_rows = []
             sentence_id_rows = []
 
-        text = path.read_text(encoding="utf-8", errors="replace")
+        text = str(record["text"])
         for line_number, line in enumerate(text.splitlines(), start=1):
             if not line:
                 flush_sentence()
