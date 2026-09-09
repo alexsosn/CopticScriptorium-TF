@@ -20,11 +20,12 @@ The pinned tree contains 79 top-level corpus directories and 78 detected dataset
 Packaging is heterogeneous:
 
 - TT: 561 directory files plus 2,067 members of aggregate ZIP packages;
+- CoNLL-U: 1,717 directory files plus 911 root-level members of `sahidic.ot/sahidic.ot_CONLLU.zip`;
 - PAULA: 78 packages in the sparse research checkout; `bohairic.nt` and `bohairic.ot` use an observed one-level outer ZIP containing a single inner `*_PAULA.zip`;
 - ANNIS: 77 packages with parseable metadata tables plus one configuration-only `bohairic.ot` package;
 - TEI: 1,458 visible XML paths in 76 directory datasets.
 
-Opaque packaging is never evidence that a source record is absent. Record counterpart claims are made only when identities are observable or a package is opened explicitly.
+Opaque packaging is never evidence that a source record is absent. Record counterpart claims are made only when identities are observable or a package is opened explicitly. The CoNLL-U audit therefore uses one shared source iterator for directory files and the measured archive layouts, so standalone validation and TT↔CoNLL-U parity see the same source set.
 
 ## Canonical TT document stream
 
@@ -45,23 +46,25 @@ TT metadata contains source anomalies that remain visible. Sixty-four documents 
 
 ## Strict CoNLL-U validation and parity
 
-The pinned export contains 1,717 CoNLL-U documents, 1,565,983 basic-token rows and 485,106 multiword-token rows. No empty-node rows or enhanced-DEPS rows were observed.
+The pinned export contains **2,628 CoNLL-U documents**, 2,181,412 basic-token rows and 682,360 multiword-token rows. No empty-node rows or enhanced-DEPS rows were observed.
 
 Strict validation reports **57 structural errors across 40 documents**: 38 multiword-token ranges reference one or more missing basic word IDs, ten non-positive basic token IDs are present, one malformed multiword ID (`0-2`) occurs, seven HEAD values are negative, and one HEAD is dangling. These defects include cases that a regex-only MWT check had previously missed; for example, `bohairic.nt/03_Luke_24` declares range `46-49` but the sentence ends after basic word 48. Malformed documents remain in an error ledger and contribute no semantic supplementation.
 
-CoNLL-U-specific enrichment coverage includes `Cxn/CxnElt` in 1,042 documents, `Morphs` in 1,419, `Orig` in 1,447, `OrigLang` in 1,452 and `Subject` in 13.
+CoNLL-U-specific enrichment coverage includes `Cxn/CxnElt` in 1,746 documents, `Morphs` in 2,271, `Orig` in 2,335, `OrigLang` in 2,359 and `Subject` in 15.
 
-There are 1,717 paired TT/CoNLL-U identities. Of these, 227 CoNLL-U files are whitespace-only placeholders and 40 are structurally invalid. The remaining **1,450 documents / 1,489,537 basic tokens** compare token-for-token with no token-count mismatch:
+All **2,628 TT identities have CoNLL-U counterparts**. Of these, 227 CoNLL-U files are whitespace-only placeholders and 40 are structurally invalid. The remaining **2,361 documents / 2,104,966 basic tokens** compare token-for-token with no token-count mismatch:
 
-| Field | True differences | Present only in CoNLL-U | Present only in TT |
-| --- | ---: | ---: | ---: |
-| `norm` | 0 | 0 | 0 |
-| lemma | 0 | 1 | 0 |
-| fine POS / XPOS | 1 | 0 | 0 |
-| dependency relation | 4,423 | 0 | 0 |
-| dependency head | 0 | 52,257 | 0 |
+| Field | True semantic differences | Present only in CoNLL-U | Present only in TT | Serialization-equivalent raw differences |
+| --- | ---: | ---: | ---: | ---: |
+| `norm` | 0 | 0 | 0 | 4 |
+| lemma | 0 | 1 | 0 | 4 |
+| fine POS / XPOS | 1 | 0 | 0 | 0 |
+| dependency relation | 4,902 | 0 | 0 | 0 |
+| dependency head | 0 | 52,773 | 0 | 0 |
 
-CoNLL-U HEAD IDs are normalized from sentence-local IDs to document token positions before comparison. Valid CoNLL-U can therefore supplement missing TT heads, while its normalized DEPREL layer must not overwrite TT `func`. There are 911 TT records without CoNLL-U counterparts, all in `sahidic.ot`; there are no CoNLL-U-only identities.
+The four raw `norm` differences and the same four lemma differences are XML-entity serialization only: TT metadata/token parsing yields literal `<`/`>` while the CoNLL-U fields retain `&lt;`/`&gt;`. The audit preserves both literal values and raw mismatch counts while classifying these separately from semantic conflicts.
+
+CoNLL-U HEAD IDs are normalized from sentence-local IDs to document token positions before comparison. Valid CoNLL-U can therefore supplement missing TT heads, while its normalized DEPREL layer must not overwrite TT `func`. There are no TT-only or CoNLL-U-only source identities after archive-packaged `sahidic.ot` is opened.
 
 ## `meta.json` reconciliation
 
