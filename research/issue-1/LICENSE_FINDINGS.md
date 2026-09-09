@@ -15,7 +15,7 @@ The pinned TT census contains 2,628 source records and 17 distinct literal non-e
 - public-domain text combined with CC-BY 4.0 annotations/files;
 - malformed or internally inconsistent HTML/link labels that must remain preserved as source evidence.
 
-Raw TT values frequently contain HTML links while `meta.json` commonly stores a normalized label. String inequality between those serializations is therefore evidence requiring normalization/classification, not by itself a substantive license conflict.
+Raw TT values frequently contain HTML links while `meta.json` commonly stores a normalized label. String inequality between those serializations is evidence requiring normalization/classification, not by itself a substantive license conflict. At least four TT records also combine a BY-SA 4.0 URL with visible text `CC-BY 4.0`; URL and label therefore cannot be trusted independently.
 
 ## Missing-license identities
 
@@ -25,16 +25,22 @@ The three TT records with no `license` field are all in `book.bartholomew`:
 2. `book-bartholomew/book.bartholomew_TT/book.bartholomew_part2.tt` — `urn:cts:copticLit:misc.blbartholomew.budge_ed:12-19`;
 3. `book-bartholomew/book.bartholomew_TT/book.bartholomew_part3.tt` — `urn:cts:copticLit:misc.blbartholomew.budge_ed:20-25`.
 
-These are explicit unresolved redistribution cases. Their identities are also recorded in the machine-generated `missing_metadata_records` ledger and have been handed to follow-up #8.
+The TEI audit adds asymmetric evidence rather than resolving the family automatically:
+
+- `book.bartholomew_part3.xml` parses and carries a license while the corresponding TT record does not;
+- `book.bartholomew_part1.xml` and `book.bartholomew_part2.xml` are malformed TEI (`mismatched tag`) at the pinned revision, so they cannot be used as equivalent parsed license sources without separate source investigation.
+
+These remain explicit unresolved redistribution cases. Their identities are recorded in the machine-generated TT `missing_metadata_records` ledger and are handed to follow-up #8.
 
 ## Downstream contract
 
 1. Converter code licensing and generated-data licensing are separate concerns.
 2. Every generated document/dataset must retain the literal upstream license/provenance evidence used to make distribution decisions.
 3. Release packaging must be able to include/exclude records by reviewed redistribution policy rather than assuming all records share one compatible license.
-4. Missing/unknown licenses are fail-closed for publication until explicitly resolved; they are not silently inherited from a corpus default.
+4. Missing/unknown licenses are fail-closed for publication until explicitly resolved; they are not silently inherited from a corpus default or sibling record.
 5. Attribution, share-alike, non-commercial, academic-use and custom terms must survive into a machine-readable release manifest.
 6. Normalized license families may be added only as derived fields with the literal source value preserved.
-7. The converter may process unresolved records locally for validation where source access permits it; publication remains a separate gate.
+7. Cross-format license evidence is provenance to investigate, not an automatic precedence rule.
+8. The converter may process unresolved records locally for validation where source access permits it; publication remains a separate gate.
 
-Issue #8 owns license-family normalization, redistribution compatibility, filtering and release-manifest policy. Issue #1 only establishes the measured source boundary and fail-closed requirement.
+Issue #8 owns license-family normalization, redistribution compatibility, filtering and release-manifest policy. Issue #1 establishes the measured source boundary and fail-closed requirement.
