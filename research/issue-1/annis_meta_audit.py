@@ -1,13 +1,14 @@
 """Corpus-wide relANNIS metadata reconciliation for Coptic Scriptorium.
 
 The repository README identifies PAULA/relANNIS as the representations carrying
-corpus-level metadata.  This research audit reads only the relANNIS corpus tables
-needed for that question (``corpus.annis`` and ``corpus_annotation.annis``), keeps
-corpus-node metadata separate from document metadata, and compares document
-annotations with the global ``meta.json`` index without choosing merge precedence.
+corpus-level metadata. This research audit reads only the relANNIS corpus tables
+needed for that question, keeps corpus-node metadata separate from document
+metadata, and compares document annotations with the global ``meta.json`` index
+without choosing merge precedence.
 
-Both directory-packaged and ``*_ANNIS.zip`` datasets are supported.  relANNIS
-files use PostgreSQL COPY text escaping, which is decoded before comparison.
+Both directory-packaged ANNIS 3 tables (``*.annis``) and archive-packaged legacy
+relANNIS tables (``*.tab``) are supported. relANNIS files use PostgreSQL COPY text
+escaping, which is decoded before comparison.
 """
 
 from __future__ import annotations
@@ -75,7 +76,7 @@ def _pg_unescape(value: str) -> str | None:
                 continue
 
         # PostgreSQL COPY treats a backslash before an otherwise unrecognised
-        # character as quoting that character.  Preserve the decoded character.
+        # character as quoting that character. Preserve the decoded character.
         out.append(escaped)
         index += 2
 
@@ -127,17 +128,49 @@ def _direct_datasets(root: Path) -> Iterator[dict[str, str]]:
         }
 
 
-def _one_archive_member(archive: zipfile.ZipFile, basename: str, source: str) -> str:
-    members = sorted(
+def _archive_members_by_basename(
+    archive: zipfile.ZipFile, basename: str
+) -> list[str]:
+    return sorted(
         name
         for name in archive.namelist()
         if not name.endswith("/") and Path(name).name == basename
     )
-    if len(members) != 1:
+
+
+def _archive_table_pair(
+    archive: zipfile.ZipFile, source: str
+) -> tuple[str, str]:
+    candidates: list[tuple[str, str, str]] = []
+    incomplete: list[str] = []
+    for label, corpus_name, annotation_name in (
+        ("annis", "corpus.annis", "corpus_annotation.annis"),
+        ("tab", "corpus.tab", "corpus_annotation.tab"),
+    ):
+        corpus_members = _archive_members_by_basename(archive, corpus_name)
+        annotation_members = _archive_members_by_basename(archive, annotation_name)
+        if len(corpus_members) > 1 or len(annotation_members) > 1:
+            raise ValueError(
+                f"relANNIS archive {source} has duplicate {label} metadata tables"
+            )
+        if corpus_members and annotation_members:
+            candidates.append((label, corpus_members[0], annotation_members[0]))
+        elif corpus_members or annotation_members:
+            incomplete.append(label)
+
+    if incomplete:
         raise ValueError(
-            f"relANNIS archive {source} expected exactly one {basename}, found {len(members)}"
+            f"relANNIS archive {source} has incomplete metadata table pair(s): "
+            + ", ".join(sorted(incomplete))
         )
-    return members[0]
+    if len(candidates) != 1:
+        layouts = ", ".join(candidate[0] for candidate in candidates) or "none"
+        raise ValueError(
+            f"relANNIS archive {source} expected exactly one metadata table layout; "
+            f"found {layouts}"
+        )
+    _label, corpus_member, annotation_member = candidates[0]
+    return corpus_member, annotation_member
 
 
 def _archive_datasets(root: Path) -> Iterator[dict[str, str]]:
@@ -149,10 +182,7 @@ def _archive_datasets(root: Path) -> Iterator[dict[str, str]]:
         dataset_name = relative.parts[1][:-10]
         source = relative.as_posix()
         with zipfile.ZipFile(archive_path) as archive:
-            corpus_member = _one_archive_member(archive, "corpus.annis", source)
-            annotation_member = _one_archive_member(
-                archive, "corpus_annotation.annis", source
-            )
+            corpus_member, annotation_member = _archive_table_pair(archive, source)
             yield {
                 "dataset": f"{corpus}/{dataset_name}",
                 "packaging": "archive",
