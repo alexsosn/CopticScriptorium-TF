@@ -40,6 +40,23 @@ META_XML = '''<?xml version="1.0"?>
 <featList type="license" xml:base="demo.anno.xml"><feat xlink:href="#anno_1" value="CC-BY 4.0"/></featList>
 </paula>
 '''
+ANNOFEAT_XML = '''<?xml version="1.0"?>
+<paula version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink">
+<header paula_id="demo.annoFeat"/>
+<featList type="annoFeat" xml:base="demo.anno.xml"><feat xlink:href="#rel_1" value="tok"/></featList>
+</paula>
+'''
+MULTI_META_XML = '''<?xml version="1.0"?>
+<paula version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink">
+<header paula_id="demo.meta_multiFeat"/>
+<multiFeatList type="multiFeat" xml:base="demo.anno.xml">
+  <multiFeat xlink:href="#anno_1">
+    <feat name="language" value="Coptic"/>
+    <feat name="source_format" value="PAULA XML"/>
+  </multiFeat>
+</multiFeatList>
+</paula>
+'''
 REL_XML = '''<?xml version="1.0"?>
 <paula version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink">
 <header paula_id="doc.dep"/>
@@ -117,6 +134,54 @@ class PaulaAuditContractTests(unittest.TestCase):
             ],
         )
         self.assertEqual(report["errors"], [])
+
+    def test_annofeat_is_not_metadata_and_multifeat_metadata_is_expanded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_archive(
+                root,
+                "demo",
+                "demo",
+                {
+                    "demo/demo.anno_feat.xml": ANNOFEAT_XML,
+                    "demo/demo.meta_multiFeat.xml": MULTI_META_XML,
+                },
+            )
+
+            report = self.audit.audit_upstream(root)
+
+        self.assertEqual(
+            report["list_type_occurrences"],
+            {
+                "featList": {"annoFeat": 1},
+                "multiFeatList": {"multiFeat": 1},
+            },
+        )
+        self.assertEqual(
+            report["metadata_feature_type_occurrences"],
+            {"language": 1, "source_format": 1},
+        )
+        self.assertEqual(
+            report["metadata_feature_instances"],
+            [
+                {
+                    "dataset": "demo/demo",
+                    "source": "demo/demo_PAULA.zip!/demo/demo.meta_multiFeat.xml",
+                    "paula_id": "demo.meta_multiFeat",
+                    "base": "demo.anno.xml",
+                    "type": "language",
+                    "values": ["Coptic"],
+                },
+                {
+                    "dataset": "demo/demo",
+                    "source": "demo/demo_PAULA.zip!/demo/demo.meta_multiFeat.xml",
+                    "paula_id": "demo.meta_multiFeat",
+                    "base": "demo.anno.xml",
+                    "type": "source_format",
+                    "values": ["PAULA XML"],
+                },
+            ],
+        )
 
     def test_nested_archive_packaging_is_counted_once(self):
         with tempfile.TemporaryDirectory() as tmp:
