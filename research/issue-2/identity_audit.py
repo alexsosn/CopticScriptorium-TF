@@ -19,7 +19,6 @@ import re
 from typing import Any, Iterator
 import zipfile
 
-
 META_ATTRIBUTE_RE = re.compile(
     r'\s+([A-Za-z_][A-Za-z0-9_.:-]*)\s*=\s*"([^"]*)"'
 )
@@ -60,8 +59,6 @@ def _hash_json(value: Any) -> str:
 
 
 def _scan_attributes(fragment: str) -> dict[str, str]:
-    """Parse the complete double-quoted attribute surface, rejecting duplicates."""
-
     position = 0
     attrs: dict[str, str] = {}
     while position < len(fragment):
@@ -80,14 +77,6 @@ def _scan_attributes(fragment: str) -> dict[str, str]:
 
 
 def _scan_meta_line(line: str) -> dict[str, Any]:
-    """Source-native TT meta lexer preserving duplicate literal values.
-
-    TT metadata is SGML-like and real upstream records contain duplicate attribute
-    names, so an XML parser or dict-comprehension would lose evidence.  The first
-    literal value remains available for identity fields while all duplicates are
-    reported on the record.
-    """
-
     stripped = line.strip().lstrip("\ufeff")
     if not stripped.startswith("<meta") or not stripped.endswith(">"):
         raise ValueError("not a complete <meta ...> start tag")
@@ -103,7 +92,6 @@ def _scan_meta_line(line: str) -> dict[str, Any]:
             raise ValueError(f"malformed meta attribute syntax near offset {position}")
         pairs.append((match.group(1), html.unescape(match.group(2))))
         position = match.end()
-
     values: dict[str, list[str]] = {}
     attrs: dict[str, str] = {}
     for name, value in pairs:
@@ -130,7 +118,6 @@ def _first_meta_line(text: str) -> str | None:
 def _tt_tokens(text: str) -> list[dict[str, Any]]:
     raw_tokens: list[dict[str, str]] = []
     id_to_position: dict[str, int] = {}
-
     for position, match in enumerate(NORM_TAG_RE.finditer(text), start=1):
         attrs = _scan_attributes(match.group(1))
         xml_id = attrs.get("xml:id")
@@ -139,7 +126,6 @@ def _tt_tokens(text: str) -> list[dict[str, Any]]:
                 raise ValueError(f"duplicate TT token xml:id {xml_id!r}")
             id_to_position[xml_id] = position
         raw_tokens.append(attrs)
-
     tokens: list[dict[str, Any]] = []
     for attrs in raw_tokens:
         raw_head = attrs.get("head")
@@ -197,7 +183,6 @@ def _record_from_bytes(
         attrs = scanned["attributes"]
         duplicate_meta = scanned["duplicates"]
         metadata_error = None
-
     tokens = _tt_tokens(text)
     normalized = [token["norm"] for token in tokens]
     original = _orig_sequence(text)
@@ -292,11 +277,7 @@ def _iter_archive_records(root: Path) -> Iterator[dict[str, Any]]:
                     raise ValueError(
                         f"unsupported TT archive member layout in {relative.as_posix()}: {member!r}"
                     )
-                if "/" in logical:
-                    # Nested logical records are allowed and retain their path identity.
-                    record = logical[:-3]
-                else:
-                    record = logical[:-3]
+                record = logical[:-3]
                 yield _record_from_bytes(
                     dataset=dataset,
                     record=record,
@@ -419,32 +400,55 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         )
 
     scholarly_ids = set(by_scholarly)
-    redundant_records: list[dict[str, Any]] = []
+    witness_relations: list[dict[str, Any]] = []
+    witness_by_source: dict[str, dict[str, Any]] = {}
     unresolved_witnesses: list[dict[str, str]] = []
+    for record in records:
+        witness = record["witness"]
+        if not witness:
+            continue
+        witness_text = str(witness)
+        is_cts = bool(re.fullmatch(r"urn:cts:[^\s]+", witness_text))
+        witness_kind = "cts" if is_cts else "free_text"
+        resolved: bool | None = witness_text in scholarly_ids if is_cts else None
+        relation = {
+            "source_record_id": record["source_record_id"],
+            "source": record["source"],
+            "scholarly_id": record["scholarly_id"],
+            "witness": witness_text,
+            "witness_kind": witness_kind,
+            "witness_resolved": resolved,
+        }
+        witness_relations.append(relation)
+        witness_by_source[record["source_record_id"]] = relation
+        if is_cts and not resolved:
+            unresolved_witnesses.append(
+                {
+                    "source_record_id": record["source_record_id"],
+                    "scholarly_id": record["scholarly_id"] or "",
+                    "witness": witness_text,
+                }
+            )
+
+    redundant_records: list[dict[str, Any]] = []
     redundant_without_witness = 0
     for record in records:
         if record["redundant"] != "yes":
             continue
         witness = record["witness"]
-        resolved = bool(witness) and witness in scholarly_ids
-        item = {
-            "source_record_id": record["source_record_id"],
-            "source": record["source"],
-            "scholarly_id": record["scholarly_id"],
-            "witness": witness,
-            "witness_resolved": resolved,
-        }
-        redundant_records.append(item)
+        relation = witness_by_source.get(record["source_record_id"])
+        redundant_records.append(
+            {
+                "source_record_id": record["source_record_id"],
+                "source": record["source"],
+                "scholarly_id": record["scholarly_id"],
+                "witness": witness,
+                "witness_kind": relation["witness_kind"] if relation else None,
+                "witness_resolved": relation["witness_resolved"] if relation else None,
+            }
+        )
         if not witness:
             redundant_without_witness += 1
-        elif not resolved:
-            unresolved_witnesses.append(
-                {
-                    "source_record_id": record["source_record_id"],
-                    "scholarly_id": record["scholarly_id"] or "",
-                    "witness": str(witness),
-                }
-            )
 
     metadata_error_records = [
         {
@@ -464,7 +468,6 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         for record in records
         if record["duplicate_meta_attributes"]
     ]
-
     return {
         "document_count": len(records),
         "scholarly_identity_count": len(by_scholarly),
@@ -480,6 +483,10 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "pair_classification_counts": {
             key: pair_class_counts[key] for key in sorted(CLASS_SEVERITY)
         },
+        "witness_relation_count": len(witness_relations),
+        "witness_relations": sorted(
+            witness_relations, key=lambda item: item["source_record_id"]
+        ),
         "redundant_record_count": len(redundant_records),
         "redundant_records": sorted(
             redundant_records, key=lambda item: item["source_record_id"]
@@ -497,22 +504,3 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
 
 def render_report_json(report: dict[str, Any]) -> str:
     return json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("upstream", type=Path, help="Pinned CopticScriptorium/corpora checkout")
-    parser.add_argument("--output", type=Path, help="Write JSON report here instead of stdout")
-    args = parser.parse_args(argv)
-
-    rendered = render_report_json(audit_upstream(args.upstream))
-    if args.output:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(rendered, encoding="utf-8")
-    else:
-        print(rendered, end="")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
