@@ -72,6 +72,43 @@ class PaulaTtMetadataAuditContractTests(unittest.TestCase):
             {"license": {"paula": 1, "tt": 2, "delta": -1}},
         )
 
+    def test_equal_counts_do_not_hide_document_identity_substitution(self):
+        paula_report = {
+            "metadata_feature_instances": [
+                {
+                    "dataset": "demo/demo",
+                    "source": "demo/demo_PAULA.zip!/demo/doc1/anno_title.xml",
+                    "type": "title",
+                },
+                {
+                    "dataset": "demo/demo",
+                    "source": "demo/demo_PAULA.zip!/demo/docX/anno_title.xml",
+                    "type": "title",
+                },
+            ]
+        }
+        tt_report = {
+            "metadata_key_presence": {"title": 2},
+            "documents": [
+                {
+                    "source": "demo/demo_TT/doc1.tt",
+                    "packaging": "directory",
+                },
+                {
+                    "source": "demo/demo_TT/doc2.tt",
+                    "packaging": "directory",
+                },
+            ],
+        }
+
+        report = self.audit.reconcile_reports(paula_report, tt_report)
+
+        self.assertEqual(report["paula_document_record_count"], 2)
+        self.assertEqual(report["tt_document_record_count"], 2)
+        self.assertEqual(report["matched_document_record_count"], 1)
+        self.assertEqual(report["paula_only_document_records"], ["demo/demo:docX"])
+        self.assertEqual(report["tt_only_document_records"], ["demo/demo:doc2"])
+
     def test_classifies_one_level_wrapper_member_by_innermost_path(self):
         instance = {
             "dataset": "bohairic.nt/bohairic.nt",
