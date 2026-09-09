@@ -76,7 +76,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Check out pinned Coptic Scriptorium TT and CoNLL-U sources
+      - name: Check out pinned Coptic Scriptorium semantic sources
         uses: actions/checkout@v4
         with:
           repository: CopticScriptorium/corpora
@@ -89,6 +89,9 @@ jobs:
             /*/*_TT/**
             /*/*_TT.zip
             /*/*_CONLLU/**
+            /*/*_ANNIS/corpus.annis
+            /*/*_ANNIS/corpus_annotation.annis
+            /*/*_ANNIS.zip
       - name: Verify pinned upstream source
         working-directory: upstream
         run: test "$(git rev-parse HEAD)" = "$UPSTREAM_COMMIT"
@@ -108,6 +111,10 @@ jobs:
         run: >-
           python research/issue-1/meta_json_audit.py upstream
           --output research/issue-1/meta-json-audit.json
+      - name: Reconcile relANNIS corpus metadata with meta.json
+        run: >-
+          python research/issue-1/annis_meta_audit.py upstream
+          --output research/issue-1/annis-meta-audit.json
       - uses: actions/upload-artifact@v4
         with:
           name: issue1-semantic-audit
@@ -130,5 +137,11 @@ jobs:
         with:
           name: issue1-meta-json-audit
           path: research/issue-1/meta-json-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-annis-meta-audit
+          path: research/issue-1/annis-meta-audit.json
           if-no-files-found: error
           retention-days: 14
