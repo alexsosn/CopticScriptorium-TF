@@ -6,9 +6,12 @@ needed for that question, keeps corpus-node metadata separate from document
 metadata, and compares document annotations with the global ``meta.json`` index
 without choosing merge precedence.
 
-Both directory-packaged ANNIS 3 tables (``*.annis``) and archive-packaged legacy
-relANNIS tables (``*.tab``) are supported. relANNIS files use PostgreSQL COPY text
-escaping, which is decoded before comparison.
+Directory-packaged ANNIS 3 tables (``*.annis``) and archive-packaged legacy
+relANNIS tables (``*.tab``) are supported. Some upstream ``*_ANNIS.zip`` packages
+contain only ANNIS configuration/viewer assets and no corpus metadata tables; those
+packages are recorded explicitly as metadata-unavailable rather than silently
+ignored. relANNIS files use PostgreSQL COPY text escaping, which is decoded before
+comparison.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ import zipfile
 
 
 MAX_EXAMPLES = 100
+CONFIG_ONLY_SIGNATURE = frozenset({"annis.version", "resolver_vis_map.annis"})
 
 
 def _ordered(counter: Counter[str]) -> dict[str, int]:
@@ -68,22 +72,26 @@ def _pg_unescape(value: str) -> str | None:
 
         if escaped == "x":
             end = index + 2
-            while end < len(value) and end < index + 4 and value[end] in "0123456789abcdefABCDEF":
+            while (
+                end < len(value)
+                and end < index + 4
+                and value[end] in "0123456789abcdefABCDEF"
+            ):
                 end += 1
             if end > index + 2:
                 out.append(chr(int(value[index + 2 : end], 16)))
                 index = end
                 continue
 
-        # PostgreSQL COPY treats a backslash before an otherwise unrecognised
-        # character as quoting that character. Preserve the decoded character.
         out.append(escaped)
         index += 2
 
     return "".join(out)
 
 
-def _split_row(line: str, expected: int, source: str, line_number: int) -> list[str | None]:
+def _split_row(
+    line: str, expected: int, source: str, line_number: int
+) -> list[str | None]:
     columns = line.split("\t")
     if len(columns) != expected:
         raise ValueError(
@@ -128,6 +136,16 @@ def _direct_datasets(root: Path) -> Iterator[dict[str, str]]:
         }
 
 
+def _archive_basenames(archive: zipfile.ZipFile) -> list[str]:
+    return sorted(
+        {
+            Path(name).name
+            for name in archive.namelist()
+            if not name.endswith("/")
+        }
+    )
+
+
 def _archive_members_by_basename(
     archive: zipfile.ZipFile, basename: str
 ) -> list[str]:
@@ -140,7 +158,7 @@ def _archive_members_by_basename(
 
 def _archive_table_pair(
     archive: zipfile.ZipFile, source: str
-) -> tuple[str, str]:
+) -> tuple[str, str] | None:
     candidates: list[tuple[str, str, str]] = []
     incomplete: list[str] = []
     for label, corpus_name, annotation_name in (
@@ -163,53 +181,88 @@ def _archive_table_pair(
             f"relANNIS archive {source} has incomplete metadata table pair(s): "
             + ", ".join(sorted(incomplete))
         )
-    if len(candidates) != 1:
-        layouts = ", ".join(candidate[0] for candidate in candidates) or "none"
-        basenames = sorted(
-            {
-                Path(name).name
-                for name in archive.namelist()
-                if not name.endswith("/")
-            }
+    if len(candidates) > 1:
+        layouts = ", ".join(candidate[0] for candidate in candidates)
+        raise ValueError(
+            f"relANNIS archive {source} expected exactly one metadata table layout; "
+            f"found {layouts}"
         )
+    if not candidates:
+        basenames = _archive_basenames(archive)
+        if CONFIG_ONLY_SIGNATURE <= set(basenames):
+            return None
         available = ", ".join(basenames) or "<empty>"
         raise ValueError(
             f"relANNIS archive {source} expected exactly one metadata table layout; "
-            f"found {layouts}; available basenames: {available}"
+            f"found none; available basenames: {available}"
         )
+
     _label, corpus_member, annotation_member = candidates[0]
     return corpus_member, annotation_member
 
 
-def _archive_datasets(root: Path) -> Iterator[dict[str, str]]:
+def _archive_datasets(
+    root: Path,
+) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+    datasets: list[dict[str, str]] = []
+    unavailable: list[dict[str, Any]] = []
     for archive_path in sorted(root.rglob("*_ANNIS.zip"), key=lambda path: path.as_posix()):
         relative = archive_path.relative_to(root)
         if len(relative.parts) != 2:
             continue
         corpus = relative.parts[0]
         dataset_name = relative.parts[1][:-10]
+        dataset = f"{corpus}/{dataset_name}"
         source = relative.as_posix()
         with zipfile.ZipFile(archive_path) as archive:
-            corpus_member, annotation_member = _archive_table_pair(archive, source)
-            yield {
-                "dataset": f"{corpus}/{dataset_name}",
-                "packaging": "archive",
-                "corpus_source": f"{source}!/{corpus_member}",
-                "annotation_source": f"{source}!/{annotation_member}",
-                "corpus_text": archive.read(corpus_member).decode("utf-8"),
-                "annotation_text": archive.read(annotation_member).decode("utf-8"),
-            }
+            pair = _archive_table_pair(archive, source)
+            if pair is None:
+                unavailable.append(
+                    {
+                        "dataset": dataset,
+                        "source": source,
+                        "classification": "configuration_only",
+                        "available_basenames": _archive_basenames(archive),
+                    }
+                )
+                continue
+            corpus_member, annotation_member = pair
+            datasets.append(
+                {
+                    "dataset": dataset,
+                    "packaging": "archive",
+                    "corpus_source": f"{source}!/{corpus_member}",
+                    "annotation_source": f"{source}!/{annotation_member}",
+                    "corpus_text": archive.read(corpus_member).decode("utf-8"),
+                    "annotation_text": archive.read(annotation_member).decode("utf-8"),
+                }
+            )
+    return datasets, unavailable
 
 
-def _datasets(root: Path) -> list[dict[str, str]]:
-    datasets = list(_direct_datasets(root)) + list(_archive_datasets(root))
+def _datasets(
+    root: Path,
+) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+    archive_datasets, unavailable = _archive_datasets(root)
+    datasets = list(_direct_datasets(root)) + archive_datasets
     indexed: dict[str, dict[str, str]] = {}
     for dataset in datasets:
         key = dataset["dataset"]
         if key in indexed:
             raise ValueError(f"duplicate relANNIS dataset representation for {key}")
         indexed[key] = dataset
-    return [indexed[key] for key in sorted(indexed)]
+
+    unavailable_by_dataset: dict[str, dict[str, Any]] = {}
+    for entry in unavailable:
+        key = str(entry["dataset"])
+        if key in indexed or key in unavailable_by_dataset:
+            raise ValueError(f"duplicate relANNIS dataset representation for {key}")
+        unavailable_by_dataset[key] = entry
+
+    return (
+        [indexed[key] for key in sorted(indexed)],
+        [unavailable_by_dataset[key] for key in sorted(unavailable_by_dataset)],
+    )
 
 
 def _parse_corpus_table(dataset: dict[str, str]) -> dict[int, dict[str, Any]]:
@@ -223,7 +276,9 @@ def _parse_corpus_table(dataset: dict[str, str]) -> dict[int, dict[str, Any]]:
         columns = _split_row(line, 7, source, line_number)
         raw_id, name, node_type, version, pre, post, top_level = columns
         if raw_id is None or name is None or node_type is None:
-            raise ValueError(f"NULL required relANNIS corpus field in {source} line {line_number}")
+            raise ValueError(
+                f"NULL required relANNIS corpus field in {source} line {line_number}"
+            )
         try:
             node_id = int(raw_id)
         except ValueError as exc:
@@ -256,7 +311,9 @@ def _parse_corpus_table(dataset: dict[str, str]) -> dict[int, dict[str, Any]]:
     return nodes
 
 
-def _annotation_key(namespace: str | None, name: str | None, source: str, line: int) -> str:
+def _annotation_key(
+    namespace: str | None, name: str | None, source: str, line: int
+) -> str:
     if name is None or not name:
         raise ValueError(f"missing relANNIS annotation name in {source} line {line}")
     if namespace in {None, "", "NULL"}:
@@ -324,7 +381,7 @@ def _unique_values(values: list[str | None]) -> list[str | None]:
 def audit_upstream(root: Path | str) -> dict[str, Any]:
     root_path = Path(root)
     meta, meta_index = _load_meta_json(root_path)
-    datasets = _datasets(root_path)
+    datasets, metadata_unavailable_archives = _datasets(root_path)
 
     packaging: Counter[str] = Counter()
     document_count = 0
@@ -433,8 +490,10 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         str(key) for key in meta if str(key) not in used_meta_keys
     )
     return {
+        "source_package_count": len(datasets) + len(metadata_unavailable_archives),
         "dataset_count": len(datasets),
         "packaging": _ordered(packaging),
+        "metadata_unavailable_archives": metadata_unavailable_archives,
         "document_count": document_count,
         "corpus_node_count": corpus_node_count,
         "matched_document_count": matched_count,
