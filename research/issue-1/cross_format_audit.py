@@ -22,7 +22,12 @@ import zipfile
 ATTR_RE = re.compile(r'\s+([A-Za-z_][A-Za-z0-9_.:-]*)\s*=\s*"([^"]*)"')
 NORM_TAG_RE = re.compile(r'<norm\b((?:[^">]|"[^"]*")*)>', re.DOTALL)
 SHARED_FIELDS = ("func", "head", "lemma", "norm", "pos")
-MISMATCH_CATEGORIES = ("different", "missing_in_conllu", "missing_in_tt")
+MISMATCH_CATEGORIES = (
+    "different",
+    "missing_in_conllu",
+    "missing_in_tt",
+    "serialization_equivalent",
+)
 EXAMPLES_PER_FIELD = 20
 
 
@@ -263,11 +268,18 @@ def _index(
     return indexed
 
 
-def _mismatch_category(tt_value: Any, conllu_value: Any) -> str:
+def _mismatch_category(field: str, tt_value: Any, conllu_value: Any) -> str:
     if tt_value is None and conllu_value is not None:
         return "missing_in_tt"
     if conllu_value is None and tt_value is not None:
         return "missing_in_conllu"
+    if (
+        field in {"lemma", "norm"}
+        and isinstance(tt_value, str)
+        and isinstance(conllu_value, str)
+        and html.unescape(conllu_value) == tt_value
+    ):
+        return "serialization_equivalent"
     return "different"
 
 
@@ -377,7 +389,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
                 if tt_value == conllu_value:
                     continue
                 mismatch_counts[field] += 1
-                category = _mismatch_category(tt_value, conllu_value)
+                category = _mismatch_category(field, tt_value, conllu_value)
                 mismatch_categories[field][category] += 1
                 if mismatch_example_counts[field] < EXAMPLES_PER_FIELD:
                     mismatch_examples.append(
