@@ -1,113 +1,351 @@
 """Corpus-wide PAULA package and semantic-shape audit."""
+
 from __future__ import annotations
-import argparse, json, zipfile
+
+import argparse
 from collections import Counter, defaultdict
+from io import BytesIO
+import json
 from pathlib import Path
 from typing import Any, Iterator
 import xml.etree.ElementTree as ET
+import zipfile
 
-XML_BASE="{http://www.w3.org/XML/1998/namespace}base"
-CONTENT_KINDS={"body","markList","featList","multiFeatList","structList","relList"}
 
-def _local_name(tag): return tag.rsplit("}",1)[-1]
-def _ordered(counter): return {k:counter[k] for k in sorted(counter)}
+XML_BASE = "{http://www.w3.org/XML/1998/namespace}base"
+CONTENT_KINDS = {"body", "markList", "featList", "multiFeatList", "structList", "relList"}
 
-def _dataset_for_archive(root, path):
-    rel=path.relative_to(root); p=rel.parts
-    if len(p)==2 and p[1].endswith("_PAULA.zip"): return f"{p[0]}/{p[1][:-10]}",rel.as_posix()
-    if len(p)==3 and p[1].endswith("_PAULA") and p[2].endswith("_PAULA.zip"): return f"{p[0]}/{p[1][:-6]}",rel.as_posix()
-    raise ValueError(f"unsupported PAULA archive location: {rel.as_posix()}")
 
-def _dataset_for_directory(root,path):
-    rel=path.relative_to(root); p=rel.parts
-    if len(p)!=2 or not p[1].endswith("_PAULA"): raise ValueError(f"unsupported PAULA directory location: {rel.as_posix()}")
-    return f"{p[0]}/{p[1][:-6]}",rel.as_posix()
+def _local_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1]
 
-def _packages(root):
-    packages=[]; archives=sorted(root.rglob("*_PAULA.zip"),key=lambda p:p.as_posix()); parents={p.parent.resolve() for p in archives}
-    for p in archives:
-        d,s=_dataset_for_archive(root,p); packages.append({"dataset":d,"source":s,"packaging":"archive","path":p})
-    for p in sorted((x for x in root.rglob("*_PAULA") if x.is_dir()),key=lambda p:p.as_posix()):
-        if p.resolve() in parents: continue
-        d,s=_dataset_for_directory(root,p); packages.append({"dataset":d,"source":s,"packaging":"directory","path":p})
-    idx={}
-    for p in packages:
-        if p["dataset"] in idx: raise ValueError(f"duplicate PAULA package representation for {p['dataset']}")
-        idx[p["dataset"]]=p
-    return [idx[k] for k in sorted(idx)]
 
-def _archive_members(package):
-    with zipfile.ZipFile(package["path"]) as a:
-        for m in sorted(a.namelist()):
-            if not m.endswith("/") and m.lower().endswith(".xml"): yield f"{package['source']}!/{m}",a.read(m)
+def _ordered(counter: Counter[str]) -> dict[str, int]:
+    return {key: counter[key] for key in sorted(counter)}
 
-def _all_archive_names(package):
-    with zipfile.ZipFile(package["path"]) as a: return sorted(m for m in a.namelist() if not m.endswith("/"))
 
-def _directory_members(root,package):
-    for m in sorted(package["path"].rglob("*.xml"),key=lambda p:p.as_posix()): yield m.relative_to(root).as_posix(),m.read_bytes()
+def _dataset_for_archive(root: Path, path: Path) -> tuple[str, str]:
+    relative = path.relative_to(root)
+    parts = relative.parts
+    if len(parts) == 2 and parts[1].endswith("_PAULA.zip"):
+        return f"{parts[0]}/{parts[1][:-10]}", relative.as_posix()
+    if len(parts) == 3 and parts[1].endswith("_PAULA") and parts[2].endswith("_PAULA.zip"):
+        return f"{parts[0]}/{parts[1][:-6]}", relative.as_posix()
+    raise ValueError(f"unsupported PAULA archive location: {relative.as_posix()}")
 
-def _all_directory_names(root,package):
-    return sorted(p.relative_to(package["path"]).as_posix() for p in package["path"].rglob("*") if p.is_file())
 
-def _content_element(root):
-    c=[x for x in root if _local_name(x.tag) in CONTENT_KINDS]
-    if len(c)!=1: raise ValueError("expected exactly one PAULA content element")
-    return c[0]
+def _dataset_for_directory(root: Path, path: Path) -> tuple[str, str]:
+    relative = path.relative_to(root)
+    parts = relative.parts
+    if len(parts) != 2 or not parts[1].endswith("_PAULA"):
+        raise ValueError(f"unsupported PAULA directory location: {relative.as_posix()}")
+    return f"{parts[0]}/{parts[1][:-6]}", relative.as_posix()
 
-def _header_id(root):
-    for c in root:
-        if _local_name(c.tag)=="header": return c.attrib.get("paula_id")
+
+def _packages(root: Path) -> list[dict[str, Any]]:
+    packages: list[dict[str, Any]] = []
+    archives = sorted(root.rglob("*_PAULA.zip"), key=lambda path: path.as_posix())
+    archive_parents = {path.parent.resolve() for path in archives}
+
+    for path in archives:
+        dataset, source = _dataset_for_archive(root, path)
+        packages.append({"dataset": dataset, "source": source, "packaging": "archive", "path": path})
+
+    for path in sorted(
+        (candidate for candidate in root.rglob("*_PAULA") if candidate.is_dir()),
+        key=lambda candidate: candidate.as_posix(),
+    ):
+        if path.resolve() in archive_parents:
+            continue
+        dataset, source = _dataset_for_directory(root, path)
+        packages.append({"dataset": dataset, "source": source, "packaging": "directory", "path": path})
+
+    indexed: dict[str, dict[str, Any]] = {}
+    for package in packages:
+        dataset = package["dataset"]
+        if dataset in indexed:
+            raise ValueError(f"duplicate PAULA package representation for {dataset}")
+        indexed[dataset] = package
+    return [indexed[key] for key in sorted(indexed)]
+
+
+def _xml_members_from_zip(archive: zipfile.ZipFile, source_prefix: str) -> list[tuple[str, bytes]]:
+    return [
+        (f"{source_prefix}!/{member}", archive.read(member))
+        for member in sorted(archive.namelist())
+        if not member.endswith("/") and member.lower().endswith(".xml")
+    ]
+
+
+def _archive_members(package: dict[str, Any]) -> Iterator[tuple[str, bytes]]:
+    """Yield XML from an ordinary PAULA ZIP or one observed one-level wrapper.
+
+    Bohairic aggregate packages in the pinned source contain exactly one inner
+    ``*_PAULA.zip`` instead of XML at the outer level.  We support that measured
+    shape only.  Multiple inner archives, unrelated ZIPs, or deeper wrappers are
+    deliberately not guessed through and remain unsupported package evidence.
+    """
+
+    with zipfile.ZipFile(package["path"]) as outer:
+        direct_xml = _xml_members_from_zip(outer, package["source"])
+        if direct_xml:
+            yield from direct_xml
+            return
+
+        inner_archives = sorted(
+            member
+            for member in outer.namelist()
+            if not member.endswith("/") and Path(member).name.lower().endswith("_paula.zip")
+        )
+        if len(inner_archives) != 1:
+            return
+
+        inner_name = inner_archives[0]
+        inner_source = f"{package['source']}!/{inner_name}"
+        with zipfile.ZipFile(BytesIO(outer.read(inner_name))) as inner:
+            # One wrapper level is the contract.  If the inner archive itself has
+            # no XML, return no members so the caller records an unsupported shape.
+            yield from _xml_members_from_zip(inner, inner_source)
+
+
+def _all_archive_names(package: dict[str, Any]) -> list[str]:
+    with zipfile.ZipFile(package["path"]) as archive:
+        return sorted(member for member in archive.namelist() if not member.endswith("/"))
+
+
+def _directory_members(root: Path, package: dict[str, Any]) -> Iterator[tuple[str, bytes]]:
+    candidates = sorted(
+        (
+            member
+            for member in package["path"].rglob("*")
+            if member.is_file() and member.suffix.lower() == ".xml"
+        ),
+        key=lambda member: member.as_posix(),
+    )
+    for member in candidates:
+        yield member.relative_to(root).as_posix(), member.read_bytes()
+
+
+def _all_directory_names(root: Path, package: dict[str, Any]) -> list[str]:
+    del root
+    return sorted(
+        path.relative_to(package["path"]).as_posix()
+        for path in package["path"].rglob("*")
+        if path.is_file()
+    )
+
+
+def _content_element(root: ET.Element) -> ET.Element:
+    content = [child for child in root if _local_name(child.tag) in CONTENT_KINDS]
+    if len(content) != 1:
+        raise ValueError("expected exactly one PAULA content element")
+    return content[0]
+
+
+def _header_id(root: ET.Element) -> str | None:
+    for child in root:
+        if _local_name(child.tag) == "header":
+            return child.attrib.get("paula_id")
     return None
 
-def _feature_values(c): return [x.attrib["value"] for x in c if _local_name(x.tag)=="feat" and "value" in x.attrib]
-def _multi_feature_values(c):
-    out=defaultdict(list)
-    for mf in c:
-        if _local_name(mf.tag)!="multiFeat": continue
-        for f in mf:
-            if _local_name(f.tag)=="feat" and f.attrib.get("name") and "value" in f.attrib: out[f.attrib["name"]].append(f.attrib["value"])
-    return {k:out[k] for k in sorted(out)}
-def _is_metadata_base(base):
-    if not base: return False
-    b=base.strip(); return b=="meta" or Path(b).name.endswith(".anno.xml")
 
-def audit_upstream(root: Path|str)->dict[str,Any]:
-    root=Path(root); packages=_packages(root); packaging=Counter(); kinds=Counter(); list_types=defaultdict(Counter); metadata_types=Counter(); metadata=[]; examples=defaultdict(list); errors=[]; no_xml=[]; xml_count=0; parsed=0
+def _feature_values(content: ET.Element) -> list[str]:
+    return [
+        child.attrib["value"]
+        for child in content
+        if _local_name(child.tag) == "feat" and "value" in child.attrib
+    ]
+
+
+def _multi_feature_values(content: ET.Element) -> dict[str, list[str]]:
+    output: dict[str, list[str]] = defaultdict(list)
+    for multi_feature in content:
+        if _local_name(multi_feature.tag) != "multiFeat":
+            continue
+        for feature in multi_feature:
+            if (
+                _local_name(feature.tag) == "feat"
+                and feature.attrib.get("name")
+                and "value" in feature.attrib
+            ):
+                output[feature.attrib["name"]].append(feature.attrib["value"])
+    return {key: output[key] for key in sorted(output)}
+
+
+def _is_metadata_base(base: str | None) -> bool:
+    if not base:
+        return False
+    normalized = base.strip()
+    basename = Path(normalized).name
+    return normalized == "meta" or basename == "anno.xml" or basename.endswith(".anno.xml")
+
+
+def audit_upstream(root: Path | str) -> dict[str, Any]:
+    root_path = Path(root)
+    packages = _packages(root_path)
+    packaging: Counter[str] = Counter()
+    element_kinds: Counter[str] = Counter()
+    list_types: dict[str, Counter[str]] = defaultdict(Counter)
+    metadata_types: Counter[str] = Counter()
+    metadata: list[dict[str, Any]] = []
+    examples: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    errors: list[dict[str, str]] = []
+    packages_without_xml: list[dict[str, Any]] = []
+    xml_count = 0
+    parsed = 0
+
     for package in packages:
-        packaging[package["packaging"]]+=1
+        packaging[package["packaging"]] += 1
         try:
-            members=list(_archive_members(package)) if package["packaging"]=="archive" else list(_directory_members(root,package))
-        except (OSError,zipfile.BadZipFile) as e:
-            errors.append({"kind":"unreadable_package","source":package["source"],"detail":str(e)}); continue
-        parsed+=1
-        if not members:
-            names=_all_archive_names(package) if package["packaging"]=="archive" else _all_directory_names(root,package)
-            no_xml.append({"dataset":package["dataset"],"source":package["source"],"members":names[:100]})
-            errors.append({"kind":"unsupported_package_shape","source":package["source"],"detail":"no PAULA XML members"}); continue
-        for source,raw in members:
-            xml_count+=1
-            try: r=ET.fromstring(raw)
-            except (ET.ParseError,UnicodeDecodeError) as e:
-                errors.append({"kind":"malformed_xml","source":source,"detail":str(e)}); continue
-            if _local_name(r.tag)!="paula": errors.append({"kind":"invalid_root","source":source,"detail":_local_name(r.tag)}); continue
-            try: c=_content_element(r)
-            except ValueError as e: errors.append({"kind":"invalid_content","source":source,"detail":str(e)}); continue
-            kind=_local_name(c.tag); kinds[kind]+=1; typ=c.attrib.get("type"); base=c.attrib.get(XML_BASE) or c.attrib.get("xml:base"); pid=_header_id(r)
-            if kind!="body" and typ: list_types[kind][typ]+=1
-            if kind=="featList" and typ and len(examples[typ])<3:
-                examples[typ].append({"dataset":package["dataset"],"source":source,"paula_id":pid,"base":base,"values":_feature_values(c)[:5]})
-            if kind=="featList" and _is_metadata_base(base) and typ and typ!="annoFeat":
-                metadata_types[typ]+=1; metadata.append({"dataset":package["dataset"],"source":source,"paula_id":pid,"base":base,"type":typ,"values":_feature_values(c)})
-            elif kind=="multiFeatList" and _is_metadata_base(base):
-                for t,vals in _multi_feature_values(c).items():
-                    metadata_types[t]+=1; metadata.append({"dataset":package["dataset"],"source":source,"paula_id":pid,"base":base,"type":t,"values":vals})
-    return {"source_package_count":len(packages),"parsed_package_count":parsed,"datasets":[p["dataset"] for p in packages],"packaging":_ordered(packaging),"xml_member_count":xml_count,"element_kind_counts":_ordered(kinds),"list_type_occurrences":{k:_ordered(list_types[k]) for k in sorted(list_types)},"feature_type_examples":{k:examples[k] for k in sorted(examples)},"metadata_feature_type_occurrences":_ordered(metadata_types),"metadata_feature_instances":sorted(metadata,key=lambda x:(x["dataset"],x["source"],x["type"])),"packages_without_xml_members":sorted(no_xml,key=lambda x:x["dataset"]),"errors":sorted(errors,key=lambda x:(x.get("source",""),x.get("kind",""),x.get("detail","")))}
+            members = (
+                list(_archive_members(package))
+                if package["packaging"] == "archive"
+                else list(_directory_members(root_path, package))
+            )
+        except (OSError, zipfile.BadZipFile) as exc:
+            errors.append(
+                {"kind": "unreadable_package", "source": package["source"], "detail": str(exc)}
+            )
+            continue
 
-def render_report_json(report): return json.dumps(report,ensure_ascii=False,indent=2,sort_keys=True)+"\n"
-def main(argv=None):
-    p=argparse.ArgumentParser(description=__doc__); p.add_argument("upstream",type=Path); p.add_argument("--output",type=Path); a=p.parse_args(argv); s=render_report_json(audit_upstream(a.upstream))
-    if a.output: a.output.parent.mkdir(parents=True,exist_ok=True); a.output.write_text(s,encoding="utf-8")
-    else: print(s,end="")
+        parsed += 1
+        if not members:
+            names = (
+                _all_archive_names(package)
+                if package["packaging"] == "archive"
+                else _all_directory_names(root_path, package)
+            )
+            packages_without_xml.append(
+                {
+                    "dataset": package["dataset"],
+                    "source": package["source"],
+                    "members": names[:100],
+                }
+            )
+            errors.append(
+                {
+                    "kind": "unsupported_package_shape",
+                    "source": package["source"],
+                    "detail": "no PAULA XML members",
+                }
+            )
+            continue
+
+        for source, raw in members:
+            xml_count += 1
+            try:
+                xml_root = ET.fromstring(raw)
+            except (ET.ParseError, UnicodeDecodeError) as exc:
+                errors.append({"kind": "malformed_xml", "source": source, "detail": str(exc)})
+                continue
+            if _local_name(xml_root.tag) != "paula":
+                errors.append(
+                    {"kind": "invalid_root", "source": source, "detail": _local_name(xml_root.tag)}
+                )
+                continue
+            try:
+                content = _content_element(xml_root)
+            except ValueError as exc:
+                errors.append({"kind": "invalid_content", "source": source, "detail": str(exc)})
+                continue
+
+            kind = _local_name(content.tag)
+            element_kinds[kind] += 1
+            feature_type = content.attrib.get("type")
+            base = content.attrib.get(XML_BASE) or content.attrib.get("xml:base")
+            paula_id = _header_id(xml_root)
+
+            if kind != "body" and feature_type:
+                list_types[kind][feature_type] += 1
+            if kind == "featList" and feature_type and len(examples[feature_type]) < 3:
+                examples[feature_type].append(
+                    {
+                        "dataset": package["dataset"],
+                        "source": source,
+                        "paula_id": paula_id,
+                        "base": base,
+                        "values": _feature_values(content)[:5],
+                    }
+                )
+
+            if (
+                kind == "featList"
+                and _is_metadata_base(base)
+                and feature_type
+                and feature_type != "annoFeat"
+            ):
+                metadata_types[feature_type] += 1
+                metadata.append(
+                    {
+                        "dataset": package["dataset"],
+                        "source": source,
+                        "paula_id": paula_id,
+                        "base": base,
+                        "type": feature_type,
+                        "values": _feature_values(content),
+                    }
+                )
+            elif kind == "multiFeatList" and _is_metadata_base(base):
+                for metadata_type, values in _multi_feature_values(content).items():
+                    metadata_types[metadata_type] += 1
+                    metadata.append(
+                        {
+                            "dataset": package["dataset"],
+                            "source": source,
+                            "paula_id": paula_id,
+                            "base": base,
+                            "type": metadata_type,
+                            "values": values,
+                        }
+                    )
+
+    return {
+        "source_package_count": len(packages),
+        "parsed_package_count": parsed,
+        "datasets": [package["dataset"] for package in packages],
+        "packaging": _ordered(packaging),
+        "xml_member_count": xml_count,
+        "element_kind_counts": _ordered(element_kinds),
+        "list_type_occurrences": {
+            key: _ordered(list_types[key]) for key in sorted(list_types)
+        },
+        "feature_type_examples": {key: examples[key] for key in sorted(examples)},
+        "metadata_feature_type_occurrences": _ordered(metadata_types),
+        "metadata_feature_instances": sorted(
+            metadata,
+            key=lambda item: (item["dataset"], item["source"], item["type"]),
+        ),
+        "packages_without_xml_members": sorted(
+            packages_without_xml, key=lambda item: item["dataset"]
+        ),
+        "errors": sorted(
+            errors,
+            key=lambda item: (
+                item.get("source", ""),
+                item.get("kind", ""),
+                item.get("detail", ""),
+            ),
+        ),
+    }
+
+
+def render_report_json(report: dict[str, Any]) -> str:
+    return json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("upstream", type=Path)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args(argv)
+    rendered = render_report_json(audit_upstream(args.upstream))
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(rendered, encoding="utf-8")
+    else:
+        print(rendered, end="")
     return 0
-if __name__=="__main__": raise SystemExit(main())
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
