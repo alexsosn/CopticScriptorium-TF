@@ -242,6 +242,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     licenses: Counter[str] = Counter()
     redundant: Counter[str] = Counter()
     missing: Counter[str] = Counter()
+    missing_records: list[dict[str, str | None]] = []
     layers: Counter[str] = Counter()
     errors: list[dict[str, str]] = []
     documents: list[dict[str, Any]] = []
@@ -290,15 +291,27 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
 
         if attrs is not None:
             metadata_keys.update(attrs.keys())
+
+            def record_missing(field: str) -> None:
+                missing[field] += 1
+                missing_records.append(
+                    {
+                        "field": field,
+                        "source": source_id,
+                        "corpus": attrs.get("corpus"),
+                        "document_cts_urn": attrs.get("document_cts_urn"),
+                    }
+                )
+
             for field in QUALITY_FIELDS:
                 value = attrs.get(field)
                 if value:
                     quality[field][value] += 1
                 else:
-                    missing[field] += 1
+                    record_missing(field)
             for field in REQUIRED_METADATA:
                 if not attrs.get(field):
-                    missing[field] += 1
+                    record_missing(field)
             license_value = attrs.get("license")
             if license_value:
                 licenses[license_value] += 1
@@ -306,7 +319,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             if redundant_value:
                 redundant[redundant_value] += 1
             else:
-                missing["redundant"] += 1
+                record_missing("redundant")
 
         documents.append(
             {
@@ -328,6 +341,15 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "license_values": _ordered_counter(licenses),
         "redundant_values": _ordered_counter(redundant),
         "missing_metadata": {field: missing[field] for field in all_missing_fields},
+        "missing_metadata_records": sorted(
+            missing_records,
+            key=lambda item: (
+                item["field"] or "",
+                item["source"] or "",
+                item["corpus"] or "",
+                item["document_cts_urn"] or "",
+            ),
+        ),
         "layer_presence": {layer: layers[layer] for layer in sorted(LAYER_PATTERNS)},
         "duplicate_meta_attributes": {
             "document_count": duplicate_document_count,
