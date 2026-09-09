@@ -3,7 +3,7 @@
 This research tool inventories pinned Coptic Scriptorium PAULA exports without
 making PAULA a production parser. It balances package representations, parses
 standard PAULA XML members, records list/body kinds and annotation types, and
-surfaces single- and multi-feature metadata attached to ``*.anno.xml`` objects.
+surfaces single- and multi-feature metadata attached to PAULA metadata objects.
 The special ``annoFeat`` validation inventory is kept distinct from metadata.
 Malformed XML and unsupported package shapes remain explicit evidence.
 """
@@ -86,8 +86,6 @@ def _packages(root: Path) -> list[dict[str, Any]]:
         (path for path in root.rglob("*_PAULA") if path.is_dir()),
         key=lambda path: path.as_posix(),
     ):
-        # A wrapper directory containing the actual *_PAULA.zip is one package,
-        # not a directory package plus an archive package.
         if directory.resolve() in archive_parents:
             continue
         dataset, source = _dataset_for_directory(root, directory)
@@ -130,11 +128,7 @@ def _directory_members(root: Path, package: dict[str, Any]) -> Iterator[tuple[st
 
 
 def _content_element(root_element: ET.Element) -> ET.Element:
-    content = [
-        child
-        for child in root_element
-        if _local_name(child.tag) in CONTENT_KINDS
-    ]
+    content = [child for child in root_element if _local_name(child.tag) in CONTENT_KINDS]
     if len(content) != 1:
         kinds = [_local_name(child.tag) for child in content]
         raise ValueError(
@@ -175,7 +169,10 @@ def _multi_feature_values(content: ET.Element) -> dict[str, list[str]]:
 
 
 def _is_metadata_base(base: str | None) -> bool:
-    return bool(base and Path(base).name.endswith(".anno.xml"))
+    if not base:
+        return False
+    normalized = base.strip()
+    return normalized == "meta" or Path(normalized).name.endswith(".anno.xml")
 
 
 def audit_upstream(root: Path | str) -> dict[str, Any]:
@@ -193,25 +190,18 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
 
     for package in packages:
         packaging[package["packaging"]] += 1
-        package_opened = False
         try:
             if package["packaging"] == "archive":
                 members = list(_archive_members(package))
             else:
                 members = list(_directory_members(root_path, package))
-            package_opened = True
         except (OSError, zipfile.BadZipFile) as exc:
             errors.append(
-                {
-                    "kind": "unreadable_package",
-                    "source": package["source"],
-                    "detail": str(exc),
-                }
+                {"kind": "unreadable_package", "source": package["source"], "detail": str(exc)}
             )
             continue
 
-        if package_opened:
-            parsed_package_count += 1
+        parsed_package_count += 1
         if not members:
             errors.append(
                 {
@@ -227,9 +217,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             try:
                 root_element = ET.fromstring(raw)
             except (ET.ParseError, UnicodeDecodeError) as exc:
-                errors.append(
-                    {"kind": "malformed_xml", "source": source, "detail": str(exc)}
-                )
+                errors.append({"kind": "malformed_xml", "source": source, "detail": str(exc)})
                 continue
 
             if _local_name(root_element.tag) != "paula":
@@ -245,9 +233,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             try:
                 content = _content_element(root_element)
             except ValueError as exc:
-                errors.append(
-                    {"kind": "invalid_content", "source": source, "detail": str(exc)}
-                )
+                errors.append({"kind": "invalid_content", "source": source, "detail": str(exc)})
                 continue
 
             kind = _local_name(content.tag)
@@ -258,8 +244,6 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
 
             base = content.attrib.get(XML_BASE) or content.attrib.get("xml:base")
             if kind == "featList" and _is_metadata_base(base):
-                # annoFeat describes which annotation files/layers exist; it is
-                # validation inventory, not object metadata (PAULA 1.1 ch. 4).
                 if list_type and list_type != "annoFeat":
                     metadata_types[list_type] += 1
                     metadata_instances.append(
@@ -293,9 +277,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "packaging": _ordered(packaging),
         "xml_member_count": xml_member_count,
         "element_kind_counts": _ordered(element_kinds),
-        "list_type_occurrences": {
-            kind: _ordered(list_types[kind]) for kind in sorted(list_types)
-        },
+        "list_type_occurrences": {kind: _ordered(list_types[kind]) for kind in sorted(list_types)},
         "metadata_feature_type_occurrences": _ordered(metadata_types),
         "metadata_feature_instances": sorted(
             metadata_instances,
@@ -323,7 +305,7 @@ def render_report_json(report: dict[str, Any]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("upstream", type=Path, help="Pinned Coptic Scriptorium checkout")
+    parser.add_argument("upstream", type=Path, help="Pinned CopticScriptorium checkout")
     parser.add_argument("--output", type=Path, help="Write report here instead of stdout")
     args = parser.parse_args(argv)
 
