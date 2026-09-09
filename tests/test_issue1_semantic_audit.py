@@ -94,6 +94,7 @@ class SemanticAuditContractTests(unittest.TestCase):
         self.assertEqual(report["redundant_values"], {"no": 1, "yes": 1})
         self.assertEqual(report["license_values"], {"CC-BY 4.0": 1, "CUSTOM": 1})
         self.assertEqual(report["missing_metadata"]["document_cts_urn"], 0)
+        self.assertEqual(report["missing_metadata_records"], [])
         self.assertEqual(report["layer_presence"]["orig_group"], 2)
         self.assertEqual(report["layer_presence"]["dependency_func"], 2)
         self.assertEqual(report["layer_presence"]["dependency_head"], 0)
@@ -110,6 +111,30 @@ class SemanticAuditContractTests(unittest.TestCase):
         self.assertEqual(report["meta_json"]["top_level_type"], "object")
         self.assertEqual(report["meta_json"]["top_level_size"], 2)
         self.assertEqual(report["meta_json"]["sample_keys"], ["demo:one", "packed:two"])
+
+    def test_missing_metadata_records_preserve_source_identity(self):
+        missing_license = '''<meta corpus="demo" document_cts_urn="urn:cts:demo:missing" segmentation="gold" tagging="gold" parsing="gold" entities="gold" identities="gold" redundant="no" title="Missing">
+<norm xml:id="u1" func="root" norm="x">x</norm>
+'''
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            direct = root / "demo" / "demo_TT"
+            direct.mkdir(parents=True)
+            (direct / "missing.tt").write_text(missing_license, encoding="utf-8")
+            report = self.audit.audit_upstream(root)
+
+        self.assertEqual(report["missing_metadata"]["license"], 1)
+        self.assertEqual(
+            report["missing_metadata_records"],
+            [
+                {
+                    "field": "license",
+                    "source": "demo/demo_TT/missing.tt",
+                    "corpus": "demo",
+                    "document_cts_urn": "urn:cts:demo:missing",
+                }
+            ],
+        )
 
     def test_duplicate_metadata_is_measured_without_silent_overwrite(self):
         duplicate = '''<meta corpus="demo" document_cts_urn="urn:cts:demo:dup" license="CC" title="Dup" people="A" people="A" places="X" places="Y">
