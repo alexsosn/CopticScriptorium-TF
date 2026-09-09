@@ -40,20 +40,53 @@ Classification: valid empty supplementary representation, not token-count drift.
 
 ## Structurally invalid CoNLL-U
 
-The strict validator reports 19 structural errors across nine CoNLL-U documents:
+The shared strict validator reports **57 structural errors across 40 CoNLL-U documents**. By error occurrence: 38 multiword-token ranges reference one or more missing basic word IDs, ten basic token IDs are non-positive, one multiword ID is malformed (`0-2`), seven HEAD values are negative, and one HEAD is dangling.
 
-- `book-bartholomew/book.bartholomew_CONLLU/book.bartholomew_part1.conllu` — basic token ID `0`;
-- `book-bartholomew/book.bartholomew_CONLLU/book.bartholomew_part2.conllu` — basic token ID `0`;
-- `helias/helias_CONLLU/helias_martyrdom_part1.conllu` — basic token ID `0`;
-- `helias/helias_CONLLU/helias_martyrdom_part4.conllu` — basic token ID `0`;
-- `life-hilaria/life.hilaria_CONLLU/life.hilaria.bnf132frg2.conllu` — malformed multiword ID `0-2` plus basic token ID `0`;
-- `life-marina/life.marina_CONLLU/life.marina.HC_giron.conllu` — basic token ID `0`;
-- `sahidica.nt/sahidica.nt_CONLLU/41_Mark_01.conllu` — one dangling HEAD and seven negative HEAD values;
-- `sahidica.nt/sahidica.nt_CONLLU/41_Mark_07.conllu` — basic token ID `0`;
-- `sahidica.nt/sahidica.nt_CONLLU/41_Mark_09.conllu` — three basic token ID `0` occurrences.
+The machine-generated audit retains every line-specific occurrence. The affected documents and their first recorded structural failure are:
+- `bohairic-life-isaac/bohairic.life.isaac_CONLLU/bohairic.life.isaac03.conllu` — MWT `1-3` references missing basic word IDs (line 1998);
+- `bohairic.nt/bohairic.nt_CONLLU/03_Luke_24.conllu` — MWT `46-49` references missing basic word IDs (line 1808);
+- `bohairic.nt/bohairic.nt_CONLLU/04_John_08.conllu` — MWT `29-31` references missing basic word IDs (line 403);
+- `bohairic.nt/bohairic.nt_CONLLU/05_Acts_24.conllu` — MWT `1-2` references missing basic word IDs (line 267);
+- `bohairic.nt/bohairic.nt_CONLLU/05_Acts_25.conllu` — MWT `48-50` references missing basic word IDs (line 316);
+- `bohairic.nt/bohairic.nt_CONLLU/19_Hebrews_12.conllu` — MWT `14-16` references missing basic word IDs (line 609);
+- `bohairic.nt/bohairic.nt_CONLLU/27_Revelation_10.conllu` — MWT `39-42` references missing basic word IDs (line 354);
+- `bohairic.nt/bohairic.nt_CONLLU/27_Revelation_18.conllu` — MWT `42-43` references missing basic word IDs (line 1291);
+- `bohairic.ot/bohairic.ot_CONLLU/01_Genesis_09.conllu` — MWT `14-15` references missing basic word IDs (line 318);
+- `bohairic.ot/bohairic.ot_CONLLU/01_Genesis_22.conllu` — MWT `41-44` references missing basic word IDs (line 648);
+- `bohairic.ot/bohairic.ot_CONLLU/01_Genesis_24.conllu` — MWT `37-39` references missing basic word IDs (line 2956);
+- `bohairic.ot/bohairic.ot_CONLLU/01_Genesis_30.conllu` — MWT `45-46` references missing basic word IDs (line 1525);
+- `bohairic.ot/bohairic.ot_CONLLU/02_Exodus_05.conllu` — MWT `46-47` references missing basic word IDs (line 546);
+- `bohairic.ot/bohairic.ot_CONLLU/02_Exodus_36.conllu` — MWT `47-48` references missing basic word IDs (line 400);
+- `bohairic.ot/bohairic.ot_CONLLU/02_Exodus_39.conllu` — MWT `26-28` references missing basic word IDs (line 184);
+- `bohairic.ot/bohairic.ot_CONLLU/02_Exodus_40.conllu` — MWT `31-33` references missing basic word IDs (line 612);
+- `bohairic.ot/bohairic.ot_CONLLU/03_Leviticus_27.conllu` — MWT `29-30` references missing basic word IDs (line 1011);
+- `bohairic.ot/bohairic.ot_CONLLU/04_Numeri_01.conllu` — MWT `16-19` references missing basic word IDs (line 1372);
+- `bohairic.ot/bohairic.ot_CONLLU/04_Numeri_03.conllu` — MWT `20-22` references missing basic word IDs (line 1287);
+- `bohairic.ot/bohairic.ot_CONLLU/04_Numeri_08.conllu` — MWT `17-18` references missing basic word IDs (line 1232);
+- `bohairic.ot/bohairic.ot_CONLLU/04_Numeri_11.conllu` — MWT `65-66` references missing basic word IDs (line 1398);
+- `bohairic.ot/bohairic.ot_CONLLU/05_Deuteronomium_13.conllu` — MWT `50-51` references missing basic word IDs (line 940);
+- `bohairic.ot/bohairic.ot_CONLLU/05_Deuteronomium_17.conllu` — MWT `14-15` references missing basic word IDs (line 702);
+- `bohairic.ot/bohairic.ot_CONLLU/05_Deuteronomium_19.conllu` — MWT `51-52` references missing basic word IDs (line 938);
+- `bohairic.ot/bohairic.ot_CONLLU/18_Iob_11.conllu` — MWT `10-12` references missing basic word IDs (line 17);
+- `bohairic.ot/bohairic.ot_CONLLU/19_Psalmi_102.conllu` — MWT `17-19` references missing basic word IDs (line 485);
+- `bohairic.ot/bohairic.ot_CONLLU/24_Ieremias_24.conllu` — MWT `51-53` references missing basic word IDs (line 71);
+- `book-bartholomew/book.bartholomew_CONLLU/book.bartholomew_part1.conllu` — basic token ID `0` (line 6341);
+- `book-bartholomew/book.bartholomew_CONLLU/book.bartholomew_part2.conllu` — basic token ID `0` (line 933);
+- `helias/helias_CONLLU/helias_martyrdom_part1.conllu` — basic token ID `0` (line 289);
+- `helias/helias_CONLLU/helias_martyrdom_part4.conllu` — MWT `34-37` references missing basic word IDs (line 1068);
+- `john-constantinople/john.constantinople_CONLLU/penitence.01.conllu` — MWT `2-5` references missing basic word IDs (line 7595);
+- `life-hilaria/life.hilaria_CONLLU/life.hilaria.bnf132frg2.conllu` — malformed row ID `0-2` (line 198);
+- `life-marina/life.marina_CONLLU/life.marina.HC_giron.conllu` — basic token ID `0` (line 542);
+- `mercurius/mercurius_CONLLU/martyrdom.mercurius.conllu` — MWT `38-39` references missing basic word IDs (line 5135);
+- `sahidica.nt/sahidica.nt_CONLLU/41_Mark_01.conllu` — dangling HEAD `32` (line 431);
+- `sahidica.nt/sahidica.nt_CONLLU/41_Mark_07.conllu` — basic token ID `0` (line 632);
+- `sahidica.nt/sahidica.nt_CONLLU/41_Mark_09.conllu` — basic token ID `0` (line 428);
+- `theodosius-alexandria/theodosius.alexandria_CONLLU/Encomium_Michael_BL_OR_7021_part2.conllu` — MWT `73-75` references missing basic word IDs (line 1635);
+- `theodosius-alexandria/theodosius.alexandria_CONLLU/Encomium_Michael_BL_OR_7021_part3.conllu` — MWT `8-10` references missing basic word IDs (line 1130);
 
-Classification: malformed/non-standard supplementary source. TT remains source-native authority. These CoNLL-U documents are excluded from semantic supplementation/parity and are never repaired heuristically.
+Several documents contain additional errors beyond the representative first failure above. In particular, the previous regex-only MWT handling had missed real ranges whose numeric surface was syntactically plausible but whose endpoint word did not exist in the sentence. For example, `bohairic.nt/bohairic.nt_CONLLU/03_Luke_24.conllu` declares `46-49` although the sentence ends at basic word 48.
 
+Classification: malformed/non-standard supplementary source. TT remains source-native authority. These CoNLL-U documents are excluded from semantic supplementation/parity and are never repaired heuristically. The standalone CoNLL-U audit and TT↔CoNLL-U parity audit share the same sentence-ID validator so an invalid document cannot pass through one path after failing the other.
 ## Malformed TEI exports
 
 The pinned TEI audit finds 1,458 TEI paths. Seventy-three fail XML parsing with `mismatched tag` errors, spread across 17 top-level corpora; 1,385 parse successfully. The full machine-generated TEI error ledger records every path and parse position. All 1,458 TEI identities still have TT counterparts, so malformed TEI does not imply loss of a source record.
@@ -76,7 +109,9 @@ Classification: source normalization/quality anomaly. Exact keys and literal val
 
 ## PAULA document metadata coverage asymmetry
 
-PAULA document metadata covers all 2,628 records and exposes the same 80 field names as TT metadata, but three fields have lower occurrence counts in PAULA:
+PAULA document metadata covers all 2,628 records. Identity-level reconciliation matches all 2,628 PAULA document identities to all 2,628 TT document identities, with no PAULA-only or TT-only records. Eleven pairs differ only in filename case; both literal spellings remain recorded.
+
+PAULA exposes the same 80 field names as TT metadata, but three fields have lower occurrence counts in PAULA:
 
 - `document_cts_urn`: 2,579 PAULA vs 2,628 TT;
 - `next`: 285 PAULA vs 1,828 TT;
@@ -84,7 +119,7 @@ PAULA document metadata covers all 2,628 records and exposes the same 80 field n
 
 The other 77 field counts match TT exactly.
 
-Classification: lossy derived document-metadata serialization for these fields. PAULA is validation/corpus-provenance evidence, not a replacement for TT per-copy metadata.
+Classification: identity-complete but lossy derived document-metadata serialization for these fields. PAULA is validation/corpus-provenance evidence, not a replacement for TT per-copy metadata.
 
 ## Missing TT license metadata
 
