@@ -89,6 +89,7 @@ jobs:
             /*/*_TT/**
             /*/*_TT.zip
             /*/*_CONLLU/**
+            /*/*_TEI/**
             /*/*_ANNIS/corpus.annis
             /*/*_ANNIS/corpus_annotation.annis
             /*/*_ANNIS.zip
@@ -121,6 +122,10 @@ jobs:
         run: >-
           python research/issue-1/paula_audit.py upstream
           --output research/issue-1/paula-audit.json
+      - name: Audit corpus-wide TEI exports
+        run: >-
+          python research/issue-1/tei_audit.py upstream
+          --output research/issue-1/tei-audit.json
       - uses: actions/upload-artifact@v4
         with:
           name: issue1-semantic-audit
@@ -155,5 +160,11 @@ jobs:
         with:
           name: issue1-paula-audit
           path: research/issue-1/paula-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-tei-audit
+          path: research/issue-1/tei-audit.json
           if-no-files-found: error
           retention-days: 14
