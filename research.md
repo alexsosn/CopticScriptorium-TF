@@ -47,19 +47,19 @@ TT metadata contains source anomalies that remain visible. Sixty-four documents 
 
 The pinned export contains 1,717 CoNLL-U documents, 1,565,983 basic-token rows and 485,106 multiword-token rows. No empty-node rows or enhanced-DEPS rows were observed.
 
-Strict validation reports 19 structural errors across nine documents: ten non-positive basic token IDs, one malformed multiword ID (`0-2`), seven negative HEAD values and one dangling HEAD. Malformed documents remain in an error ledger and contribute no semantic supplementation.
+Strict validation reports **57 structural errors across 40 documents**: 38 multiword-token ranges reference one or more missing basic word IDs, ten non-positive basic token IDs are present, one malformed multiword ID (`0-2`) occurs, seven HEAD values are negative, and one HEAD is dangling. These defects include cases that a regex-only MWT check had previously missed; for example, `bohairic.nt/03_Luke_24` declares range `46-49` but the sentence ends after basic word 48. Malformed documents remain in an error ledger and contribute no semantic supplementation.
 
 CoNLL-U-specific enrichment coverage includes `Cxn/CxnElt` in 1,042 documents, `Morphs` in 1,419, `Orig` in 1,447, `OrigLang` in 1,452 and `Subject` in 13.
 
-There are 1,717 paired TT/CoNLL-U identities. Of these, 227 CoNLL-U files are whitespace-only placeholders and nine are structurally invalid. The remaining **1,481 documents / 1,547,873 basic tokens** compare token-for-token with no token-count mismatch:
+There are 1,717 paired TT/CoNLL-U identities. Of these, 227 CoNLL-U files are whitespace-only placeholders and 40 are structurally invalid. The remaining **1,450 documents / 1,489,537 basic tokens** compare token-for-token with no token-count mismatch:
 
 | Field | True differences | Present only in CoNLL-U | Present only in TT |
 | --- | ---: | ---: | ---: |
 | `norm` | 0 | 0 | 0 |
 | lemma | 0 | 1 | 0 |
 | fine POS / XPOS | 1 | 0 | 0 |
-| dependency relation | 4,718 | 0 | 0 |
-| dependency head | 0 | 54,747 | 0 |
+| dependency relation | 4,423 | 0 | 0 |
+| dependency head | 0 | 52,257 | 0 |
 
 CoNLL-U HEAD IDs are normalized from sentence-local IDs to document token positions before comparison. Valid CoNLL-U can therefore supplement missing TT heads, while its normalized DEPREL layer must not overwrite TT `func`. There are 911 TT records without CoNLL-U counterparts, all in `sahidic.ot`; there are no CoNLL-U-only identities.
 
@@ -89,6 +89,7 @@ The PAULA audit opens all 78 pinned packages, including the one-level wrapper ZI
 Publishing provenance shows that Coptic Scriptorium imports TT into Pepper/Salt, adds order relations, injects corpus metadata, and exports the same graph through PAULA and ANNIS. Corpus measurement is consistent with that derivation:
 
 - PAULA contains metadata for all **2,628 document records**;
+- identity-level reconciliation matches all **2,628 PAULA records to 2,628 TT records**, with **0 PAULA-only** and **0 TT-only** identities; 11 pairs differ only by filename case and retain both literal spellings;
 - PAULA document metadata exposes exactly the same **80 field names** observed in TT metadata;
 - there are **0 document metadata field names unique to PAULA** and **0 TT document metadata field names absent from the PAULA vocabulary**;
 - coverage differs only for three fields: `document_cts_urn` is present in 2,579 PAULA documents vs 2,628 TT documents, `next` in 285 vs 1,828, and `previous` in 267 vs 1,810;
