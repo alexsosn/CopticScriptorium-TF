@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections import Counter
 import argparse
 import html
+import importlib.util
 import json
 from pathlib import Path
 import re
@@ -23,8 +24,19 @@ NORM_TAG_RE = re.compile(r'<norm\b((?:[^">]|"[^"]*")*)>', re.DOTALL)
 SHARED_FIELDS = ("func", "head", "lemma", "norm", "pos")
 MISMATCH_CATEGORIES = ("different", "missing_in_conllu", "missing_in_tt")
 EXAMPLES_PER_FIELD = 20
-MWT_ID_RE = re.compile(r"[1-9]\d*-[1-9]\d*")
-EMPTY_NODE_ID_RE = re.compile(r"[1-9]\d*\.[1-9]\d*")
+
+
+def _load_id_contract():
+    module_path = Path(__file__).with_name("conllu_id_contract.py")
+    spec = importlib.util.spec_from_file_location("issue1_cross_conllu_id_contract", module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load CoNLL-U ID contract from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+ID_CONTRACT = _load_id_contract()
 
 
 def _scan_attributes(fragment: str) -> dict[str, str]:
@@ -86,17 +98,23 @@ def _tt_tokens(text: str) -> list[dict[str, Any]]:
 def _conllu_tokens(text: str) -> list[dict[str, Any]]:
     tokens: list[dict[str, Any]] = []
     sentence_rows: list[tuple[int, list[str], int]] = []
+    sentence_id_rows: list[dict[str, Any]] = []
 
     def flush_sentence() -> None:
-        nonlocal sentence_rows
-        if not sentence_rows:
+        nonlocal sentence_rows, sentence_id_rows
+        if not sentence_rows and not sentence_id_rows:
             return
+
+        id_issues = ID_CONTRACT.validate_sentence_id_rows(sentence_id_rows)
+        if id_issues:
+            issue = id_issues[0]
+            raise ValueError(
+                f"{issue['detail']} for ID {issue['id']!r} at line {issue['line']}"
+            )
 
         start_position = len(tokens)
         local_to_absolute: dict[int, int] = {}
-        for offset, (local_id, _columns, line_number) in enumerate(
-            sentence_rows, start=1
-        ):
+        for offset, (local_id, _columns, line_number) in enumerate(sentence_rows, start=1):
             if local_id in local_to_absolute:
                 raise ValueError(
                     f"duplicate CoNLL-U token id {local_id} at line {line_number}"
@@ -140,6 +158,7 @@ def _conllu_tokens(text: str) -> list[dict[str, Any]]:
                 }
             )
         sentence_rows = []
+        sentence_id_rows = []
 
     for line_number, line in enumerate(text.splitlines(), start=1):
         if not line:
@@ -150,25 +169,22 @@ def _conllu_tokens(text: str) -> list[dict[str, Any]]:
         columns = line.split("\t")
         if len(columns) != 10:
             raise ValueError(f"invalid CoNLL-U column count at line {line_number}")
+
         row_id = columns[0]
-        if row_id.isdigit():
-            local_id = int(row_id)
-            if local_id <= 0:
+        try:
+            parsed_id = ID_CONTRACT.parse_row_id(row_id, line_number)
+        except ID_CONTRACT.RowIdError as exc:
+            if exc.kind == "invalid_token_id":
                 raise ValueError(
-                    f"invalid CoNLL-U token id {local_id} at line {line_number}"
-                )
-            sentence_rows.append((local_id, columns, line_number))
-        elif MWT_ID_RE.fullmatch(row_id) or EMPTY_NODE_ID_RE.fullmatch(row_id):
-            # Multiword-token and empty-node rows are not basic syntactic tokens.
-            continue
-        elif re.fullmatch(r"-\d+", row_id):
-            raise ValueError(
-                f"invalid CoNLL-U token id {row_id} at line {line_number}"
-            )
-        else:
+                    f"invalid CoNLL-U token id {row_id} at line {line_number}"
+                ) from exc
             raise ValueError(
                 f"invalid CoNLL-U row id {row_id!r} at line {line_number}"
-            )
+            ) from exc
+
+        sentence_id_rows.append(parsed_id)
+        if parsed_id["kind"] == "basic":
+            sentence_rows.append((int(parsed_id["first"]), columns, line_number))
 
     flush_sentence()
     return tokens
