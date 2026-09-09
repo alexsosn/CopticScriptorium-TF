@@ -3,7 +3,8 @@
 This research tool inventories pinned Coptic Scriptorium PAULA exports without
 making PAULA a production parser. It balances package representations, parses
 standard PAULA XML members, records list/body kinds and annotation types, and
-surfaces metadata feature files (feature lists based on ``*.anno.xml``).
+surfaces single- and multi-feature metadata attached to ``*.anno.xml`` objects.
+The special ``annoFeat`` validation inventory is kept distinct from metadata.
 Malformed XML and unsupported package shapes remain explicit evidence.
 """
 
@@ -158,6 +159,25 @@ def _feature_values(content: ET.Element) -> list[str]:
     return values
 
 
+def _multi_feature_values(content: ET.Element) -> dict[str, list[str]]:
+    values: dict[str, list[str]] = defaultdict(list)
+    for multi_feature in content:
+        if _local_name(multi_feature.tag) != "multiFeat":
+            continue
+        for feature in multi_feature:
+            if _local_name(feature.tag) != "feat":
+                continue
+            name = feature.attrib.get("name")
+            value = feature.attrib.get("value")
+            if name and value is not None:
+                values[name].append(value)
+    return {name: values[name] for name in sorted(values)}
+
+
+def _is_metadata_base(base: str | None) -> bool:
+    return bool(base and Path(base).name.endswith(".anno.xml"))
+
+
 def audit_upstream(root: Path | str) -> dict[str, Any]:
     root_path = Path(root)
     packages = _packages(root_path)
@@ -236,9 +256,11 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             if kind != "body" and list_type:
                 list_types[kind][list_type] += 1
 
-            if kind == "featList":
-                base = content.attrib.get(XML_BASE) or content.attrib.get("xml:base")
-                if base and Path(base).name.endswith(".anno.xml") and list_type:
+            base = content.attrib.get(XML_BASE) or content.attrib.get("xml:base")
+            if kind == "featList" and _is_metadata_base(base):
+                # annoFeat describes which annotation files/layers exist; it is
+                # validation inventory, not object metadata (PAULA 1.1 ch. 4).
+                if list_type and list_type != "annoFeat":
                     metadata_types[list_type] += 1
                     metadata_instances.append(
                         {
@@ -248,6 +270,19 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
                             "base": base,
                             "type": list_type,
                             "values": _feature_values(content),
+                        }
+                    )
+            elif kind == "multiFeatList" and _is_metadata_base(base):
+                for metadata_type, values in _multi_feature_values(content).items():
+                    metadata_types[metadata_type] += 1
+                    metadata_instances.append(
+                        {
+                            "dataset": package["dataset"],
+                            "source": source,
+                            "paula_id": _header_id(root_element),
+                            "base": base,
+                            "type": metadata_type,
+                            "values": values,
                         }
                     )
 
