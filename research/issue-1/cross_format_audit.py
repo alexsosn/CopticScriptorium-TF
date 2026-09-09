@@ -23,6 +23,8 @@ NORM_TAG_RE = re.compile(r'<norm\b((?:[^">]|"[^"]*")*)>', re.DOTALL)
 SHARED_FIELDS = ("func", "head", "lemma", "norm", "pos")
 MISMATCH_CATEGORIES = ("different", "missing_in_conllu", "missing_in_tt")
 EXAMPLES_PER_FIELD = 20
+MWT_ID_RE = re.compile(r"[1-9]\d*-[1-9]\d*")
+EMPTY_NODE_ID_RE = re.compile(r"[1-9]\d*\.[1-9]\d*")
 
 
 def _scan_attributes(fragment: str) -> dict[str, str]:
@@ -156,13 +158,17 @@ def _conllu_tokens(text: str) -> list[dict[str, Any]]:
                     f"invalid CoNLL-U token id {local_id} at line {line_number}"
                 )
             sentence_rows.append((local_id, columns, line_number))
+        elif MWT_ID_RE.fullmatch(row_id) or EMPTY_NODE_ID_RE.fullmatch(row_id):
+            # Multiword-token and empty-node rows are not basic syntactic tokens.
+            continue
         elif re.fullmatch(r"-\d+", row_id):
             raise ValueError(
                 f"invalid CoNLL-U token id {row_id} at line {line_number}"
             )
         else:
-            # Multiword token and empty-node rows are not basic syntactic tokens.
-            continue
+            raise ValueError(
+                f"invalid CoNLL-U row id {row_id!r} at line {line_number}"
+            )
 
     flush_sentence()
     return tokens
