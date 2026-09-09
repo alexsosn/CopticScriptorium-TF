@@ -83,6 +83,39 @@ class ConlluArchivePackagingTests(unittest.TestCase):
         self.assertEqual(report["field_mismatch_counts"]["norm"], 0)
         self.assertEqual(report["field_mismatch_counts"]["head"], 0)
 
+    def test_standalone_audit_reads_root_level_members_from_dataset_archive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            corpus = root / "packed"
+            corpus.mkdir(parents=True)
+            with zipfile.ZipFile(corpus / "packed_CONLLU.zip", "w") as archive:
+                archive.writestr("one.conllu", CONLLU)
+
+            report = self.conllu_audit.audit_upstream(root)
+
+        self.assertEqual(report["document_count"], 1)
+        self.assertEqual(report["token_rows"], 2)
+        self.assertEqual(report["errors"], [])
+        self.assertEqual(report["documents"][0]["source"], "packed/packed_CONLLU.zip!/one.conllu")
+
+    def test_cross_format_pairs_root_level_conllu_archive_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            corpus = root / "packed"
+            tt_dir = corpus / "packed_TT"
+            tt_dir.mkdir(parents=True)
+            (tt_dir / "one.tt").write_text(TT, encoding="utf-8")
+            with zipfile.ZipFile(corpus / "packed_CONLLU.zip", "w") as archive:
+                archive.writestr("one.conllu", CONLLU)
+
+            report = self.cross_audit.audit_upstream(root)
+
+        self.assertEqual(report["conllu_document_count"], 1)
+        self.assertEqual(report["paired_document_count"], 1)
+        self.assertEqual(report["compared_document_count"], 1)
+        self.assertEqual(report["tt_only"], [])
+        self.assertEqual(report["conllu_only"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
