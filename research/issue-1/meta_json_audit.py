@@ -61,7 +61,7 @@ def _iter_direct_tt(root: Path) -> Iterator[dict[str, Any]]:
         key=lambda path: path.as_posix(),
     ):
         for path in sorted(directory.rglob("*.tt"), key=lambda p: p.as_posix()):
-            text = path.read_text(encoding="utf-8", errors="replace")
+            text = path.read_text(encoding="utf-8")
             meta_line = _first_meta_line(text)
             attrs = _scan_meta_line(meta_line) if meta_line is not None else {}
             yield {
@@ -78,7 +78,7 @@ def _iter_archive_tt(root: Path) -> Iterator[dict[str, Any]]:
             for member in sorted(archive.namelist()):
                 if member.endswith("/") or not member.lower().endswith(".tt"):
                     continue
-                text = archive.read(member).decode("utf-8", errors="replace")
+                text = archive.read(member).decode("utf-8")
                 meta_line = _first_meta_line(text)
                 attrs = _scan_meta_line(meta_line) if meta_line is not None else {}
                 yield {
