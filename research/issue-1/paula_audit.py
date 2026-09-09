@@ -81,29 +81,33 @@ def _archive_members(package: dict[str, Any]) -> Iterator[tuple[str, bytes]]:
     """Yield XML from an ordinary PAULA ZIP or one observed one-level wrapper.
 
     Bohairic aggregate packages in the pinned source contain exactly one inner
-    ``*_PAULA.zip`` instead of XML at the outer level.  We support that measured
-    shape only.  Multiple inner archives, unrelated ZIPs, or deeper wrappers are
-    deliberately not guessed through and remain unsupported package evidence.
+    ``*_PAULA.zip`` instead of XML at the outer level. We support that measured
+    shape only. Mixed direct-XML-plus-wrapper payloads, multiple inner archives,
+    unrelated ZIPs, or deeper wrappers are deliberately not guessed through.
     """
 
     with zipfile.ZipFile(package["path"]) as outer:
         direct_xml = _xml_members_from_zip(outer, package["source"])
-        if direct_xml:
-            yield from direct_xml
-            return
-
         inner_archives = sorted(
             member
             for member in outer.namelist()
             if not member.endswith("/") and Path(member).name.lower().endswith("_paula.zip")
         )
+
+        if direct_xml and inner_archives:
+            raise ValueError(
+                f"mixed PAULA archive contains direct XML and inner *_PAULA.zip: {package['source']}"
+            )
+        if direct_xml:
+            yield from direct_xml
+            return
         if len(inner_archives) != 1:
             return
 
         inner_name = inner_archives[0]
         inner_source = f"{package['source']}!/{inner_name}"
         with zipfile.ZipFile(BytesIO(outer.read(inner_name))) as inner:
-            # One wrapper level is the contract.  If the inner archive itself has
+            # One wrapper level is the contract. If the inner archive itself has
             # no XML, return no members so the caller records an unsupported shape.
             yield from _xml_members_from_zip(inner, inner_source)
 
