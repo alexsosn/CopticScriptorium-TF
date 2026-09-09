@@ -118,6 +118,16 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
                 continue
 
             root_elements[_local_name(xml_root.tag)] += 1
+            if xml_root.tag != _tei("TEI"):
+                errors.append(
+                    {
+                        "kind": "invalid_tei_root",
+                        "source": source,
+                        "detail": xml_root.tag,
+                    }
+                )
+                continue
+
             if _has(xml_root, "teiHeader"):
                 documents_with_tei_header += 1
             if any((title.attrib.get("ref") or "").strip() for title in xml_root.iter(_tei("title"))):
