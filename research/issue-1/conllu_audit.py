@@ -2,17 +2,17 @@
 
 This research tool measures which annotations exist in CoNLL-U independently of
 TreeTagger SGML, especially UD-normalized morphology and MISC enrichments such as
-construction annotations. It also validates the basic sentence-local dependency
-shape needed for safe cross-format alignment. It does not choose merge precedence.
+construction annotations. It also validates the sentence-local ID/dependency shape
+needed for safe cross-format alignment. It does not choose merge precedence.
 """
 
 from __future__ import annotations
 
 from collections import Counter
 import argparse
+import importlib.util
 import json
 from pathlib import Path
-import re
 from typing import Any, Iterator
 
 
@@ -28,9 +28,19 @@ COLUMN_NAMES = (
     "DEPS",
     "MISC",
 )
-BASIC_ID_RE = re.compile(r"[1-9][0-9]*")
-MULTIWORD_ID_RE = re.compile(r"([1-9][0-9]*)-([1-9][0-9]*)")
-EMPTY_NODE_ID_RE = re.compile(r"([1-9][0-9]*)\.([1-9][0-9]*)")
+
+
+def _load_id_contract():
+    module_path = Path(__file__).with_name("conllu_id_contract.py")
+    spec = importlib.util.spec_from_file_location("issue1_conllu_id_contract", module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load CoNLL-U ID contract from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+ID_CONTRACT = _load_id_contract()
 
 
 def _iter_conllu_files(root: Path) -> Iterator[Path]:
@@ -86,11 +96,24 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         file_token_rows = 0
         newdoc_ids: list[str] = []
         sentence_rows: list[tuple[int, str, int]] = []
+        sentence_id_rows: list[dict[str, Any]] = []
 
         def flush_sentence() -> None:
-            nonlocal sentence_rows
-            if not sentence_rows:
+            nonlocal sentence_rows, sentence_id_rows
+            if not sentence_rows and not sentence_id_rows:
                 return
+
+            for issue in ID_CONTRACT.validate_sentence_id_rows(sentence_id_rows):
+                errors.append(
+                    {
+                        "kind": issue["kind"],
+                        "source": source,
+                        "line": issue["line"],
+                        "id": issue["id"],
+                        "detail": issue["detail"],
+                    }
+                )
+
             ids = {token_id for token_id, _head, _line in sentence_rows}
             for _token_id, head, line_number in sentence_rows:
                 if head == "_":
@@ -126,6 +149,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
                         }
                     )
             sentence_rows = []
+            sentence_id_rows = []
 
         text = path.read_text(encoding="utf-8", errors="replace")
         for line_number, line in enumerate(text.splitlines(), start=1):
@@ -157,8 +181,21 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
 
             row = dict(zip(COLUMN_NAMES, columns, strict=True))
             row_id = row["ID"]
-            if BASIC_ID_RE.fullmatch(row_id):
-                token_id = int(row_id)
+            try:
+                parsed_id = ID_CONTRACT.parse_row_id(row_id, line_number)
+            except ID_CONTRACT.RowIdError as exc:
+                errors.append(
+                    {
+                        "kind": exc.kind,
+                        "source": source,
+                        "line": exc.line,
+                        "id": exc.raw_id,
+                    }
+                )
+                continue
+
+            if parsed_id["kind"] == "basic":
+                token_id = int(parsed_id["first"])
                 if any(existing_id == token_id for existing_id, _head, _line in sentence_rows):
                     errors.append(
                         {
@@ -170,6 +207,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
                     )
                     continue
 
+                sentence_id_rows.append(parsed_id)
                 token_rows += 1
                 file_token_rows += 1
                 sentence_rows.append((token_id, row["HEAD"], line_number))
@@ -188,24 +226,12 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
                     enhanced_deps_rows += 1
                 continue
 
-            multiword_match = MULTIWORD_ID_RE.fullmatch(row_id)
-            if multiword_match is not None:
-                start, end = (int(value) for value in multiword_match.groups())
-                if start < end:
-                    multiword_rows += 1
-                else:
-                    errors.append(
-                        {
-                            "kind": "invalid_id",
-                            "source": source,
-                            "line": line_number,
-                            "id": row_id,
-                        }
-                    )
+            sentence_id_rows.append(parsed_id)
+            if parsed_id["kind"] == "multiword":
+                multiword_rows += 1
                 continue
 
-            empty_match = EMPTY_NODE_ID_RE.fullmatch(row_id)
-            if empty_match is not None:
+            if parsed_id["kind"] == "empty":
                 empty_node_rows += 1
                 for key in _attribute_keys(row["FEATS"]):
                     feats_occurrences[key] += 1
@@ -215,18 +241,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
                     seen_misc.add(key)
                 continue
 
-            if row_id.isdigit():
-                kind = "invalid_token_id"
-            else:
-                kind = "invalid_id"
-            errors.append(
-                {
-                    "kind": kind,
-                    "source": source,
-                    "line": line_number,
-                    "id": row_id,
-                }
-            )
+            raise AssertionError(f"unknown parsed CoNLL-U ID kind: {parsed_id['kind']}")
 
         flush_sentence()
         for key in seen_feats:
