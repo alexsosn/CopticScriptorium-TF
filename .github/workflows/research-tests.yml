@@ -1,0 +1,193 @@
+name: research-tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: research-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UPSTREAM_COMMIT: 3ac067f1709a0012daf39ea8da2fac79980176a5
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run research tooling tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+  issue1-inventory:
+    runs-on: ubuntu-latest
+    needs: unittest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build pinned upstream inventory
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python research/issue-1/fetch_inventory.py
+          --repository CopticScriptorium/corpora
+          --commit "$UPSTREAM_COMMIT"
+          --output research/issue-1/inventory.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-source-inventory
+          path: research/issue-1/inventory.json
+          if-no-files-found: error
+          retention-days: 14
+
+  issue1-semantic-audit:
+    runs-on: ubuntu-latest
+    needs: unittest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check out pinned Coptic Scriptorium semantic sources
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: ${{ env.UPSTREAM_COMMIT }}
+          path: upstream
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /meta.json
+            /*/*_TT/**
+            /*/*_TT.zip
+            /*/*_CONLLU/**
+            /*/*_CONLLU.zip
+            /*/*_TEI/**
+            /*/*_ANNIS/corpus.annis
+            /*/*_ANNIS/corpus_annotation.annis
+            /*/*_ANNIS.zip
+            /*/*_PAULA/**
+            /*/*_PAULA.zip
+      - name: Verify pinned upstream source
+        working-directory: upstream
+        run: test "$(git rev-parse HEAD)" = "$UPSTREAM_COMMIT"
+      - name: Build corpus-wide TT semantic audit
+        run: >-
+          python research/issue-1/semantic_audit.py upstream
+          --output research/issue-1/semantic-audit.json
+      - name: Build corpus-wide CoNLL-U enrichment audit
+        run: >-
+          python research/issue-1/conllu_audit.py upstream
+          --output research/issue-1/conllu-audit.json
+      - name: Build corpus-wide TT-CoNLL-U parity audit
+        run: >-
+          python research/issue-1/cross_format_audit.py upstream
+          --output research/issue-1/cross-format-audit.json
+      - name: Reconcile global meta.json with TT documents
+        run: >-
+          python research/issue-1/meta_json_audit.py upstream
+          --output research/issue-1/meta-json-audit.json
+      - name: Reconcile relANNIS corpus metadata with meta.json
+        run: >-
+          python research/issue-1/annis_meta_audit.py upstream
+          --output research/issue-1/annis-meta-audit.json
+      - name: Audit corpus-wide PAULA packages
+        run: >-
+          python research/issue-1/paula_audit.py upstream
+          --output research/issue-1/paula-audit.json
+      - name: Reconcile PAULA document metadata with TT coverage
+        run: >-
+          python research/issue-1/paula_tt_metadata_audit.py
+          --paula-report research/issue-1/paula-audit.json
+          --tt-report research/issue-1/semantic-audit.json
+          --output research/issue-1/paula-tt-metadata-audit.json
+      - name: Audit corpus-wide TEI exports
+        run: >-
+          python research/issue-1/tei_audit.py upstream
+          --output research/issue-1/tei-audit.json
+      - name: Audit TEI-TT coverage parity
+        run: >-
+          python research/issue-1/tei_tt_audit.py upstream
+          --output research/issue-1/tei-tt-audit.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-semantic-audit
+          path: research/issue-1/semantic-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-conllu-audit
+          path: research/issue-1/conllu-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-cross-format-audit
+          path: research/issue-1/cross-format-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-meta-json-audit
+          path: research/issue-1/meta-json-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-annis-meta-audit
+          path: research/issue-1/annis-meta-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-paula-audit
+          path: research/issue-1/paula-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-paula-tt-metadata-audit
+          path: research/issue-1/paula-tt-metadata-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-tei-audit
+          path: research/issue-1/tei-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue1-tei-tt-audit
+          path: research/issue-1/tei-tt-audit.json
+          if-no-files-found: error
+          retention-days: 14

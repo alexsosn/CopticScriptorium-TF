@@ -1,0 +1,27 @@
+{
+  "sha": "fixture-root-tree",
+  "truncated": false,
+  "tree": [
+    {"path": "AP", "mode": "040000", "type": "tree", "sha": "ap-tree"},
+    {"path": "AP/apophthegmata.patrum_TT", "mode": "040000", "type": "tree", "sha": "tt-tree"},
+    {"path": "AP/apophthegmata.patrum_TT/AP.004.poemen.65.tt", "mode": "100644", "type": "blob", "sha": "tt-004", "size": 100},
+    {"path": "AP/apophthegmata.patrum_TT/AP.empty.tt", "mode": "100644", "type": "blob", "sha": "tt-empty", "size": 0},
+    {"path": "AP/apophthegmata.patrum_CONLLU", "mode": "040000", "type": "tree", "sha": "conllu-tree"},
+    {"path": "AP/apophthegmata.patrum_CONLLU/AP.004.poemen.65.conllu", "mode": "100644", "type": "blob", "sha": "conllu-004", "size": 80},
+    {"path": "AP/apophthegmata.patrum_CONLLU/AP.only-conllu.conllu", "mode": "100644", "type": "blob", "sha": "conllu-only", "size": 10},
+    {"path": "AP/apophthegmata.patrum_TEI", "mode": "040000", "type": "tree", "sha": "tei-tree"},
+    {"path": "AP/apophthegmata.patrum_TEI/AP.004.poemen.65.xml", "mode": "100644", "type": "blob", "sha": "tei-004", "size": 90},
+    {"path": "AP/apophthegmata.patrum_PAULA", "mode": "040000", "type": "tree", "sha": "paula-tree"},
+    {"path": "AP/apophthegmata.patrum_PAULA/AP.004.poemen.65.text.xml", "mode": "100644", "type": "blob", "sha": "paula-component", "size": 50},
+    {"path": "AP/apophthegmata.patrum_ANNIS", "mode": "040000", "type": "tree", "sha": "annis-tree"},
+    {"path": "AP/apophthegmata.patrum_ANNIS/node.annis", "mode": "100644", "type": "blob", "sha": "annis-node", "size": 50},
+    {"path": "sahidica.nt", "mode": "040000", "type": "tree", "sha": "nt-tree"},
+    {"path": "sahidica.nt/sahidica.nt_ANNIS.zip", "mode": "100644", "type": "blob", "sha": "nt-annis", "size": 27151561},
+    {"path": "sahidica.nt/sahidica.nt_PAULA.zip", "mode": "100644", "type": "blob", "sha": "nt-paula", "size": 25439924},
+    {"path": "sahidica.nt/sahidica.nt_TT.zip", "mode": "100644", "type": "blob", "sha": "nt-tt", "size": 5749949},
+    {"path": "sahidica.nt/sahidica.nt_CONLLU", "mode": "040000", "type": "tree", "sha": "nt-conllu-tree"},
+    {"path": "sahidica.nt/sahidica.nt_CONLLU/1Cor_04.conllu", "mode": "100644", "type": "blob", "sha": "nt-1cor4", "size": 42},
+    {"path": "README.md", "mode": "100644", "type": "blob", "sha": "readme", "size": 10},
+    {"path": "meta.json", "mode": "100644", "type": "blob", "sha": "meta-sha", "size": 2461846}
+  ]
+}
