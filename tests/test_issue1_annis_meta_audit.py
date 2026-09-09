@@ -104,6 +104,31 @@ class AnnisMetaAuditTests(unittest.TestCase):
         self.assertEqual(report["document_count"], 2)
         self.assertEqual(report["corpus_node_count"], 1)
 
+    def test_reads_legacy_relannis_tab_archive_layout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            corpus = root / "legacy"
+            corpus.mkdir()
+            with zipfile.ZipFile(corpus / "legacy_ANNIS.zip", "w") as archive:
+                archive.writestr("legacy/corpus.tab", CORPUS)
+                archive.writestr("legacy/corpus_annotation.tab", ANNOTATIONS)
+            (root / "meta.json").write_text(
+                json.dumps(
+                    {
+                        "one": {"title": "One"},
+                        "two": {"title": "Two", "escaped": "Line\tTabbed\\Tail"},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            report = self.audit.audit_upstream(root)
+
+        self.assertEqual(report["dataset_count"], 1)
+        self.assertEqual(report["packaging"], {"archive": 1})
+        self.assertEqual(report["document_count"], 2)
+        self.assertEqual(report["corpus_node_count"], 1)
+
     def test_casefold_collision_in_annis_document_names_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
