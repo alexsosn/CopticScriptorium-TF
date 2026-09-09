@@ -62,6 +62,33 @@ class CrossFormatInvalidConlluTests(unittest.TestCase):
             "invalid CoNLL-U HEAD -1 at line 3",
         )
 
+    def test_malformed_multiword_or_empty_node_id_is_not_silently_ignored(self):
+        conllu = '''# sent_id = bad-1
+1\ta\ta\tVERB\tV\t_\t0\troot\t_\t_
+foo-bar\tab\t_\t_\t_\t_\t_\t_\t_\t_
+2\tb\tb\tNOUN\tN\t_\t1\tobj\t_\t_
+'''
+        report = self._audit(conllu)
+        self.assertEqual(report["compared_document_count"], 0)
+        self.assertEqual(report["token_count_mismatches"], [])
+        self.assertEqual(len(report["malformed_conllu_documents"]), 1)
+        self.assertEqual(
+            report["malformed_conllu_documents"][0]["error"],
+            "invalid CoNLL-U row id 'foo-bar' at line 3",
+        )
+
+    def test_valid_multiword_and_empty_node_rows_are_ignored_for_basic_parity(self):
+        conllu = '''# sent_id = ok-1
+1-2\tab\t_\t_\t_\t_\t_\t_\t_\t_
+1\ta\ta\tVERB\tV\t_\t0\troot\t_\t_
+2\tb\tb\tNOUN\tN\t_\t1\tobj\t_\t_
+2.1\tx\tx\tX\tX\t_\t_\tdep\t_\t_
+'''
+        report = self._audit(conllu)
+        self.assertEqual(report["malformed_conllu_documents"], [])
+        self.assertEqual(report["compared_document_count"], 1)
+        self.assertEqual(report["field_mismatch_counts"]["norm"], 0)
+
     def _audit(self, conllu: str):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
