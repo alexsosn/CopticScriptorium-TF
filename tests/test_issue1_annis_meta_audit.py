@@ -57,6 +57,8 @@ class AnnisMetaAuditTests(unittest.TestCase):
             report = self.audit.audit_upstream(root)
 
         self.assertEqual(report["dataset_count"], 1)
+        self.assertEqual(report["source_package_count"], 1)
+        self.assertEqual(report["metadata_unavailable_archives"], [])
         self.assertEqual(report["document_count"], 2)
         self.assertEqual(report["corpus_node_count"], 1)
         self.assertEqual(report["matched_document_count"], 2)
@@ -100,7 +102,9 @@ class AnnisMetaAuditTests(unittest.TestCase):
             report = self.audit.audit_upstream(root)
 
         self.assertEqual(report["dataset_count"], 1)
+        self.assertEqual(report["source_package_count"], 1)
         self.assertEqual(report["packaging"], {"archive": 1})
+        self.assertEqual(report["metadata_unavailable_archives"], [])
         self.assertEqual(report["document_count"], 2)
         self.assertEqual(report["corpus_node_count"], 1)
 
@@ -125,9 +129,43 @@ class AnnisMetaAuditTests(unittest.TestCase):
             report = self.audit.audit_upstream(root)
 
         self.assertEqual(report["dataset_count"], 1)
+        self.assertEqual(report["source_package_count"], 1)
         self.assertEqual(report["packaging"], {"archive": 1})
+        self.assertEqual(report["metadata_unavailable_archives"], [])
         self.assertEqual(report["document_count"], 2)
         self.assertEqual(report["corpus_node_count"], 1)
+
+    def test_config_only_archive_is_ledgered_as_metadata_unavailable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            corpus = root / "configonly"
+            corpus.mkdir()
+            with zipfile.ZipFile(corpus / "configonly_ANNIS.zip", "w") as archive:
+                archive.writestr("configonly/annis.version", "3.3\n")
+                archive.writestr("configonly/resolver_vis_map.annis", "")
+                archive.writestr("configonly/ExtData/corpus.properties", "")
+            (root / "meta.json").write_text(json.dumps({}), encoding="utf-8")
+
+            report = self.audit.audit_upstream(root)
+
+        self.assertEqual(report["dataset_count"], 0)
+        self.assertEqual(report["source_package_count"], 1)
+        self.assertEqual(report["packaging"], {})
+        self.assertEqual(
+            report["metadata_unavailable_archives"],
+            [
+                {
+                    "dataset": "configonly/configonly",
+                    "source": "configonly/configonly_ANNIS.zip",
+                    "classification": "configuration_only",
+                    "available_basenames": [
+                        "annis.version",
+                        "corpus.properties",
+                        "resolver_vis_map.annis",
+                    ],
+                }
+            ],
+        )
 
     def test_unsupported_archive_reports_available_basenames(self):
         with tempfile.TemporaryDirectory() as tmp:
