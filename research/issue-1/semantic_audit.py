@@ -136,10 +136,7 @@ def _iter_directory_tt(root: Path) -> Iterator[tuple[str, str, str]]:
     ):
         for path in sorted(directory.rglob("*.tt"), key=lambda item: item.as_posix()):
             source_id = path.relative_to(root).as_posix()
-            try:
-                text = path.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
-                text = path.read_text(encoding="utf-8", errors="replace")
+            text = path.read_text(encoding="utf-8")
             yield source_id, "directory", text
 
 
@@ -154,7 +151,7 @@ def _iter_archive_tt(root: Path) -> Iterator[tuple[str, str, str]]:
             )
             for member in members:
                 raw = archive.read(member)
-                text = raw.decode("utf-8", errors="replace")
+                text = raw.decode("utf-8")
                 yield f"{archive_rel}!/{member}", "archive", text
 
 
