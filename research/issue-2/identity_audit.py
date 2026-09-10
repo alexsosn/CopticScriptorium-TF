@@ -539,3 +539,30 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
 
 def render_report_json(report: dict[str, Any]) -> str:
     return json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "upstream",
+        type=Path,
+        help="Pinned CopticScriptorium/corpora checkout",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="Write JSON report here instead of stdout",
+    )
+    args = parser.parse_args(argv)
+
+    rendered = render_report_json(audit_upstream(args.upstream))
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(rendered, encoding="utf-8")
+    else:
+        print(rendered, end="")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
