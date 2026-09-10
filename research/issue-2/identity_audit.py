@@ -470,6 +470,15 @@ def _documented_collection_overlaps(
     )
 
 
+def _extract_witness_cts_targets(witness: str) -> list[str]:
+    targets: list[str] = []
+    for match in CTS_URN_RE.finditer(witness):
+        target = match.group(0).rstrip(".,;!?)]}")
+        if target and target not in targets:
+            targets.append(target)
+    return targets
+
+
 def audit_upstream(root: Path | str) -> dict[str, Any]:
     records = sorted(iter_tt_records(root), key=lambda record: record["source_record_id"])
 
@@ -541,9 +550,16 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         if not witness:
             continue
         witness_text = str(witness)
+        witness_cts_targets = _extract_witness_cts_targets(witness_text)
         is_cts = bool(CTS_URN_RE.fullmatch(witness_text))
         witness_kind = "cts" if is_cts else "free_text"
-        resolved: bool | None = witness_text in scholarly_ids if is_cts else None
+        resolved_targets = [
+            target for target in witness_cts_targets if target in scholarly_ids
+        ]
+        unresolved_targets = [
+            target for target in witness_cts_targets if target not in scholarly_ids
+        ]
+        resolved: bool | None = not unresolved_targets if is_cts else None
         relation = {
             "source_record_id": record["source_record_id"],
             "source": record["source"],
@@ -551,15 +567,19 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             "witness": witness_text,
             "witness_kind": witness_kind,
             "witness_resolved": resolved,
+            "witness_cts_targets": witness_cts_targets,
+            "resolved_witness_cts_targets": resolved_targets,
+            "unresolved_witness_cts_targets": unresolved_targets,
         }
         witness_relations.append(relation)
         witness_by_source[record["source_record_id"]] = relation
-        if is_cts and not resolved:
+        for target in unresolved_targets:
             unresolved_witnesses.append(
                 {
                     "source_record_id": record["source_record_id"],
                     "scholarly_id": record["scholarly_id"] or "",
                     "witness": witness_text,
+                    "target": target,
                 }
             )
 
@@ -655,7 +675,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "redundant_without_witness_count": redundant_without_witness,
         "unresolved_witness_relations": sorted(
             unresolved_witnesses,
-            key=lambda item: (item["source_record_id"], item["witness"]),
+            key=lambda item: (item["source_record_id"], item["witness"], item["target"]),
         ),
         "metadata_error_records": metadata_error_records,
         "duplicate_meta_attribute_records": duplicate_meta_records,
