@@ -1,6 +1,6 @@
 """Corpus-wide identity/overlap audit for Coptic Scriptorium TT sources.
 
-This is research tooling for issue #2, not production converter code.  It keeps
+This is research tooling for issue #2, not production converter code. It keeps
 physical source identity, scholarly CTS identity, text identity, linguistic-analysis
 identity, and redundancy/witness relations separate so later Text-Fabric design does
 not deduplicate records from one convenient key.
@@ -92,6 +92,7 @@ def _scan_meta_line(line: str) -> dict[str, Any]:
             raise ValueError(f"malformed meta attribute syntax near offset {position}")
         pairs.append((match.group(1), html.unescape(match.group(2))))
         position = match.end()
+
     values: dict[str, list[str]] = {}
     attrs: dict[str, str] = {}
     for name, value in pairs:
@@ -102,7 +103,7 @@ def _scan_meta_line(line: str) -> dict[str, Any]:
         for name, entries in sorted(values.items())
         if len(entries) > 1
     }
-    return {"attributes": attrs, "duplicates": duplicates}
+    return {"attributes": attrs, "duplicates": duplicates, "values": values}
 
 
 def _first_meta_line(text: str) -> str | None:
@@ -126,6 +127,7 @@ def _tt_tokens(text: str) -> list[dict[str, Any]]:
                 raise ValueError(f"duplicate TT token xml:id {xml_id!r}")
             id_to_position[xml_id] = position
         raw_tokens.append(attrs)
+
     tokens: list[dict[str, Any]] = []
     for attrs in raw_tokens:
         raw_head = attrs.get("head")
@@ -178,11 +180,29 @@ def _record_from_bytes(
         attrs: dict[str, str] = {}
         duplicate_meta: dict[str, list[str]] = {}
         metadata_error: str | None = "missing_meta"
+        scholarly_id: str | None = None
+        identity_status = "missing_document_cts_urn"
+        identity_conflict_values: list[str] = []
     else:
         scanned = _scan_meta_line(meta_line)
         attrs = scanned["attributes"]
         duplicate_meta = scanned["duplicates"]
         metadata_error = None
+        cts_values = scanned["values"].get("document_cts_urn", [])
+        distinct_cts = list(dict.fromkeys(cts_values))
+        if not distinct_cts:
+            scholarly_id = None
+            identity_status = "missing_document_cts_urn"
+            identity_conflict_values = []
+        elif len(distinct_cts) > 1:
+            scholarly_id = None
+            identity_status = "conflicting_document_cts_urn"
+            identity_conflict_values = list(cts_values)
+        else:
+            scholarly_id = distinct_cts[0]
+            identity_status = "usable"
+            identity_conflict_values = []
+
     tokens = _tt_tokens(text)
     normalized = [token["norm"] for token in tokens]
     original = _orig_sequence(text)
@@ -205,7 +225,9 @@ def _record_from_bytes(
         "packaging": packaging,
         "raw_sha256": _sha256_bytes(raw),
         "raw_size": len(raw),
-        "scholarly_id": attrs.get("document_cts_urn"),
+        "scholarly_id": scholarly_id,
+        "identity_status": identity_status,
+        "identity_conflict_values": identity_conflict_values,
         "metadata_corpus": attrs.get("corpus"),
         "title": attrs.get("title"),
         "redundant": attrs.get("redundant"),
@@ -316,6 +338,8 @@ def _record_summary(record: dict[str, Any]) -> dict[str, Any]:
         "raw_sha256",
         "raw_size",
         "scholarly_id",
+        "identity_status",
+        "identity_conflict_values",
         "metadata_corpus",
         "title",
         "redundant",
@@ -468,6 +492,16 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         for record in records
         if record["duplicate_meta_attributes"]
     ]
+    identity_conflict_records = [
+        {
+            "source_record_id": record["source_record_id"],
+            "source": record["source"],
+            "values": record["identity_conflict_values"],
+        }
+        for record in records
+        if record["identity_status"] == "conflicting_document_cts_urn"
+    ]
+
     return {
         "document_count": len(records),
         "scholarly_identity_count": len(by_scholarly),
@@ -475,6 +509,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             str(count): multiplicity[count] for count in sorted(multiplicity)
         },
         "missing_scholarly_identity_records": missing_scholarly,
+        "identity_conflict_records": identity_conflict_records,
         "duplicate_scholarly_identity_count": len(duplicate_groups),
         "duplicate_scholarly_identities": duplicate_groups,
         "group_classification_counts": {
