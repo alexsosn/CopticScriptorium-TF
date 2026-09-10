@@ -11,7 +11,7 @@ Issue #1 establishes the source-authority contract for Coptic Scriptorium → Te
 
 The research revision is two commits ahead of `v6.3.0`, including a source metadata normalization. Generated TF provenance must therefore retain the immutable source commit as well as any human-facing release label.
 
-The CI research workflow reruns deterministic source inventory, TT semantic census, strict CoNLL-U validation, TT↔CoNLL-U parity, `meta.json` reconciliation, relANNIS metadata reconciliation, PAULA package/metadata reconciliation, TEI census, and TEI↔TT coverage against that exact upstream revision. Generated JSON artifacts are the measurement authority; this document summarizes them.
+The CI research workflow reruns deterministic source inventory, TT semantic census, strict CoNLL-U validation, TT↔CoNLL-U parity, `meta.json` reconciliation, relANNIS metadata reconciliation, PAULA package/metadata reconciliation, TEI census, TEI↔TT coverage, and the issue #2 identity/overlap and preference audits against that exact upstream revision. Generated JSON artifacts are the measurement authority; this document summarizes them.
 
 ## Corpus topology and packaging
 
@@ -73,7 +73,7 @@ Global `meta.json` contains 2,390 keys. All 2,628 TT copies reconcile case-insen
 - 2,152 keys map to one TT copy;
 - 238 keys map to two TT copies.
 
-Physical source-copy identity and scholarly identity are therefore distinct concepts. Issue #2 owns overlap/preference semantics.
+Physical source-copy identity and scholarly identity are therefore distinct concepts. Issue #2 measures the overlap/preference semantics directly below.
 
 `meta.json` is useful normalized/global evidence, but it is not an unconditional overwrite source. TT may preserve HTML/PATHS values while `meta.json` stores normalized labels or identifiers. Literal anomalous keys such as `" segmentation"` and `"msItem_title "` also exist and must remain distinguishable from derived normalized forms.
 
@@ -142,11 +142,28 @@ The production converter should start with the smallest measured parser set:
 
 Issue #3 may widen this parser set only from measured need, with a new research/TDD gate.
 
-## Identity and overlap boundary
+## Identity, overlap, redundancy, and preference policy
 
-Upstream contains treebank copies of source-corpus documents, individual biblical-book corpora overlapping aggregate collections and parallel witnesses marked `redundant="yes"`. Sampled copies can share scholarly CTS identity while differing in metadata; an observed redundant record also carries an explicit `witness` CTS relation.
+Issue #2 measures identity independently from format counterpart matching. The pinned TT corpus has **2,628 physical source records and 2,520 valid literal scholarly CTS identities**. Every physical record has a usable `document_cts_urn` on this revision; there are no missing, malformed, or conflicting scholarly IDs. Of the 2,520 CTS identities, 2,412 occur once and **108 occur twice**.
 
-Issue #2 therefore owns release-stable source identity, scholarly identity, alternate-analysis classification, witness relations, filtering and preferred-analysis policy. Issue #1 discards none of these physical records.
+The 108 duplicate-CTS groups are heterogeneous:
+
+- 91 are byte-identical;
+- one is a core-identical source variant: raw TT differs while original/normalized text and linguistic analysis agree;
+- 15 contain alternate linguistic analyses of the same text;
+- one has textual divergence.
+
+Accordingly, neither CTS equality nor convenience-treebank membership is a deduplication instruction. `coptic-treebank` participates in 86 duplicate groups and spans all four measured classes; `bohairic-treebank` contributes 22 byte-identical pairs on this release. All physical records remain stored/addressable by default.
+
+The biblical book↔aggregate overlaps documented upstream form a separate relation because the paired records have different literal CTS identities. All 36 documented pairs are present: 16 Mark, 16 1 Corinthians and four Ruth. Nineteen pairs are alternate analyses and 17 are textually divergent; none are byte/core-identical. No filename/CTS-similarity heuristic is permitted to infer additional relations.
+
+`redundant=yes` is another independent axis. Eighteen records are marked redundant, one without a witness value. There are **111 witness-bearing records** overall: 28 values are pure CTS and 83 are free text. Five free-text values also contain embedded CTS URNs. Across all witness metadata the audit extracts **35 CTS targets from 33 relations, and all 35 resolve** to known scholarly identities on the pinned corpus. The literal witness string is retained separately from extracted target relations.
+
+Identity fingerprints are classification evidence, not public identifiers: raw TT SHA-256, original/normalized text fingerprints, and analysis fingerprints are recomputed for each pinned release. Public identity remains split between release-scoped source record identity (dataset + literal record path, bound to upstream commit/hash) and literal scholarly CTS identity.
+
+User-facing selection is non-destructive. The `all` view preserves every physical record. `nonredundant` hides only literal `redundant=yes` records from that view. A `source-preferred` view is evidence-backed only for the 92 duplicate groups that are byte/core-identical and contain exactly one convenience-treebank copy plus one source copy; the 16 alternate/textually divergent groups remain multi-valued. `best-parsing` has **zero unique winners** on this release: all 108 duplicate groups tie on parsing quality (104 gold/gold, four automatic/automatic), so deterministic ordering of tied source IDs must not be represented as a scholarly preference.
+
+The detailed ADR and machine-testable invariants live in `research/issue-2/IDENTITY_POLICY.md`. Issue #3 may now consume these identity levels and relations when designing TF sections, nodes and edges, but it must not collapse them.
 
 ## Licensing boundary
 
@@ -156,7 +173,6 @@ Three `book.bartholomew` records have no TT `license` attribute. TEI supplies a 
 
 ## Follow-up queue
 
-- #2 — document identity, overlap, redundancy, witnesses and release-stable addressing;
 - #3 — Text-Fabric graph model for segmentation, syntax, entities, layout and translations;
 - #5 — autonomous-agent coordination protocol;
 - #8 — mixed-license release policy and attribution manifest.
