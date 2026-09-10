@@ -25,6 +25,7 @@ META_ATTRIBUTE_RE = re.compile(
 TAG_ATTRIBUTE_RE = META_ATTRIBUTE_RE
 NORM_TAG_RE = re.compile(r'<norm\b((?:[^">]|"[^"]*")*)>', re.DOTALL)
 ORIG_TAG_RE = re.compile(r'<orig\b((?:[^">]|"[^"]*")*)>', re.DOTALL)
+CTS_URN_RE = re.compile(r"urn:cts:[^\s]+")
 
 ENRICHMENT_PATTERNS: dict[str, re.Pattern[str]] = {
     "translation": re.compile(r"<translation\b"),
@@ -176,6 +177,7 @@ def _record_from_bytes(
 ) -> dict[str, Any]:
     text = raw.decode("utf-8")
     meta_line = _first_meta_line(text)
+    malformed_identity_value: str | None = None
     if meta_line is None:
         attrs: dict[str, str] = {}
         duplicate_meta: dict[str, list[str]] = {}
@@ -198,6 +200,11 @@ def _record_from_bytes(
             scholarly_id = None
             identity_status = "conflicting_document_cts_urn"
             identity_conflict_values = list(cts_values)
+        elif CTS_URN_RE.fullmatch(distinct_cts[0]) is None:
+            scholarly_id = None
+            identity_status = "malformed_document_cts_urn"
+            identity_conflict_values = []
+            malformed_identity_value = distinct_cts[0]
         else:
             scholarly_id = distinct_cts[0]
             identity_status = "usable"
@@ -228,6 +235,7 @@ def _record_from_bytes(
         "scholarly_id": scholarly_id,
         "identity_status": identity_status,
         "identity_conflict_values": identity_conflict_values,
+        "malformed_identity_value": malformed_identity_value,
         "metadata_corpus": attrs.get("corpus"),
         "title": attrs.get("title"),
         "redundant": attrs.get("redundant"),
@@ -340,6 +348,7 @@ def _record_summary(record: dict[str, Any]) -> dict[str, Any]:
         "scholarly_id",
         "identity_status",
         "identity_conflict_values",
+        "malformed_identity_value",
         "metadata_corpus",
         "title",
         "redundant",
@@ -432,7 +441,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         if not witness:
             continue
         witness_text = str(witness)
-        is_cts = bool(re.fullmatch(r"urn:cts:[^\s]+", witness_text))
+        is_cts = bool(CTS_URN_RE.fullmatch(witness_text))
         witness_kind = "cts" if is_cts else "free_text"
         resolved: bool | None = witness_text in scholarly_ids if is_cts else None
         relation = {
@@ -501,6 +510,15 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         for record in records
         if record["identity_status"] == "conflicting_document_cts_urn"
     ]
+    malformed_identity_records = [
+        {
+            "source_record_id": record["source_record_id"],
+            "source": record["source"],
+            "value": record["malformed_identity_value"],
+        }
+        for record in records
+        if record["identity_status"] == "malformed_document_cts_urn"
+    ]
 
     return {
         "document_count": len(records),
@@ -510,6 +528,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         },
         "missing_scholarly_identity_records": missing_scholarly,
         "identity_conflict_records": identity_conflict_records,
+        "malformed_scholarly_identity_records": malformed_identity_records,
         "duplicate_scholarly_identity_count": len(duplicate_groups),
         "duplicate_scholarly_identities": duplicate_groups,
         "group_classification_counts": {
