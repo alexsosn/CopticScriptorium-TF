@@ -43,6 +43,15 @@ def _best_parsing(group: dict[str, Any]) -> dict[str, Any]:
             "unknown_quality_records": sorted(unknown),
         }
 
+    if unknown:
+        return {
+            "best_parsing_candidates": [],
+            "best_parsing_quality": None,
+            "best_parsing_tie": False,
+            "best_parsing_status": "incomplete_quality",
+            "unknown_quality_records": sorted(unknown),
+        }
+
     best_score = max(score for score, _ in scored)
     candidates = sorted(source_id for score, source_id in scored if score == best_score)
     quality = next(name for name, rank in PARSING_RANK.items() if rank == best_score)
@@ -51,7 +60,7 @@ def _best_parsing(group: dict[str, Any]) -> dict[str, Any]:
         "best_parsing_quality": quality,
         "best_parsing_tie": len(candidates) > 1,
         "best_parsing_status": "tie" if len(candidates) > 1 else "unique",
-        "unknown_quality_records": sorted(unknown),
+        "unknown_quality_records": [],
     }
 
 
@@ -93,6 +102,7 @@ def evaluate_identity_report(identity_report: dict[str, Any]) -> dict[str, Any]:
     best_unique = 0
     best_tie = 0
     best_missing = 0
+    best_incomplete = 0
     source_eligible = 0
     source_ineligible = 0
 
@@ -106,8 +116,14 @@ def evaluate_identity_report(identity_report: dict[str, Any]) -> dict[str, Any]:
             best_unique += 1
         elif best["best_parsing_status"] == "tie":
             best_tie += 1
-        else:
+        elif best["best_parsing_status"] == "missing_quality":
             best_missing += 1
+        elif best["best_parsing_status"] == "incomplete_quality":
+            best_incomplete += 1
+        else:
+            raise ValueError(
+                f"unknown best parsing status {best['best_parsing_status']!r}"
+            )
         if source["source_preferred_status"] == "eligible":
             source_eligible += 1
         else:
@@ -126,6 +142,7 @@ def evaluate_identity_report(identity_report: dict[str, Any]) -> dict[str, Any]:
         "best_parsing_unique_winner_group_count": best_unique,
         "best_parsing_tie_group_count": best_tie,
         "best_parsing_missing_quality_group_count": best_missing,
+        "best_parsing_incomplete_quality_group_count": best_incomplete,
         "source_preferred_eligible_group_count": source_eligible,
         "source_preferred_ineligible_group_count": source_ineligible,
         "duplicate_group_preferences": preferences,
