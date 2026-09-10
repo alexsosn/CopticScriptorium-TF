@@ -2,8 +2,8 @@
 
 This is research tooling for issue #2, not production converter code. It keeps
 physical source identity, scholarly CTS identity, text identity, linguistic-analysis
-identity, and redundancy/witness relations separate so later Text-Fabric design does
-not deduplicate records from one convenient key.
+identity, documented collection overlap, and redundancy/witness relations separate
+so later Text-Fabric design does not deduplicate records from one convenient key.
 """
 
 from __future__ import annotations
@@ -43,6 +43,33 @@ CLASS_SEVERITY = {
     "alternate_analysis": 2,
     "textual_divergence": 3,
 }
+
+# These relations come from the pinned upstream README. They are deliberately
+# finite and dataset-specific: similar CTS spelling is not enough to infer an
+# overlap relation for any other corpus.
+DOCUMENTED_COLLECTION_OVERLAP_SPECS = (
+    {
+        "left_dataset": "sahidica.mark/sahidica.mark",
+        "left_prefix": "Mark_",
+        "right_dataset": "sahidica.nt/sahidica.nt",
+        "right_prefix": "41_Mark_",
+        "chapters": range(1, 17),
+    },
+    {
+        "left_dataset": "sahidica.1corinthians/sahidica.1corinthians",
+        "left_prefix": "1Cor_",
+        "right_dataset": "sahidica.nt/sahidica.nt",
+        "right_prefix": "46_1_Corinthians_",
+        "chapters": range(1, 17),
+    },
+    {
+        "left_dataset": "sahidic.ruth/sahidic.ruth",
+        "left_prefix": "Ruth_",
+        "right_dataset": "sahidic.ot/sahidic.ot",
+        "right_prefix": "08_Ruth_",
+        "chapters": range(1, 5),
+    },
+)
 
 
 def _sha256_bytes(value: bytes) -> str:
@@ -370,6 +397,79 @@ def _record_summary(record: dict[str, Any]) -> dict[str, Any]:
     return {key: record[key] for key in keys}
 
 
+def _documented_collection_overlaps(
+    records: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, str]], dict[str, int]]:
+    by_source_id = {record["source_record_id"]: record for record in records}
+    overlaps: list[dict[str, Any]] = []
+    unmatched: list[dict[str, str]] = []
+    class_counts: Counter[str] = Counter()
+
+    for spec in DOCUMENTED_COLLECTION_OVERLAP_SPECS:
+        for chapter in spec["chapters"]:
+            chapter_text = f"{chapter:02d}"
+            left_id = (
+                f"{spec['left_dataset']}:"
+                f"{spec['left_prefix']}{chapter_text}"
+            )
+            right_id = (
+                f"{spec['right_dataset']}:"
+                f"{spec['right_prefix']}{chapter_text}"
+            )
+            left = by_source_id.get(left_id)
+            right = by_source_id.get(right_id)
+            if left is None and right is None:
+                continue
+            if left is None:
+                unmatched.append(
+                    {
+                        "expected_left": left_id,
+                        "right": right_id,
+                        "missing_side": "left",
+                    }
+                )
+                continue
+            if right is None:
+                unmatched.append(
+                    {
+                        "left": left_id,
+                        "expected_right": right_id,
+                        "missing_side": "right",
+                    }
+                )
+                continue
+
+            classification = _classify_pair(left, right)
+            class_counts[classification] += 1
+            overlaps.append(
+                {
+                    "relation": "book_aggregate",
+                    "left": left_id,
+                    "right": right_id,
+                    "left_scholarly_id": left["scholarly_id"],
+                    "right_scholarly_id": right["scholarly_id"],
+                    "same_scholarly_id": bool(
+                        left["scholarly_id"]
+                        and right["scholarly_id"]
+                        and left["scholarly_id"] == right["scholarly_id"]
+                    ),
+                    "classification": classification,
+                }
+            )
+
+    return (
+        sorted(overlaps, key=lambda item: (item["left"], item["right"])),
+        sorted(
+            unmatched,
+            key=lambda item: (
+                item.get("left", item.get("expected_left", "")),
+                item.get("right", item.get("expected_right", "")),
+            ),
+        ),
+        {key: class_counts[key] for key in sorted(CLASS_SEVERITY)},
+    )
+
+
 def audit_upstream(root: Path | str) -> dict[str, Any]:
     records = sorted(iter_tt_records(root), key=lambda record: record["source_record_id"])
 
@@ -519,6 +619,9 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         for record in records
         if record["identity_status"] == "malformed_document_cts_urn"
     ]
+    documented_overlaps, unmatched_documented_overlaps, documented_class_counts = (
+        _documented_collection_overlaps(records)
+    )
 
     return {
         "document_count": len(records),
@@ -537,6 +640,10 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "pair_classification_counts": {
             key: pair_class_counts[key] for key in sorted(CLASS_SEVERITY)
         },
+        "documented_collection_overlap_count": len(documented_overlaps),
+        "documented_collection_overlaps": documented_overlaps,
+        "documented_collection_overlap_class_counts": documented_class_counts,
+        "unmatched_documented_collection_overlaps": unmatched_documented_overlaps,
         "witness_relation_count": len(witness_relations),
         "witness_relations": sorted(
             witness_relations, key=lambda item: item["source_record_id"]
