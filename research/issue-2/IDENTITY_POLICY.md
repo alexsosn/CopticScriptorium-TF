@@ -119,7 +119,7 @@ No automatic winner is evidence-backed on this release. Among all 108 duplicated
 - 104 are `gold`/`gold` ties and four are `automatic`/`automatic` ties;
 - 0 groups lack parsing-quality metadata.
 
-A deterministic source-record ID can order tied candidates for stable output, but that ordering is not a scholarly preference and must not be exposed as “best”. If a future release produces a unique explicit quality winner, the view may report it without deleting alternatives.
+A deterministic source-record ID can order tied candidates for stable output, but that ordering is not a scholarly preference and must not be exposed as “best”. If a future release produces a unique explicit quality winner, the view may report it only when every candidate in that scholarly-identity group has a recognized parsing-quality value. If all candidates lack recognized quality the status is `missing_quality`; if known and unknown quality values are mixed the status is `incomplete_quality`. Both statuses return no winner and preserve all candidates.
 
 ## Addressing invariants for issue #3
 
