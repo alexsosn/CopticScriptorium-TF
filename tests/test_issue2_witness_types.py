@@ -69,6 +69,7 @@ class WitnessTypeContractTests(unittest.TestCase):
             self.assertEqual(relation["witness"], prose)
             self.assertEqual(relation["witness_kind"], "free_text")
             self.assertIsNone(relation["witness_resolved"])
+            self.assertEqual(relation["witness_cts_targets"], [])
             self.assertEqual(report["unresolved_witness_relations"], [])
             redundant = report["redundant_records"][0]
             self.assertEqual(redundant["witness_kind"], "free_text")
@@ -94,7 +95,49 @@ class WitnessTypeContractTests(unittest.TestCase):
             relation = report["witness_relations"][0]
             self.assertEqual(relation["witness_kind"], "cts")
             self.assertTrue(relation["witness_resolved"])
+            self.assertEqual(relation["witness_cts_targets"], [target])
+            self.assertEqual(relation["resolved_witness_cts_targets"], [target])
+            self.assertEqual(relation["unresolved_witness_cts_targets"], [])
             self.assertEqual(report["unresolved_witness_relations"], [])
+
+    def test_free_text_witness_extracts_embedded_cts_targets_without_rewriting_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            known = "urn:cts:demo:known"
+            absent = "urn:cts:demo:absent"
+            write_tt(root, "known", "known", cts=known)
+            prose = f"Beginning parallels {known}. End parallels {absent}, not yet published."
+            write_tt(
+                root,
+                "source",
+                "source",
+                cts="urn:cts:demo:source",
+                redundant="yes",
+                witness=prose,
+            )
+
+            report = self.audit.audit_upstream(root)
+            relation = next(
+                item for item in report["witness_relations"]
+                if item["source_record_id"].endswith(":source")
+            )
+            self.assertEqual(relation["witness"], prose)
+            self.assertEqual(relation["witness_kind"], "free_text")
+            self.assertIsNone(relation["witness_resolved"])
+            self.assertEqual(relation["witness_cts_targets"], [known, absent])
+            self.assertEqual(relation["resolved_witness_cts_targets"], [known])
+            self.assertEqual(relation["unresolved_witness_cts_targets"], [absent])
+            self.assertEqual(
+                report["unresolved_witness_relations"],
+                [
+                    {
+                        "source_record_id": "source/source:source",
+                        "scholarly_id": "urn:cts:demo:source",
+                        "witness": prose,
+                        "target": absent,
+                    }
+                ],
+            )
 
 
 if __name__ == "__main__":
