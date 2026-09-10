@@ -65,6 +65,21 @@ class PreferenceEvaluationContractTests(unittest.TestCase):
             self.assertTrue(two["best_parsing_tie"])
             self.assertEqual(len(identity["duplicate_scholarly_identities"]), 3)
 
+    def test_best_parsing_does_not_choose_when_any_group_quality_is_unknown(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_tt(root, "a", "a", "one", cts="urn:cts:demo:one", parsing="gold")
+            write_tt(root, "b", "b", "one", cts="urn:cts:demo:one", parsing=None)
+
+            _identity, pref = self.evaluate(root)
+            self.assertEqual(pref["best_parsing_unique_winner_group_count"], 0)
+            self.assertEqual(pref["best_parsing_incomplete_quality_group_count"], 1)
+            group = pref["duplicate_group_preferences"][0]
+            self.assertEqual(group["best_parsing_status"], "incomplete_quality")
+            self.assertEqual(group["best_parsing_candidates"], [])
+            self.assertIsNone(group["best_parsing_quality"])
+            self.assertEqual(group["unknown_quality_records"], ["b/b:one"])
+
     def test_source_preferred_is_only_eligible_for_core_equivalent_treebank_copy(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
