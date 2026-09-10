@@ -26,6 +26,18 @@ TAG_ATTRIBUTE_RE = META_ATTRIBUTE_RE
 NORM_TAG_RE = re.compile(r'<norm\b((?:[^">]|"[^"]*")*)>', re.DOTALL)
 ORIG_TAG_RE = re.compile(r'<orig\b((?:[^">]|"[^"]*")*)>', re.DOTALL)
 CTS_URN_RE = re.compile(r"urn:cts:[^\s]+")
+MANUSCRIPT_METADATA_FIELDS = (
+    "Trismegistos",
+    "collection",
+    "idno",
+    "msName",
+    "objectType",
+    "origDate",
+    "origPlace",
+    "pages_from",
+    "pages_to",
+    "repository",
+)
 
 ENRICHMENT_PATTERNS: dict[str, re.Pattern[str]] = {
     "translation": re.compile(r"<translation\b"),
@@ -84,6 +96,21 @@ def _hash_json(value: Any) -> str:
         sort_keys=True,
     ).encode("utf-8")
     return _sha256_bytes(payload)
+
+
+def _is_clean_cts_urn(value: str) -> bool:
+    """Accept only the CTS shapes observed in the pinned corpus, without repair."""
+
+    if value != value.strip() or any(character.isspace() for character in value):
+        return False
+    parts = value.split(":")
+    if len(parts) not in (4, 5) or parts[:2] != ["urn", "cts"]:
+        return False
+    if any(not part for part in parts[2:]):
+        return False
+    if value[-1] in ".,;!?)]}":
+        return False
+    return True
 
 
 def _scan_attributes(fragment: str) -> dict[str, str]:
@@ -227,7 +254,7 @@ def _record_from_bytes(
             scholarly_id = None
             identity_status = "conflicting_document_cts_urn"
             identity_conflict_values = list(cts_values)
-        elif CTS_URN_RE.fullmatch(distinct_cts[0]) is None:
+        elif not _is_clean_cts_urn(distinct_cts[0]):
             scholarly_id = None
             identity_status = "malformed_document_cts_urn"
             identity_conflict_values = []
@@ -251,6 +278,11 @@ def _record_from_bytes(
         for token in tokens
     ]
     source_record_id = f"{dataset}:{record}"
+    manuscript_metadata = {
+        field: attrs[field]
+        for field in MANUSCRIPT_METADATA_FIELDS
+        if field in attrs
+    }
     return {
         "source_record_id": source_record_id,
         "dataset": dataset,
@@ -265,6 +297,7 @@ def _record_from_bytes(
         "malformed_identity_value": malformed_identity_value,
         "metadata_corpus": attrs.get("corpus"),
         "title": attrs.get("title"),
+        "manuscript_metadata": manuscript_metadata,
         "redundant": attrs.get("redundant"),
         "witness": attrs.get("witness"),
         "segmentation_quality": attrs.get("segmentation"),
@@ -378,6 +411,7 @@ def _record_summary(record: dict[str, Any]) -> dict[str, Any]:
         "malformed_identity_value",
         "metadata_corpus",
         "title",
+        "manuscript_metadata",
         "redundant",
         "witness",
         "segmentation_quality",
@@ -474,7 +508,7 @@ def _extract_witness_cts_targets(witness: str) -> list[str]:
     targets: list[str] = []
     for match in CTS_URN_RE.finditer(witness):
         target = match.group(0).rstrip(".,;!?)]}")
-        if target and target not in targets:
+        if _is_clean_cts_urn(target) and target not in targets:
             targets.append(target)
     return targets
 
@@ -551,7 +585,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             continue
         witness_text = str(witness)
         witness_cts_targets = _extract_witness_cts_targets(witness_text)
-        is_cts = bool(CTS_URN_RE.fullmatch(witness_text))
+        is_cts = _is_clean_cts_urn(witness_text)
         witness_kind = "cts" if is_cts else "free_text"
         resolved_targets = [
             target for target in witness_cts_targets if target in scholarly_ids
