@@ -334,7 +334,14 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
         elif name == "entity":
             if entity_stack:
                 nested_entity_count += 1
-            entity_stack.append({"attrs": attrs, "token_ids": []})
+            entity_stack.append(
+                {
+                    "attrs": attrs,
+                    "token_ids": [current_norm["token_id"]]
+                    if current_norm is not None
+                    else [],
+                }
+            )
         elif name == "translation":
             translation_count += 1
             literal = attrs.get("translation") or ""
@@ -429,329 +436,217 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
                 )
 
     translation_token_counts: Counter[int] = Counter()
-    zero_token_translation_count = 0
-    empty_zero_token_translation_count = 0
-    zero_token_translations: list[dict[str, Any]] = []
+    translation_empty_text_by_span: Counter[str] = Counter()
+    translation_zero_span_examples: list[dict[str, Any]] = []
     for translation in translations:
-        token_count = translation["token_count"]
-        translation_token_counts[token_count] += 1
-        if token_count == 0:
-            zero_token_translation_count += 1
-            zero_token_translations.append(
-                {
-                    "source_record_id": translation["source_record_id"],
-                    "source": translation["source"],
-                    "text": translation["text"],
-                    "after_token_position": translation["after_token_position"],
-                    "source_char_offset": translation["source_char_offset"],
-                }
-            )
-            if not translation["text"]:
-                empty_zero_token_translation_count += 1
+        count = int(translation["token_count"])
+        translation_token_counts[count] += 1
+        if not translation["text"]:
+            translation_empty_text_by_span["zero" if count == 0 else "nonzero"] += 1
+        if count == 0:
+            translation_zero_span_examples.append(translation)
 
     arabic_translation_token_counts: Counter[int] = Counter()
-    zero_token_arabic_translation_count = 0
-    zero_token_arabic_translations: list[dict[str, Any]] = []
+    arabic_translation_empty_text_by_span: Counter[str] = Counter()
+    arabic_translation_zero_span_examples: list[dict[str, Any]] = []
     for translation in arabic_translations:
-        token_count = translation["token_count"]
-        arabic_translation_token_counts[token_count] += 1
-        if token_count == 0:
-            zero_token_arabic_translation_count += 1
-            zero_token_arabic_translations.append(
-                {
-                    "source_record_id": translation["source_record_id"],
-                    "source": translation["source"],
-                    "text": translation["text"],
-                    "after_token_position": translation["after_token_position"],
-                    "source_char_offset": translation["source_char_offset"],
-                }
-            )
+        count = int(translation["token_count"])
+        arabic_translation_token_counts[count] += 1
+        if not translation["text"]:
+            arabic_translation_empty_text_by_span["zero" if count == 0 else "nonzero"] += 1
+        if count == 0:
+            arabic_translation_zero_span_examples.append(translation)
 
-    document_summary = {
+    return {
         "source_record_id": source_record_id,
         "source": record["source"],
         "packaging": record["packaging"],
-        "norm_token_count": counts["norm"],
-        "orig_segment_count": counts["orig"],
+        "orig_group_count": counts["orig_group"],
+        "norm_group_count": counts["norm_group"],
+        "orig_count": counts["orig"],
+        "norm_count": counts["norm"],
         "sentence_start_count": sentence_starts,
         "first_token_new_sent": first_token_new_sent,
         "first_sentence_token_position": first_sentence_token_position,
-        "layout_crossing_count": len(crossings),
-        "entity_count": len(entities),
-        "translation_count": translation_count,
-        "arabic_translation_count": arabic_translation_count,
-        "chapter_marker_count": chapter_marker_count,
-        "verse_marker_count": verse_marker_count,
-        "video_marker_count": video_marker_count,
-    }
-
-    return {
-        "document_summary": document_summary,
-        "norm_token_count": counts["norm"],
-        "orig_segment_count": counts["orig"],
-        "norm_group_count": counts["norm_group"],
-        "orig_group_count": counts["orig_group"],
-        "sentence_start_count": sentence_starts,
-        "group_histograms": group_histograms,
-        "norm_group_parent_contexts": norm_group_parent_contexts,
-        "norm_parent_contexts": norm_parent_contexts,
-        "layout_counts": layout_counts,
-        "crossings": crossings,
+        "group_histograms": {
+            key: _counter_json(group_histograms[key]) for key in GROUP_HISTOGRAM_KEYS
+        },
+        "norm_group_parent_contexts": _string_counter_json(norm_group_parent_contexts),
+        "norm_parent_contexts": _string_counter_json(norm_parent_contexts),
+        "layout_counts": _string_counter_json(layout_counts),
+        "layout_crossings": crossings,
         "entity_count": len(entities),
         "entity_missing_head_count": entity_missing_head,
         "entity_unresolved_head_count": entity_unresolved_head,
         "entity_head_outside_span_count": entity_head_outside_span,
         "entity_heads_outside_span": entity_heads_outside_span,
         "entity_empty_count": entity_empty,
-        "entity_nested_count": nested_entity_count,
         "entity_identity_count": entity_identity_count,
         "entity_without_identity_count": entity_without_identity_count,
-        "entity_class_counts": entity_class_counts,
-        "entity_token_counts": entity_token_counts,
+        "entity_token_count_histogram": _counter_json(entity_token_counts),
+        "entity_class_counts": _string_counter_json(entity_class_counts),
+        "nested_entity_count": nested_entity_count,
         "translation_count": translation_count,
+        "translation_token_count_histogram": _counter_json(translation_token_counts),
+        "translation_empty_text_by_span": _string_counter_json(
+            translation_empty_text_by_span
+        ),
+        "translation_zero_span_examples": translation_zero_span_examples,
         "arabic_translation_count": arabic_translation_count,
+        "arabic_translation_token_count_histogram": _counter_json(
+            arabic_translation_token_counts
+        ),
+        "arabic_translation_empty_text_by_span": _string_counter_json(
+            arabic_translation_empty_text_by_span
+        ),
+        "arabic_translation_zero_span_examples": arabic_translation_zero_span_examples,
         "empty_translation_count": empty_translation_count,
         "empty_arabic_translation_count": empty_arabic_translation_count,
-        "translation_token_counts": translation_token_counts,
-        "zero_token_translation_count": zero_token_translation_count,
-        "empty_zero_token_translation_count": empty_zero_token_translation_count,
-        "zero_token_translations": zero_token_translations,
-        "arabic_translation_token_counts": arabic_translation_token_counts,
-        "zero_token_arabic_translation_count": zero_token_arabic_translation_count,
-        "zero_token_arabic_translations": zero_token_arabic_translations,
         "chapter_marker_count": chapter_marker_count,
         "verse_marker_count": verse_marker_count,
         "video_marker_count": video_marker_count,
-        "has_tokens_without_sentence_start": bool(counts["norm"] and sentence_starts == 0),
-        "has_tokens_before_first_sentence_start": bool(
-            counts["norm"]
-            and first_sentence_token_position is not None
-            and first_sentence_token_position > 1
-        ),
     }
 
 
 def audit_upstream(root: Path | str) -> dict[str, Any]:
-    records = sorted(
-        iter_tt_records(root),
-        key=lambda record: (
-            record["source_record_id"].casefold(),
-            record["source_record_id"],
-        ),
-    )
-    address_index: dict[str, str] = {}
-    for record in records:
-        literal = record["source_record_id"]
-        technical = literal.casefold()
-        previous = address_index.get(technical)
-        if previous is not None:
-            raise ValueError(
-                f"source-record case-insensitive collision: {previous!r} versus {literal!r}"
-            )
-        address_index[technical] = literal
+    records = sorted(iter_tt_records(root), key=lambda item: item["source_record_id"])
+    documents = [_analyze_document(record) for record in records]
 
     totals = Counter()
-    layout_totals: Counter[str] = Counter()
     group_histograms: dict[str, Counter[int]] = {
         key: Counter() for key in GROUP_HISTOGRAM_KEYS
     }
     norm_group_parent_contexts: Counter[str] = Counter()
     norm_parent_contexts: Counter[str] = Counter()
-    entity_token_histogram: Counter[int] = Counter()
+    layout_counts: Counter[str] = Counter()
+    layout_crossings: list[dict[str, Any]] = []
+    entity_token_counts: Counter[int] = Counter()
     entity_class_counts: Counter[str] = Counter()
-    translation_token_histogram: Counter[int] = Counter()
-    arabic_translation_token_histogram: Counter[int] = Counter()
-    crossings: list[dict[str, Any]] = []
+    translation_token_counts: Counter[int] = Counter()
+    translation_empty_text_by_span: Counter[str] = Counter()
+    translation_zero_span_examples: list[dict[str, Any]] = []
+    arabic_translation_token_counts: Counter[int] = Counter()
+    arabic_translation_empty_text_by_span: Counter[str] = Counter()
+    arabic_translation_zero_span_examples: list[dict[str, Any]] = []
+    first_token_not_sentence_start: list[str] = []
+    first_sentence_after_first_token: list[dict[str, Any]] = []
+    documents_with_marker: Counter[str] = Counter()
     entity_heads_outside_span: list[dict[str, Any]] = []
-    zero_token_translations: list[dict[str, Any]] = []
-    zero_token_arabic_translations: list[dict[str, Any]] = []
-    documents_without_sentence_start: list[str] = []
-    documents_with_tokens_before_first_sentence_start: list[str] = []
-    document_summaries: list[dict[str, Any]] = []
 
-    for record in records:
-        measured = _analyze_document(record)
-        document_summaries.append(measured["document_summary"])
+    for document in documents:
         for key in (
-            "norm_token_count",
-            "orig_segment_count",
-            "norm_group_count",
             "orig_group_count",
+            "norm_group_count",
+            "orig_count",
+            "norm_count",
             "sentence_start_count",
             "entity_count",
             "entity_missing_head_count",
             "entity_unresolved_head_count",
             "entity_head_outside_span_count",
             "entity_empty_count",
-            "entity_nested_count",
             "entity_identity_count",
             "entity_without_identity_count",
+            "nested_entity_count",
             "translation_count",
-            "arabic_translation_count",
             "empty_translation_count",
+            "arabic_translation_count",
             "empty_arabic_translation_count",
-            "zero_token_translation_count",
-            "empty_zero_token_translation_count",
-            "zero_token_arabic_translation_count",
             "chapter_marker_count",
             "verse_marker_count",
             "video_marker_count",
         ):
-            totals[key] += measured[key]
-        layout_totals.update(measured["layout_counts"])
-        entity_class_counts.update(measured["entity_class_counts"])
-        translation_token_histogram.update(measured["translation_token_counts"])
-        arabic_translation_token_histogram.update(
-            measured["arabic_translation_token_counts"]
+            totals[key] += int(document[key])
+        for histogram_name in GROUP_HISTOGRAM_KEYS:
+            for raw_key, value in document["group_histograms"][histogram_name].items():
+                group_histograms[histogram_name][int(raw_key)] += int(value)
+        norm_group_parent_contexts.update(document["norm_group_parent_contexts"])
+        norm_parent_contexts.update(document["norm_parent_contexts"])
+        layout_counts.update(document["layout_counts"])
+        layout_crossings.extend(document["layout_crossings"])
+        entity_token_counts.update(
+            {int(key): value for key, value in document["entity_token_count_histogram"].items()}
         )
-        entity_heads_outside_span.extend(measured["entity_heads_outside_span"])
-        zero_token_translations.extend(measured["zero_token_translations"])
-        zero_token_arabic_translations.extend(
-            measured["zero_token_arabic_translations"]
+        entity_class_counts.update(document["entity_class_counts"])
+        translation_token_counts.update(
+            {int(key): value for key, value in document["translation_token_count_histogram"].items()}
         )
-        for key in GROUP_HISTOGRAM_KEYS:
-            group_histograms[key].update(measured["group_histograms"][key])
-        norm_group_parent_contexts.update(measured["norm_group_parent_contexts"])
-        norm_parent_contexts.update(measured["norm_parent_contexts"])
-        entity_token_histogram.update(measured["entity_token_counts"])
-        crossings.extend(measured["crossings"])
-        if measured["has_tokens_without_sentence_start"]:
-            documents_without_sentence_start.append(record["source_record_id"])
-        if measured["has_tokens_before_first_sentence_start"]:
-            documents_with_tokens_before_first_sentence_start.append(
-                record["source_record_id"]
+        translation_empty_text_by_span.update(document["translation_empty_text_by_span"])
+        translation_zero_span_examples.extend(document["translation_zero_span_examples"])
+        arabic_translation_token_counts.update(
+            {
+                int(key): value
+                for key, value in document["arabic_translation_token_count_histogram"].items()
+            }
+        )
+        arabic_translation_empty_text_by_span.update(
+            document["arabic_translation_empty_text_by_span"]
+        )
+        arabic_translation_zero_span_examples.extend(
+            document["arabic_translation_zero_span_examples"]
+        )
+        if document["first_token_new_sent"] is False:
+            first_token_not_sentence_start.append(document["source_record_id"])
+        if (
+            document["first_sentence_token_position"] is not None
+            and document["first_sentence_token_position"] != 1
+        ):
+            first_sentence_after_first_token.append(
+                {
+                    "source_record_id": document["source_record_id"],
+                    "token_position": document["first_sentence_token_position"],
+                }
             )
-
-    crossings.sort(
-        key=lambda item: (
-            item["source_record_id"],
-            str(item["token_id"]),
-            item["kind"],
-            item["char_offset"],
-            str(item["to_value"]),
-        )
-    )
-    entity_heads_outside_span.sort(
-        key=lambda item: (
-            item["source_record_id"],
-            item["source"],
-            str(item["head_tok"]),
-            str(item["target_token_id"]),
-            tuple(str(value) for value in item["span_token_ids"]),
-        )
-    )
-    zero_token_translations.sort(
-        key=lambda item: (
-            item["source_record_id"],
-            item["source_char_offset"],
-            item["after_token_position"],
-            item["text"],
-        )
-    )
-    zero_token_arabic_translations.sort(
-        key=lambda item: (
-            item["source_record_id"],
-            item["source_char_offset"],
-            item["after_token_position"],
-            item["text"],
-        )
-    )
-    crossing_kind_counts: Counter[str] = Counter(item["kind"] for item in crossings)
-    crossings_per_token: Counter[tuple[str, Any]] = Counter(
-        (item["source_record_id"], item["token_id"]) for item in crossings
-    )
-
-    documents_with_chapter_markers = sum(
-        summary["chapter_marker_count"] > 0 for summary in document_summaries
-    )
-    documents_with_verse_markers = sum(
-        summary["verse_marker_count"] > 0 for summary in document_summaries
-    )
-    documents_with_video_markers = sum(
-        summary["video_marker_count"] > 0 for summary in document_summaries
-    )
-    documents_with_translation = sum(
-        summary["translation_count"] > 0 for summary in document_summaries
-    )
-    documents_with_arabic_translation = sum(
-        summary["arabic_translation_count"] > 0 for summary in document_summaries
-    )
+        for key, output_name in (
+            ("chapter_marker_count", "chapter"),
+            ("verse_marker_count", "verse"),
+            ("video_marker_count", "video"),
+        ):
+            if document[key]:
+                documents_with_marker[output_name] += 1
+        entity_heads_outside_span.extend(document["entity_heads_outside_span"])
 
     return {
-        "document_count": len(records),
-        "norm_token_count": totals["norm_token_count"],
-        "orig_segment_count": totals["orig_segment_count"],
-        "norm_group_count": totals["norm_group_count"],
-        "orig_group_count": totals["orig_group_count"],
-        "sentence_start_count": totals["sentence_start_count"],
-        "documents_without_sentence_start": sorted(documents_without_sentence_start),
-        "documents_with_tokens_before_first_sentence_start": sorted(
-            documents_with_tokens_before_first_sentence_start
-        ),
-        "layout_node_counts": {
-            kind: layout_totals[kind] for kind in ("page", "column", "line")
-        },
-        "token_internal_layout_crossing_count": len(crossings),
-        "token_internal_layout_crossings": crossings,
-        "token_internal_layout_crossing_kind_counts": _string_counter_json(
-            crossing_kind_counts
-        ),
-        "tokens_with_internal_layout_crossing_count": len(crossings_per_token),
-        "tokens_with_multiple_internal_layout_crossings_count": sum(
-            count > 1 for count in crossings_per_token.values()
-        ),
-        "max_internal_layout_crossings_per_token": max(
-            crossings_per_token.values(), default=0
-        ),
-        "group_cardinalities": {
+        "document_count": len(documents),
+        "packaging_counts": _string_counter_json(Counter(d["packaging"] for d in documents)),
+        "totals": {key: totals[key] for key in sorted(totals)},
+        "group_histograms": {
             key: _counter_json(group_histograms[key]) for key in GROUP_HISTOGRAM_KEYS
         },
-        "norm_group_parent_contexts": {
-            key: norm_group_parent_contexts[key]
-            for key in sorted(norm_group_parent_contexts)
-        },
-        "norm_parent_contexts": {
-            key: norm_parent_contexts[key] for key in sorted(norm_parent_contexts)
-        },
-        "entity_count": totals["entity_count"],
-        "entity_missing_head_count": totals["entity_missing_head_count"],
-        "entity_unresolved_head_count": totals["entity_unresolved_head_count"],
-        "entity_head_outside_span_count": totals["entity_head_outside_span_count"],
-        "entity_heads_outside_span": entity_heads_outside_span,
-        "entity_empty_count": totals["entity_empty_count"],
-        "nested_entity_count": totals["entity_nested_count"],
+        "norm_group_parent_contexts": _string_counter_json(norm_group_parent_contexts),
+        "norm_parent_contexts": _string_counter_json(norm_parent_contexts),
+        "layout_counts": _string_counter_json(layout_counts),
+        "layout_crossing_count": len(layout_crossings),
+        "layout_crossing_kind_counts": _string_counter_json(
+            Counter(item["kind"] for item in layout_crossings)
+        ),
+        "layout_crossing_examples": layout_crossings[:100],
+        "entity_token_count_histogram": _counter_json(entity_token_counts),
         "entity_class_counts": _string_counter_json(entity_class_counts),
-        "entity_identity_count": totals["entity_identity_count"],
-        "entity_without_identity_count": totals["entity_without_identity_count"],
-        "entity_token_count_histogram": _counter_json(entity_token_histogram),
-        "translation_count": totals["translation_count"],
-        "arabic_translation_count": totals["arabic_translation_count"],
-        "empty_translation_count": totals["empty_translation_count"],
-        "empty_arabic_translation_count": totals["empty_arabic_translation_count"],
-        "translation_token_count_histogram": _counter_json(
-            translation_token_histogram
+        "entity_head_outside_span_count": len(entity_heads_outside_span),
+        "entity_heads_outside_span": entity_heads_outside_span,
+        "translation_token_count_histogram": _counter_json(translation_token_counts),
+        "translation_empty_text_by_span": _string_counter_json(
+            translation_empty_text_by_span
         ),
-        "zero_token_translation_count": totals["zero_token_translation_count"],
-        "empty_zero_token_translation_count": totals[
-            "empty_zero_token_translation_count"
-        ],
-        "zero_token_translations": zero_token_translations,
+        "translation_zero_span_count": translation_token_counts[0],
+        "translation_zero_span_examples": translation_zero_span_examples[:100],
         "arabic_translation_token_count_histogram": _counter_json(
-            arabic_translation_token_histogram
+            arabic_translation_token_counts
         ),
-        "zero_token_arabic_translation_count": totals[
-            "zero_token_arabic_translation_count"
-        ],
-        "zero_token_arabic_translations": zero_token_arabic_translations,
-        "chapter_marker_count": totals["chapter_marker_count"],
-        "verse_marker_count": totals["verse_marker_count"],
-        "video_marker_count": totals["video_marker_count"],
-        "documents_with_chapter_markers": documents_with_chapter_markers,
-        "documents_with_verse_markers": documents_with_verse_markers,
-        "documents_with_video_markers": documents_with_video_markers,
-        "documents_with_translation": documents_with_translation,
-        "documents_with_arabic_translation": documents_with_arabic_translation,
-        "document_summaries": document_summaries,
+        "arabic_translation_empty_text_by_span": _string_counter_json(
+            arabic_translation_empty_text_by_span
+        ),
+        "arabic_translation_zero_span_count": arabic_translation_token_counts[0],
+        "arabic_translation_zero_span_examples": arabic_translation_zero_span_examples[:100],
+        "first_token_not_sentence_start_count": len(first_token_not_sentence_start),
+        "first_token_not_sentence_start": sorted(first_token_not_sentence_start),
+        "first_sentence_after_first_token_count": len(first_sentence_after_first_token),
+        "first_sentence_after_first_token": sorted(
+            first_sentence_after_first_token, key=lambda item: item["source_record_id"]
+        ),
+        "documents_with_marker": _string_counter_json(documents_with_marker),
+        "documents": documents,
     }
 
 
@@ -761,16 +656,12 @@ def render_report_json(report: dict[str, Any]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "upstream", type=Path, help="Pinned CopticScriptorium/corpora checkout"
-    )
-    parser.add_argument(
-        "--output", type=Path, help="Write JSON report here instead of stdout"
-    )
+    parser.add_argument("upstream", type=Path)
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
     report = audit_upstream(args.upstream)
     rendered = render_report_json(report)
-    if args.output is not None:
+    if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(rendered, encoding="utf-8")
     else:
