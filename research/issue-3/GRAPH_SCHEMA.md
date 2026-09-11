@@ -17,7 +17,8 @@ The exact-head graph-shape audit measures 2,628 TT document streams containing:
 - 78,993 sentence starts;
 - 3,294 page, 3,291 column and 47,933 line markers;
 - 13,015 token-internal layout crossings affecting 12,307 tokens, with 535 tokens crossed more than once and a maximum of seven crossings in one token;
-- 256,677 entities, all non-empty and all source heads resolved, including 78,243 nested entities;
+- 256,677 entities, all non-empty and with all source head IDs resolving within the physical document, including 78,243 nested entities;
+- two resolved entity heads that point to a word outside the entity's measured surface span;
 - 52,346 English translation nodes in 1,490 documents;
 - 1,598 Arabic translation nodes in 96 documents.
 
@@ -25,13 +26,13 @@ Every document containing tokens has a source sentence start and no token occurs
 
 The group hierarchy is not one universal four-step chain. All 736,574 `orig_group` nodes have exactly one `norm_group`; every `orig` has exactly one `norm`; but 368,884 `norm_group` nodes have no `orig_group`, `norm_group` may contain 0–11 `orig` nodes, and 828,361 `norm` tokens occur directly under `norm_group` rather than `orig`.
 
-English translation has four measured zero-token textual loci. Arabic translation has one measured zero-token locus (`shenoute.night.BV278-282`, literal `بواسطة شنودة`). These are independently positioned textual annotations and cannot borrow a neighbouring word slot.
+The corrected corpus-wide translation-locus audit reports **zero English and zero Arabic translations without word coverage**. An independent adversarial review found that an earlier audit initialized translation coverage to zero when a `<translation>`/`<arabic>` tag opened inside an already-open `norm`; the four English and one Arabic cases previously reported as zero-token loci were all instances of that event ordering. The audit now inherits the already-open word locus before counting later words.
 
 Chapter/verse/video markers are heterogeneous rather than universal navigation: chapter markers occur in 426 documents, verse markers in 2,571 and video markers in 206.
 
 ## ADR 1 — slot type
 
-**Decision:** each TT `norm` is one semantic `word` slot.
+**Decision:** each TT `norm` is exactly one Text-Fabric `word` slot, and every slot in the current schema comes from a source `norm`.
 
 Reasons:
 
@@ -40,29 +41,24 @@ Reasons:
 - entity heads target this unit;
 - ordinary TF linguistic queries remain direct;
 - character/source-piece slots would multiply slot count and move linguistic features to non-slot nodes;
-- layout crossings can be represented losslessly without splitting a word slot.
+- layout crossings can be represented losslessly without splitting a word slot;
+- the corrected full-corpus audit finds no independently positioned textual annotation that needs a technical slot.
 
 A single source `norm` is never split into multiple semantic word slots solely because a page/column/line boundary crosses its rendered text.
 
 The literal source-local `xml:id` remains a word feature for provenance/navigation inside the source document, but it is not a global TF node ID.
 
-## ADR 2 — synthetic slots
+Text-Fabric serializes one slot type. The current writer contract therefore remains a clean `word` slot stream rather than mixing semantic words with synthetic anchors. Introducing any non-source slot later requires a new measured schema decision rather than an ad-hoc writer exception.
 
-Semantic and synthetic slots are distinct.
+## ADR 2 — zero-span and technical-anchor policy
 
-A textual annotation with a real word locus uses those word slots. An independently positioned textual annotation with zero word coverage receives exactly one surface-less synthetic slot placed in source order. The synthetic slot:
+The pinned corpus contains no measured zero-word English or Arabic translation after event-order-correct locus measurement. The current materializer therefore creates **no synthetic slots**.
 
-- has no source-word ID;
-- has no fabricated visible Coptic surface;
-- belongs to exactly one physical document;
-- is not absorbed into a sentence node;
-- exists only to preserve TF sequence position for the zero-span textual object.
+If a future upstream revision introduces independently positioned non-empty textual content with no word locus, the parser/audit must surface that source shape and the graph build must fail explicitly until a focused research/TDD gate decides how to represent it. The materializer must not borrow a neighbouring word merely to satisfy Text-Fabric anchoring.
 
-This rule applies to both `translation` and `arabic_translation`. The pinned corpus currently requires five such loci in these two measured families: four English and one Arabic.
+An empty literal translation that has a real word locus remains attached to that locus; emptiness of its text feature is not evidence of zero span.
 
-An empty literal translation that still has a real word locus does not receive a synthetic slot merely because its text feature is empty.
-
-Non-textual graph objects may use a documented technical anchor only when serialization requires it. Such an anchor must render as `none` or the node's own text, never the neighbouring anchor slot's semantic text.
+Non-textual graph objects may use a documented technical anchor only when serialization actually requires one and the anchor cannot be mistaken for semantic text. Such a node must render as `none` or its own text, never the neighbouring anchor slot's text.
 
 ## ADR 3 — linguistic grouping nodes
 
@@ -88,7 +84,7 @@ Literal normalized and diplomatic/original strings remain separately reconstruct
 
 Each physical source record from issue #2 becomes one `document` node with a unique section address derived from its deterministic `source_record_id`. Repeated scholarly CTS IDs remain ordinary features and never collapse document sections.
 
-`sentence` is an ordinary node, not a universal section level. The corpus evidence nevertheless supports complete sentence partitioning of semantic word slots: every token stream has a first source sentence start and no token occurs before it. Every word slot must therefore belong to exactly one sentence node.
+`sentence` is an ordinary node, not a universal section level. The corpus evidence nevertheless supports complete sentence partitioning of word slots: every token stream has a first source sentence start and no token occurs before it. Every word slot must therefore belong to exactly one sentence node.
 
 Sentence nodes may expose deterministic document-local ordinals/helper addresses, but `nodeFromSection()`-style universal navigation must not require sentence, chapter, verse or video semantics.
 
@@ -121,26 +117,30 @@ For each word slot:
 
 CoNLL-U-derived normalized relations, heads, UD FEATS and construction/MISC enrichments remain separately named supplemental features/edges according to issue #1. They never overwrite TT source values.
 
+Dependency targets must resolve within the same physical source document.
+
 ## ADR 7 — entities
 
 Each source entity becomes an ordinary `entity` node spanning its measured word slots. Preserve:
 
 - source entity class;
 - literal identity/Wikification value where present;
-- source head-token reference;
-- an `entity_head` edge from entity node to its head word slot.
+- literal source head-token reference;
+- an `entity_head` edge from entity node to the resolved head word slot.
 
-The head must lie within the entity span. The pinned corpus contains no empty entity and no missing/unresolved entity head, but the materializer must fail closed if a later source revision violates those invariants.
+Entity surface span and source head relation are distinct source facts. The pinned corpus contains no empty entities and no missing or unresolved entity heads, but it contains **two `abstract` entities whose resolved source head lies immediately outside the measured entity span**: one in `pachomius.instructions.01` (`#u1996` vs span `u1997`–`u1999`) and one in `shenoute.prince.XH185-194` (`#u1371` vs span `u1372`–`u1375`). These edges are preserved exactly rather than rejected or silently pulled into the entity span.
+
+An entity head must resolve to a word in the same physical source document. A missing, unresolved or cross-document head is a source/contract failure that must be surfaced. Being outside the entity's surface span is ledgered source evidence, not by itself an error.
 
 Nested entities are allowed and common (78,243 measured cases); the representation must not assume entity spans form a flat partition.
 
 ## ADR 8 — translations
 
-`translation` and `arabic_translation` are distinct textual annotation node types with literal own-text features and source loci.
+`translation` and `arabic_translation` are distinct textual annotation node types with literal own-text features and measured word loci.
 
-If a translation covers words, its node is anchored by those word slots. If its measured token coverage is zero, it receives the synthetic-slot treatment in ADR 2. Translation literal text is never injected into the Coptic word-slot surface.
+On the pinned revision every English and Arabic translation has at least one word locus once annotations that open inside an already-open `norm` inherit that current word. Translation literal text is never injected into the Coptic word-slot surface.
 
-Node-specific rendering uses the translation's own literal text, not descendant/anchor Coptic text.
+Node-specific rendering uses the translation's own literal text, not descendant/anchor Coptic text. A future translation with no word locus triggers ADR 2's research gate rather than synthetic-slot creation in the current implementation.
 
 ## ADR 9 — documents, union topology and overlap
 
@@ -163,17 +163,16 @@ For Context-Fabric/cfabric-mcp discovery, the minimal corpus-view surface is the
 
 | Graph object | TF role | Core source/features | Relations |
 | --- | --- | --- | --- |
-| `word` | semantic slot | `norm`, lemma, POS, literal TT `xml:id`, TT `func`, source provenance | `dependency_head` to word |
-| synthetic slot | surface-less slot | source-order position, no source word/surface | anchors one independently positioned zero-span textual node |
+| `word` | sole slot type | `norm`, lemma, POS, literal TT `xml:id`, TT `func`, source provenance | `dependency_head` to word |
 | `document` | non-slot section node | `source_record_id`, corpus, dataset, CTS, metadata, quality, license/provenance | overlap/witness relations; spans all document slots |
 | `sentence` | non-slot | document-local ordinal/source start | spans exactly its word slots |
 | `orig` | non-slot | diplomatic/original literal | source grouping relation to word |
 | `norm_group` | non-slot | literal group value/provenance | source group relations to `orig` and/or direct words |
 | `orig_group` | non-slot | literal group value/provenance | source relation to `norm_group` |
 | `page`/`column`/`line` | non-slot layout | label, diplomatic text, token-relative offsets | source-order/locus relation to words |
-| `entity` | non-slot span | class, identity, literal head reference | `entity_head` to word; word-span locus |
-| `translation` | non-slot textual | literal English text, source position | word locus or one synthetic slot when zero-span |
-| `arabic_translation` | non-slot textual | literal Arabic text, source position | word locus or one synthetic slot when zero-span |
+| `entity` | non-slot span | class, identity, literal head reference | `entity_head` to document-local word; word-span locus may exclude the head |
+| `translation` | non-slot textual | literal English text, source position | measured word locus |
+| `arabic_translation` | non-slot textual | literal Arabic text, source position | measured word locus |
 
 Writer finalization must assign every non-slot `otype` a TF-safe contiguous node-ID range. Literal upstream identifiers stay available as features even when technical IDs differ.
 
@@ -185,7 +184,6 @@ Named text formats must make semantics explicit:
 - diplomatic/original formats: reconstruct source original/layout text using explicit original/layout information;
 - layout node rendering: own diplomatic text when word-internal boundaries occur;
 - translation rendering: own literal translation text;
-- synthetic slots: render no visible surface;
 - non-textual technical-anchor nodes: render no anchor text unless an explicitly named own-text format exists.
 
 A successful TF `T.text()` call is not evidence of correct text. #11 must test normalized, diplomatic, layout and translation formats independently.
@@ -194,17 +192,17 @@ A successful TF `T.text()` call is not evidence of correct text. #11 must test n
 
 The production materializer must be RED-first tested against at least these invariants:
 
-1. one TT `norm` produces exactly one semantic word slot;
-2. every semantic word slot belongs to exactly one physical document and exactly one sentence;
+1. one TT `norm` produces exactly one `word` slot and every serialized slot comes from a source `norm`;
+2. every word slot belongs to exactly one physical document and exactly one sentence;
 3. repeated scholarly CTS IDs produce distinct document nodes/section addresses;
 4. direct `norm_group -> norm`, standalone `norm_group`, multi-`orig` groups and ordinary `orig -> norm` are all preserved without invented hierarchy;
-5. dependency and entity-head edges target semantic word slots and resolve only within the source document;
-6. page/column/line crossings preserve exact token-relative positions without splitting or duplicating words;
-7. multiple internal layout crossings in one word survive in source order;
-8. nested entities remain separately queryable;
-9. translation/Arabic translation text never becomes Coptic slot surface;
-10. each zero-token English/Arabic translation gets a surface-less synthetic slot at its source position and cannot borrow a neighbouring word;
-11. synthetic slots never belong to sentence nodes or expose fabricated visible text;
+5. dependency and entity-head edges target word slots and resolve only within the source document;
+6. an entity head outside its entity surface span remains a valid source edge and does not expand/collapse that span;
+7. page/column/line crossings preserve exact token-relative positions without splitting or duplicating words;
+8. multiple internal layout crossings in one word survive in source order;
+9. nested entities remain separately queryable;
+10. translation/Arabic translation text never becomes Coptic slot surface and every pinned-revision translation retains its measured word locus;
+11. the current graph contains no synthetic slots; a newly observed zero-word textual locus fails explicitly and opens a research/schema gate;
 12. technical anchors cannot render unrelated anchor text;
 13. universal section types remain document-only; chapter/verse/video remain optional source structures;
 14. union-corpus materialization preserves all physical source records and issue-2 overlap/witness relations;
@@ -212,4 +210,4 @@ The production materializer must be RED-first tested against at least these inva
 16. literal source IDs/provenance remain recoverable after write/reload;
 17. normalized and diplomatic text reconstruction are independently checked against source material rather than against the converter's own intermediate representation.
 
-Any later requirement that changes slot type, introduces a new zero-span textual family, or promotes another structure into universal sections requires a new measured research/TDD gate rather than an ad-hoc writer exception.
+Any later requirement that changes slot type, introduces an independently positioned zero-word textual source shape, or promotes another structure into universal sections requires a new measured research/TDD gate rather than an ad-hoc writer exception.
