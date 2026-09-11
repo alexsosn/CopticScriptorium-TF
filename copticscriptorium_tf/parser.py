@@ -437,7 +437,13 @@ def parse_source_tree(
             (item for item in directory.rglob("*") if item.is_file() and item.suffix.casefold() == ".tt"),
             key=lambda item: item.as_posix(),
         ):
-            logical = path.relative_to(directory).as_posix()
+            logical_path = path.relative_to(directory)
+            if len(logical_path.parts) != 1:
+                raise ValueError(
+                    f"unsupported TT directory member layout in {relative.as_posix()}: "
+                    f"{logical_path.as_posix()!r}"
+                )
+            logical = logical_path.as_posix()
             record = logical[: -len(path.suffix)]
             source_id = _source_record_id(corpus, dataset, record)
             pending.append((source_id, path.relative_to(root_path).as_posix(), path.read_bytes(), "directory"))
@@ -457,8 +463,10 @@ def parse_source_tree(
                     logical = member
                 elif member.startswith(expected_prefix):
                     logical = member[len(expected_prefix) :]
-                    if not logical:
-                        raise ValueError(f"empty TT archive member path in {relative.as_posix()}: {member!r}")
+                    if not logical or "/" in logical:
+                        raise ValueError(
+                            f"unsupported TT archive member layout in {relative.as_posix()}: {member!r}"
+                        )
                 else:
                     raise ValueError(f"unsupported TT archive member layout in {relative.as_posix()}: {member!r}")
                 record = logical[:-3]
