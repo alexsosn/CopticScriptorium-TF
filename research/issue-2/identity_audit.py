@@ -1,23 +1,24 @@
 """Corpus-wide identity/overlap audit for Coptic Scriptorium TT sources.
 
-This is research tooling for issue #2, not production converter code. It keeps
-physical source identity, scholarly CTS identity, text identity, linguistic-analysis
-identity, documented collection overlap, and redundancy/witness relations separate
-so later Text-Fabric design does not deduplicate records from one convenient key.
+Research tooling for issue #2.  Every physical TT source record remains visible;
+scholarly CTS identity, text identity, linguistic-analysis identity, documented
+collection overlap, and redundancy/witness relations are measured independently.
 """
 
 from __future__ import annotations
 
-from collections import Counter
-from itertools import combinations
 import argparse
+from collections import Counter
 import hashlib
 import html
+from itertools import combinations
 import json
+import os
 from pathlib import Path
 import re
 from typing import Any, Iterator
 import zipfile
+
 
 META_ATTRIBUTE_RE = re.compile(
     r'\s+([A-Za-z_][A-Za-z0-9_.:-]*)\s*=\s*"([^"]*)"'
@@ -26,6 +27,7 @@ TAG_ATTRIBUTE_RE = META_ATTRIBUTE_RE
 NORM_TAG_RE = re.compile(r'<norm\b((?:[^">]|"[^"]*")*)>', re.DOTALL)
 ORIG_TAG_RE = re.compile(r'<orig\b((?:[^">]|"[^"]*")*)>', re.DOTALL)
 CTS_URN_RE = re.compile(r"urn:cts:[^\s]+")
+
 MANUSCRIPT_METADATA_FIELDS = (
     "Trismegistos",
     "collection",
@@ -56,9 +58,8 @@ CLASS_SEVERITY = {
     "textual_divergence": 3,
 }
 
-# These relations come from the pinned upstream README. They are deliberately
-# finite and dataset-specific: similar CTS spelling is not enough to infer an
-# overlap relation for any other corpus.
+# Finite relations documented by the pinned upstream README.  These are not
+# inferred from CTS spelling or filename similarity for any other datasets.
 DOCUMENTED_COLLECTION_OVERLAP_SPECS = (
     {
         "left_dataset": "sahidica.mark/sahidica.mark",
@@ -99,7 +100,7 @@ def _hash_json(value: Any) -> str:
 
 
 def _is_clean_cts_urn(value: str) -> bool:
-    """Accept only the CTS shapes observed in the pinned corpus, without repair."""
+    """Accept only CTS shapes observed in the pinned corpus, without repair."""
 
     if value != value.strip() or any(character.isspace() for character in value):
         return False
@@ -108,7 +109,7 @@ def _is_clean_cts_urn(value: str) -> bool:
         return False
     if any(not part for part in parts[2:]):
         return False
-    if value[-1] in ".,;!?)]}":
+    if value[-1] in ".,;!?)]}\":":
         return False
     return True
 
@@ -435,24 +436,31 @@ def _documented_collection_overlaps(
     records: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]], dict[str, int]]:
     by_source_id = {record["source_record_id"]: record for record in records}
+    present_datasets = {record["dataset"] for record in records}
     overlaps: list[dict[str, Any]] = []
     unmatched: list[dict[str, str]] = []
     class_counts: Counter[str] = Counter()
 
     for spec in DOCUMENTED_COLLECTION_OVERLAP_SPECS:
+        both_datasets_active = (
+            spec["left_dataset"] in present_datasets
+            and spec["right_dataset"] in present_datasets
+        )
         for chapter in spec["chapters"]:
             chapter_text = f"{chapter:02d}"
-            left_id = (
-                f"{spec['left_dataset']}:"
-                f"{spec['left_prefix']}{chapter_text}"
-            )
-            right_id = (
-                f"{spec['right_dataset']}:"
-                f"{spec['right_prefix']}{chapter_text}"
-            )
+            left_id = f"{spec['left_dataset']}:{spec['left_prefix']}{chapter_text}"
+            right_id = f"{spec['right_dataset']}:{spec['right_prefix']}{chapter_text}"
             left = by_source_id.get(left_id)
             right = by_source_id.get(right_id)
             if left is None and right is None:
+                if both_datasets_active:
+                    unmatched.append(
+                        {
+                            "expected_left": left_id,
+                            "expected_right": right_id,
+                            "missing_side": "both",
+                        }
+                    )
                 continue
             if left is None:
                 unmatched.append(
@@ -513,7 +521,15 @@ def _extract_witness_cts_targets(witness: str) -> list[str]:
     return targets
 
 
-def audit_upstream(root: Path | str) -> dict[str, Any]:
+def audit_upstream(
+    root: Path | str,
+    *,
+    upstream_repository: str | None = None,
+    upstream_commit: str | None = None,
+) -> dict[str, Any]:
+    if (upstream_repository is None) != (upstream_commit is None):
+        raise ValueError("upstream repository and commit must be supplied together")
+
     records = sorted(iter_tt_records(root), key=lambda record: record["source_record_id"])
 
     address_index: dict[str, str] = {}
@@ -544,7 +560,9 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     pair_class_counts: Counter[str] = Counter()
 
     for scholarly_id in sorted(by_scholarly):
-        group = sorted(by_scholarly[scholarly_id], key=lambda record: record["source_record_id"])
+        group = sorted(
+            by_scholarly[scholarly_id], key=lambda record: record["source_record_id"]
+        )
         if len(group) < 2:
             continue
         pairs: list[dict[str, str]] = []
@@ -678,6 +696,11 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     )
 
     return {
+        "source_provenance": (
+            None
+            if upstream_repository is None
+            else {"repository": upstream_repository, "commit": upstream_commit}
+        ),
         "document_count": len(records),
         "scholarly_identity_count": len(by_scholarly),
         "scholarly_identity_multiplicity": {
@@ -733,9 +756,27 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Write JSON report here instead of stdout",
     )
+    parser.add_argument(
+        "--upstream-repository",
+        default="CopticScriptorium/corpora",
+        help="Upstream owner/name bound into generated provenance",
+    )
+    parser.add_argument(
+        "--upstream-commit",
+        default=os.environ.get("UPSTREAM_COMMIT"),
+        help="Immutable upstream commit bound into generated provenance",
+    )
     args = parser.parse_args(argv)
+    if not args.upstream_commit:
+        parser.error("--upstream-commit is required (or set UPSTREAM_COMMIT)")
 
-    rendered = render_report_json(audit_upstream(args.upstream))
+    rendered = render_report_json(
+        audit_upstream(
+            args.upstream,
+            upstream_repository=args.upstream_repository,
+            upstream_commit=args.upstream_commit,
+        )
+    )
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(rendered, encoding="utf-8")
