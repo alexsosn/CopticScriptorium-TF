@@ -337,6 +337,7 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
                     "source_record_id": source_record_id,
                     "source": record["source"],
                     "after_token_position": token_position,
+                    "source_char_offset": match.start(),
                 }
             )
         elif name in {"arabic", "arabic_translation"}:
@@ -404,6 +405,7 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
                     "source": translation["source"],
                     "text": translation["text"],
                     "after_token_position": translation["after_token_position"],
+                    "source_char_offset": translation["source_char_offset"],
                 }
             )
             if not translation["text"]:
@@ -559,6 +561,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     zero_token_translations.sort(
         key=lambda item: (
             item["source_record_id"],
+            item["source_char_offset"],
             item["after_token_position"],
             item["text"],
         )
