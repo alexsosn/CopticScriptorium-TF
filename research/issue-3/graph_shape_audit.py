@@ -343,7 +343,7 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
             translation_stack.append(
                 {
                     "text": literal,
-                    "token_count": 0,
+                    "token_count": 1 if current_norm is not None else 0,
                     "source_record_id": source_record_id,
                     "source": record["source"],
                     "after_token_position": token_position,
@@ -358,7 +358,7 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
             arabic_translation_stack.append(
                 {
                     "text": value,
-                    "token_count": 0,
+                    "token_count": 1 if current_norm is not None else 0,
                     "source_record_id": source_record_id,
                     "source": record["source"],
                     "after_token_position": token_position,
