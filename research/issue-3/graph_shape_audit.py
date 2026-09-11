@@ -146,6 +146,8 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
     entities: list[dict[str, Any]] = []
     translation_stack: list[dict[str, Any]] = []
     translations: list[dict[str, Any]] = []
+    arabic_translation_stack: list[dict[str, Any]] = []
+    arabic_translations: list[dict[str, Any]] = []
     token_ids: set[str] = set()
     current_norm: dict[str, Any] | None = None
 
@@ -246,6 +248,12 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
                         f"closing translation without open translation in {source_record_id}"
                     )
                 translations.append(translation_stack.pop())
+            elif name in {"arabic", "arabic_translation"}:
+                if not arabic_translation_stack:
+                    raise ValueError(
+                        f"closing {name} without open Arabic translation in {source_record_id}"
+                    )
+                arabic_translations.append(arabic_translation_stack.pop())
             elif name in LAYOUT_TAGS:
                 kind, _ = LAYOUT_TAGS[name]
                 active_layout[kind] = None
@@ -303,6 +311,8 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
                 entity["token_ids"].append(token_id)
             for translation in translation_stack:
                 translation["token_count"] += 1
+            for translation in arabic_translation_stack:
+                translation["token_count"] += 1
         elif name in LAYOUT_TAGS:
             kind, value_attribute = LAYOUT_TAGS[name]
             value = attrs.get(value_attribute)
@@ -345,6 +355,16 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
             value = attrs.get("arabic") or attrs.get("arabic_translation") or ""
             if not value:
                 empty_arabic_translation_count += 1
+            arabic_translation_stack.append(
+                {
+                    "text": value,
+                    "token_count": 0,
+                    "source_record_id": source_record_id,
+                    "source": record["source"],
+                    "after_token_position": token_position,
+                    "source_char_offset": match.start(),
+                }
+            )
         elif name == "chapter_n":
             chapter_marker_count += 1
         elif name == "verse_n":
@@ -362,6 +382,8 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(f"unclosed entity tag in {source_record_id}")
     if translation_stack:
         raise ValueError(f"unclosed translation tag in {source_record_id}")
+    if arabic_translation_stack:
+        raise ValueError(f"unclosed Arabic translation tag in {source_record_id}")
 
     entity_missing_head = 0
     entity_unresolved_head = 0
@@ -411,6 +433,24 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
             if not translation["text"]:
                 empty_zero_token_translation_count += 1
 
+    arabic_translation_token_counts: Counter[int] = Counter()
+    zero_token_arabic_translation_count = 0
+    zero_token_arabic_translations: list[dict[str, Any]] = []
+    for translation in arabic_translations:
+        token_count = translation["token_count"]
+        arabic_translation_token_counts[token_count] += 1
+        if token_count == 0:
+            zero_token_arabic_translation_count += 1
+            zero_token_arabic_translations.append(
+                {
+                    "source_record_id": translation["source_record_id"],
+                    "source": translation["source"],
+                    "text": translation["text"],
+                    "after_token_position": translation["after_token_position"],
+                    "source_char_offset": translation["source_char_offset"],
+                }
+            )
+
     document_summary = {
         "source_record_id": source_record_id,
         "source": record["source"],
@@ -458,6 +498,9 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
         "zero_token_translation_count": zero_token_translation_count,
         "empty_zero_token_translation_count": empty_zero_token_translation_count,
         "zero_token_translations": zero_token_translations,
+        "arabic_translation_token_counts": arabic_translation_token_counts,
+        "zero_token_arabic_translation_count": zero_token_arabic_translation_count,
+        "zero_token_arabic_translations": zero_token_arabic_translations,
         "chapter_marker_count": chapter_marker_count,
         "verse_marker_count": verse_marker_count,
         "video_marker_count": video_marker_count,
@@ -499,8 +542,10 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     entity_token_histogram: Counter[int] = Counter()
     entity_class_counts: Counter[str] = Counter()
     translation_token_histogram: Counter[int] = Counter()
+    arabic_translation_token_histogram: Counter[int] = Counter()
     crossings: list[dict[str, Any]] = []
     zero_token_translations: list[dict[str, Any]] = []
+    zero_token_arabic_translations: list[dict[str, Any]] = []
     documents_without_sentence_start: list[str] = []
     documents_with_tokens_before_first_sentence_start: list[str] = []
     document_summaries: list[dict[str, Any]] = []
@@ -527,6 +572,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             "empty_arabic_translation_count",
             "zero_token_translation_count",
             "empty_zero_token_translation_count",
+            "zero_token_arabic_translation_count",
             "chapter_marker_count",
             "verse_marker_count",
             "video_marker_count",
@@ -535,7 +581,13 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         layout_totals.update(measured["layout_counts"])
         entity_class_counts.update(measured["entity_class_counts"])
         translation_token_histogram.update(measured["translation_token_counts"])
+        arabic_translation_token_histogram.update(
+            measured["arabic_translation_token_counts"]
+        )
         zero_token_translations.extend(measured["zero_token_translations"])
+        zero_token_arabic_translations.extend(
+            measured["zero_token_arabic_translations"]
+        )
         for key in GROUP_HISTOGRAM_KEYS:
             group_histograms[key].update(measured["group_histograms"][key])
         norm_group_parent_contexts.update(measured["norm_group_parent_contexts"])
@@ -559,6 +611,14 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         )
     )
     zero_token_translations.sort(
+        key=lambda item: (
+            item["source_record_id"],
+            item["source_char_offset"],
+            item["after_token_position"],
+            item["text"],
+        )
+    )
+    zero_token_arabic_translations.sort(
         key=lambda item: (
             item["source_record_id"],
             item["source_char_offset"],
@@ -644,6 +704,13 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             "empty_zero_token_translation_count"
         ],
         "zero_token_translations": zero_token_translations,
+        "arabic_translation_token_count_histogram": _counter_json(
+            arabic_translation_token_histogram
+        ),
+        "zero_token_arabic_translation_count": totals[
+            "zero_token_arabic_translation_count"
+        ],
+        "zero_token_arabic_translations": zero_token_arabic_translations,
         "chapter_marker_count": totals["chapter_marker_count"],
         "verse_marker_count": totals["verse_marker_count"],
         "video_marker_count": totals["video_marker_count"],
