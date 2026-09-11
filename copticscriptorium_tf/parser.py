@@ -106,6 +106,7 @@ def parse_tt_record(
 
     entities_raw: list[dict[str, Any]] = []
     entity_stack: list[dict[str, Any]] = []
+    entity_open_count = 0
     translations_raw: list[dict[str, Any]] = []
     translation_stack: list[dict[str, Any]] = []
     arabic_raw: list[dict[str, Any]] = []
@@ -250,11 +251,14 @@ def parse_tt_record(
                 )
             )
         elif name == "entity":
+            entity_open_count += 1
             locus: list[int] = []
             if current_word is not None:
                 locus.append(current_word["ordinal"])
             entity_stack.append(
                 {
+                    "ordinal": entity_open_count,
+                    "parent_entity_ordinal": entity_stack[-1]["ordinal"] if entity_stack else None,
                     "entity_class": attrs.get("entity"),
                     "identity": attrs.get("identity"),
                     "head_literal": attrs.get("head_tok"),
@@ -327,7 +331,7 @@ def parse_tt_record(
         sentences.append(Sentence(index + 1, tuple(range(start, end + 1))))
 
     entities: list[Entity] = []
-    for raw_entity in entities_raw:
+    for raw_entity in sorted(entities_raw, key=lambda item: item["ordinal"]):
         head_literal = raw_entity["head_literal"]
         if not head_literal:
             raise ValueError(f"entity head is missing in {source_record_id}")
@@ -342,7 +346,8 @@ def parse_tt_record(
             raise ValueError(f"entity has no word locus in {source_record_id}")
         entities.append(
             Entity(
-                ordinal=len(entities) + 1,
+                ordinal=raw_entity["ordinal"],
+                parent_entity_ordinal=raw_entity["parent_entity_ordinal"],
                 entity_class=raw_entity["entity_class"],
                 identity=raw_entity["identity"],
                 head_literal=head_literal,
