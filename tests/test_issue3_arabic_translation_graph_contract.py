@@ -25,6 +25,10 @@ def graph(arabic_slots, *, include_synthetic=False):
         slots.append({"id": "z1", "kind": "synthetic", "surface": "", "source_word_id": None})
         document_slots.append("z1")
     return {
+        "provenance": {
+            "upstream_repository": "CopticScriptorium/corpora",
+            "upstream_commit": "abc123",
+        },
         "section_types": ["document"],
         "slots": slots,
         "nodes": [
@@ -37,6 +41,8 @@ def graph(arabic_slots, *, include_synthetic=False):
                     "section_address": ["demo/demo:one"],
                     "corpus": "demo",
                     "dataset": "demo",
+                    "source_path": "demo/demo_TT/one.tt",
+                    "source_sha256": "1" * 64,
                 },
             },
             {"id": "s1", "type": "sentence", "slots": ["w1"], "features": {}},
@@ -48,6 +54,8 @@ def graph(arabic_slots, *, include_synthetic=False):
                     "zero_span": True,
                     "text": "بواسطة شنودة",
                     "render_mode": "own_text",
+                    "after_source_word_ordinal": 1,
+                    "source_char_offset": 0,
                 },
             },
         ],
