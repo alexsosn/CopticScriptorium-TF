@@ -330,7 +330,15 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
             literal = attrs.get("translation") or ""
             if not literal:
                 empty_translation_count += 1
-            translation_stack.append({"text": literal, "token_count": 0})
+            translation_stack.append(
+                {
+                    "text": literal,
+                    "token_count": 0,
+                    "source_record_id": source_record_id,
+                    "source": record["source"],
+                    "after_token_position": token_position,
+                }
+            )
         elif name in {"arabic", "arabic_translation"}:
             arabic_translation_count += 1
             value = attrs.get("arabic") or attrs.get("arabic_translation") or ""
@@ -384,11 +392,20 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
     translation_token_counts: Counter[int] = Counter()
     zero_token_translation_count = 0
     empty_zero_token_translation_count = 0
+    zero_token_translations: list[dict[str, Any]] = []
     for translation in translations:
         token_count = translation["token_count"]
         translation_token_counts[token_count] += 1
         if token_count == 0:
             zero_token_translation_count += 1
+            zero_token_translations.append(
+                {
+                    "source_record_id": translation["source_record_id"],
+                    "source": translation["source"],
+                    "text": translation["text"],
+                    "after_token_position": translation["after_token_position"],
+                }
+            )
             if not translation["text"]:
                 empty_zero_token_translation_count += 1
 
@@ -438,6 +455,7 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
         "translation_token_counts": translation_token_counts,
         "zero_token_translation_count": zero_token_translation_count,
         "empty_zero_token_translation_count": empty_zero_token_translation_count,
+        "zero_token_translations": zero_token_translations,
         "chapter_marker_count": chapter_marker_count,
         "verse_marker_count": verse_marker_count,
         "video_marker_count": video_marker_count,
@@ -480,6 +498,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     entity_class_counts: Counter[str] = Counter()
     translation_token_histogram: Counter[int] = Counter()
     crossings: list[dict[str, Any]] = []
+    zero_token_translations: list[dict[str, Any]] = []
     documents_without_sentence_start: list[str] = []
     documents_with_tokens_before_first_sentence_start: list[str] = []
     document_summaries: list[dict[str, Any]] = []
@@ -514,6 +533,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         layout_totals.update(measured["layout_counts"])
         entity_class_counts.update(measured["entity_class_counts"])
         translation_token_histogram.update(measured["translation_token_counts"])
+        zero_token_translations.extend(measured["zero_token_translations"])
         for key in GROUP_HISTOGRAM_KEYS:
             group_histograms[key].update(measured["group_histograms"][key])
         norm_group_parent_contexts.update(measured["norm_group_parent_contexts"])
@@ -536,9 +556,14 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             str(item["to_value"]),
         )
     )
-    crossing_kind_counts: Counter[str] = Counter(
-        item["kind"] for item in crossings
+    zero_token_translations.sort(
+        key=lambda item: (
+            item["source_record_id"],
+            item["after_token_position"],
+            item["text"],
+        )
     )
+    crossing_kind_counts: Counter[str] = Counter(item["kind"] for item in crossings)
     crossings_per_token: Counter[tuple[str, Any]] = Counter(
         (item["source_record_id"], item["token_id"]) for item in crossings
     )
@@ -615,6 +640,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "empty_zero_token_translation_count": totals[
             "empty_zero_token_translation_count"
         ],
+        "zero_token_translations": zero_token_translations,
         "chapter_marker_count": totals["chapter_marker_count"],
         "verse_marker_count": totals["verse_marker_count"],
         "video_marker_count": totals["video_marker_count"],
