@@ -235,8 +235,13 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
                     f"entity_head edge target {target!r} must be a word slot"
                 )
             else:
+                entity_slots = set(entity.get("slots", []))
+                if target not in entity_slots:
+                    errors.append(
+                        f"entity_head edge {source!r}->{target!r} target must lie inside entity span"
+                    )
                 entity_owners: set[Any] = set()
-                for slot_id in entity.get("slots", []):
+                for slot_id in entity_slots:
                     entity_owners.update(slot_document_owners.get(slot_id, set()))
                 target_owners = slot_document_owners.get(target, set())
                 if (
