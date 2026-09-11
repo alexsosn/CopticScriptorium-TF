@@ -81,8 +81,8 @@ def parse_tt_record(
         raise ValueError(f"empty TT source record {source_record_id}")
 
     try:
-        dataset, record = source_record_id.split(":", 1)
-        corpus = dataset.split("/", 1)[0]
+        prefix, record = source_record_id.split(":", 1)
+        corpus, dataset = prefix.split("/", 1)
         if not corpus or not dataset or not record:
             raise ValueError
     except ValueError as exc:
