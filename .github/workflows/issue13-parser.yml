@@ -48,6 +48,8 @@ jobs:
         working-directory: upstream
         run: test "$(git rev-parse HEAD)" = "$UPSTREAM_COMMIT"
       - name: Parse full pinned TT corpus and validate reviewed counts
+        env:
+          PYTHONPATH: .
         run: >-
           python research/issue-13/parser_census.py upstream
           --output research/issue-13/parser-census.json
