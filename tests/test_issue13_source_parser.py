@@ -193,6 +193,30 @@ class SourceParserContractTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "archive member layout"):
                 self.parse_source_tree(root, upstream_repository="repo", upstream_commit="sha")
 
+    def test_unmeasured_nested_tt_layouts_fail_closed(self):
+        valid = (
+            '<meta corpus="a">\n'
+            '<norm_group norm_group="x">'
+            '<norm xml:id="u1" new_sent="true" func="root" norm="a">a</norm>'
+            '</norm_group>\n'
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            nested = root / "a" / "a_TT" / "nested"
+            nested.mkdir(parents=True)
+            (nested / "one.tt").write_text(valid, encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "directory member layout"):
+                self.parse_source_tree(root, upstream_repository="repo", upstream_commit="sha")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            corpus = root / "a"
+            corpus.mkdir()
+            with zipfile.ZipFile(corpus / "a_TT.zip", "w") as archive:
+                archive.writestr("a_TT/nested/one.tt", valid.encode("utf-8"))
+            with self.assertRaisesRegex(ValueError, "archive member layout"):
+                self.parse_source_tree(root, upstream_repository="repo", upstream_commit="sha")
+
 
 if __name__ == "__main__":
     unittest.main()
