@@ -16,7 +16,7 @@ def load_module():
     return module
 
 
-def graph(arabic_slots, *, include_synthetic=False):
+def graph(arabic_slots, *, zero_span=False, include_synthetic=False):
     slots = [
         {"id": "w1", "kind": "word", "source_word_id": "u1", "surface": "ⲁ"},
     ]
@@ -51,11 +51,9 @@ def graph(arabic_slots, *, include_synthetic=False):
                 "type": "arabic_translation",
                 "slots": arabic_slots,
                 "features": {
-                    "zero_span": True,
+                    "zero_span": zero_span,
                     "text": "بواسطة شنودة",
                     "render_mode": "own_text",
-                    "after_source_word_ordinal": 1,
-                    "source_char_offset": 0,
                 },
             },
         ],
@@ -68,16 +66,25 @@ class ArabicTranslationGraphContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.contract = load_module()
 
-    def test_zero_span_arabic_translation_cannot_borrow_real_word_slot(self):
+    def test_arabic_translation_with_real_word_locus_is_valid(self):
         errors = self.contract.validate_graph(graph(["w1"]))
+        self.assertEqual(errors, [])
+
+    def test_zero_span_arabic_translation_requires_new_schema_gate(self):
+        errors = self.contract.validate_graph(graph([], zero_span=True))
         self.assertTrue(
-            any("zero-span textual node" in error and "a1" in error for error in errors),
+            any("zero-span textual node" in error and "not measured" in error for error in errors),
             errors,
         )
 
-    def test_zero_span_arabic_translation_accepts_surface_less_synthetic_slot(self):
-        errors = self.contract.validate_graph(graph(["z1"], include_synthetic=True))
-        self.assertEqual(errors, [])
+    def test_synthetic_slot_is_not_accepted_for_current_corpus(self):
+        errors = self.contract.validate_graph(
+            graph(["z1"], zero_span=True, include_synthetic=True)
+        )
+        self.assertTrue(
+            any("synthetic slot" in error and "not measured" in error for error in errors),
+            errors,
+        )
 
 
 if __name__ == "__main__":
