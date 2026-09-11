@@ -18,6 +18,10 @@ def load_module():
 
 def valid_graph():
     return {
+        "provenance": {
+            "upstream_repository": "CopticScriptorium/corpora",
+            "upstream_commit": "abc123",
+        },
         "slots": [
             {"id": 1, "kind": "word", "surface": "ⲁⲃ", "source_word_id": "u1"},
             {"id": 2, "kind": "synthetic", "surface": "", "source_word_id": None},
@@ -35,6 +39,8 @@ def valid_graph():
                     "dataset": "demo",
                     "scholarly_id": "urn:cts:demo:one",
                     "section_address": ["demo/demo:one"],
+                    "source_path": "demo/demo_TT/one.tt",
+                    "source_sha256": "1" * 64,
                     "render_mode": "normalized_slots",
                 },
             },
@@ -71,6 +77,7 @@ def valid_graph():
                     "zero_span": True,
                     "render_mode": "own_text",
                     "after_source_word_ordinal": 1,
+                    "source_char_offset": 0,
                 },
             },
             {
@@ -99,6 +106,8 @@ def valid_graph():
                     "dataset": "copy",
                     "scholarly_id": "urn:cts:demo:one",
                     "section_address": ["copy/copy:one"],
+                    "source_path": "copy/copy_TT/one.tt",
+                    "source_sha256": "2" * 64,
                     "render_mode": "normalized_slots",
                 },
             },
