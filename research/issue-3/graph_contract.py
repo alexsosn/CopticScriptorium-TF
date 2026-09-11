@@ -13,10 +13,20 @@ from typing import Any
 
 LAYOUT_TYPES = {"page", "column", "line"}
 TEXTUAL_ZERO_SPAN_TYPES = {"translation", "arabic_translation"}
+OVERLAP_CLASSES = {
+    "byte_identical",
+    "core_identical_source_variant",
+    "alternate_analysis",
+    "textual_divergence",
+}
 
 
 def _is_word_slot(slot: dict[str, Any] | None) -> bool:
     return bool(slot and slot.get("kind") == "word")
+
+
+def _is_document(node: dict[str, Any] | None) -> bool:
+    return bool(node and node.get("type") == "document")
 
 
 def validate_graph(graph: dict[str, Any]) -> list[str]:
@@ -74,10 +84,11 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
     section_addresses: set[tuple[Any, ...]] = set()
     slot_document_membership: Counter[Any] = Counter()
     for document in documents:
+        document_id = document.get("id")
         features = document.get("features", {})
         source_record_id = features.get("source_record_id")
         if not source_record_id:
-            errors.append(f"document {document.get('id')!r} lacks source_record_id")
+            errors.append(f"document {document_id!r} lacks source_record_id")
         else:
             key = str(source_record_id).casefold()
             if key in source_record_ids:
@@ -85,14 +96,23 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
                     f"duplicate physical document source_record_id {source_record_id!r}"
                 )
             source_record_ids.add(key)
+        if not features.get("corpus"):
+            errors.append(f"document {document_id!r} lacks corpus feature")
+        if not features.get("dataset"):
+            errors.append(f"document {document_id!r} lacks dataset feature")
         address = features.get("section_address")
         address_tuple = tuple(address) if isinstance(address, list) else ()
         if not address_tuple:
-            errors.append(f"document {document.get('id')!r} lacks section address")
-        elif address_tuple in section_addresses:
-            errors.append(f"duplicate document section address {address_tuple!r}")
+            errors.append(f"document {document_id!r} lacks section address")
         else:
-            section_addresses.add(address_tuple)
+            if source_record_id and address != [source_record_id]:
+                errors.append(
+                    f"document {document_id!r} section address must be [source_record_id]"
+                )
+            if address_tuple in section_addresses:
+                errors.append(f"duplicate document section address {address_tuple!r}")
+            else:
+                section_addresses.add(address_tuple)
         for slot_id in document.get("slots", []):
             slot_document_membership[slot_id] += 1
 
@@ -166,6 +186,7 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
         edge_type = edge.get("type")
         source = edge.get("from")
         target = edge.get("to")
+        features = edge.get("features", {})
         if edge_type == "dependency_head":
             if not _is_word_slot(slot_index.get(source)) or not _is_word_slot(
                 slot_index.get(target)
@@ -186,5 +207,46 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
                 errors.append(
                     f"entity_head edge target {target!r} is outside entity span {source!r}"
                 )
+        elif edge_type in {"same_scholarly", "documented_overlap", "witness"}:
+            source_document = node_index.get(source)
+            target_document = node_index.get(target)
+            if not _is_document(source_document) or not _is_document(target_document):
+                errors.append(
+                    f"{edge_type} edge {source!r}->{target!r} must connect document nodes"
+                )
+                continue
+            if edge_type in {"same_scholarly", "documented_overlap"}:
+                classification = features.get("classification")
+                if classification not in OVERLAP_CLASSES:
+                    errors.append(
+                        f"{edge_type} edge {source!r}->{target!r} requires a measured classification"
+                    )
+                if edge_type == "same_scholarly":
+                    source_scholarly = source_document.get("features", {}).get("scholarly_id")
+                    target_scholarly = target_document.get("features", {}).get("scholarly_id")
+                    if not source_scholarly or source_scholarly != target_scholarly:
+                        errors.append(
+                            f"same_scholarly edge {source!r}->{target!r} requires matching scholarly_id"
+                        )
+                else:
+                    if not features.get("family"):
+                        errors.append(
+                            f"documented_overlap edge {source!r}->{target!r} requires relation family"
+                        )
+            else:
+                witness_literal = features.get("witness_literal")
+                target_scholarly_id = features.get("target_scholarly_id")
+                if not witness_literal:
+                    errors.append(
+                        f"witness edge {source!r}->{target!r} requires literal witness evidence"
+                    )
+                if not target_scholarly_id:
+                    errors.append(
+                        f"witness edge {source!r}->{target!r} requires target scholarly identity"
+                    )
+                elif target_document.get("features", {}).get("scholarly_id") != target_scholarly_id:
+                    errors.append(
+                        f"witness edge {source!r}->{target!r} target document scholarly_id does not match target_scholarly_id"
+                    )
 
     return errors
