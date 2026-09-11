@@ -40,7 +40,8 @@ class ZeroSpanTranslationContractTests(unittest.TestCase):
             root = Path(tmp)
             directory = root / "demo" / "demo_TT"
             directory.mkdir(parents=True)
-            (directory / "one.tt").write_text(fixture(), encoding="utf-8")
+            text = fixture()
+            (directory / "one.tt").write_text(text, encoding="utf-8")
 
             report = self.audit.audit_upstream(root)
             self.assertEqual(report["zero_token_translation_count"], 1)
@@ -52,6 +53,9 @@ class ZeroSpanTranslationContractTests(unittest.TestCase):
                         "source": "demo/demo_TT/one.tt",
                         "text": "independently positioned note",
                         "after_token_position": 1,
+                        "source_char_offset": text.index(
+                            '<translation translation="independently positioned note">'
+                        ),
                     }
                 ],
             )
