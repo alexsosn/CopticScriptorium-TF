@@ -37,6 +37,8 @@ class SourceParserContractTests(unittest.TestCase):
         )
 
         self.assertEqual(doc.source_record_id, "demo/demo:one")
+        self.assertEqual(doc.corpus, "demo")
+        self.assertEqual(doc.dataset, "demo")
         self.assertEqual(doc.scholarly_id, "urn:cts:demo:one")
         self.assertEqual([w.source_id for w in doc.words], ["u1", "u2"])
         self.assertEqual([w.norm for w in doc.words], ["ⲁ", "ⲃ"])
