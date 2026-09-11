@@ -17,22 +17,10 @@ def load_module():
     return module
 
 
-def write_tt(root: Path) -> None:
+def write_tt(root: Path, body: str) -> None:
     directory = root / "demo" / "demo_TT"
     directory.mkdir(parents=True)
-    text = (
-        '<meta corpus="demo" document_cts_urn="urn:cts:demo:one" title="Demo">\n'
-        '<norm_group norm_group="ab">\n'
-        '<orig orig="a">\n'
-        '<entity entity="person" identity="Person A" head_tok="#u2" text="a">\n'
-        '<norm xml:id="u1" new_sent="true" func="root" pos="N" lemma="a" norm="a">a</norm>\n'
-        '</entity>\n'
-        '</orig>\n'
-        '<orig orig="b">\n'
-        '<norm xml:id="u2" func="obj" head="#u1" pos="N" lemma="b" norm="b">b</norm>\n'
-        '</orig>\n'
-        '</norm_group>\n'
-    )
+    text = '<meta corpus="demo" document_cts_urn="urn:cts:demo:one" title="Demo">\n' + body
     (directory / "one.tt").write_text(text, encoding="utf-8")
 
 
@@ -41,10 +29,48 @@ class EntityHeadSpanContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.audit = load_module()
 
-    def test_resolved_document_head_outside_entity_span_is_measured_separately(self):
+    def test_entity_opened_inside_current_norm_inherits_that_word_locus(self):
+        body = (
+            '<norm_group norm_group="ab">\n'
+            '<orig orig="a">\n'
+            '<norm xml:id="u1" new_sent="true" func="root" pos="N" lemma="a" norm="a">\n'
+            'a\n'
+            '<entity entity="abstract" head_tok="#u1" text="a b">\n'
+            'a\n'
+            '</norm>\n'
+            '</orig>\n'
+            '<orig orig="b">\n'
+            '<norm xml:id="u2" func="obj" head="#u1" pos="N" lemma="b" norm="b">b</norm>\n'
+            '</orig>\n'
+            '</entity>\n'
+            '</norm_group>\n'
+        )
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            write_tt(root)
+            write_tt(root, body)
+            report = self.audit.audit_upstream(root)
+            self.assertEqual(report["entity_count"], 1)
+            self.assertEqual(report["entity_unresolved_head_count"], 0)
+            self.assertEqual(report["entity_head_outside_span_count"], 0)
+            self.assertEqual(report["entity_heads_outside_span"], [])
+            self.assertEqual(report["entity_token_count_histogram"], {"2": 1})
+
+    def test_genuinely_external_resolved_head_is_still_measured(self):
+        body = (
+            '<norm_group norm_group="ab">\n'
+            '<orig orig="a">\n'
+            '<entity entity="person" identity="Person A" head_tok="#u2" text="a">\n'
+            '<norm xml:id="u1" new_sent="true" func="root" pos="N" lemma="a" norm="a">a</norm>\n'
+            '</entity>\n'
+            '</orig>\n'
+            '<orig orig="b">\n'
+            '<norm xml:id="u2" func="obj" head="#u1" pos="N" lemma="b" norm="b">b</norm>\n'
+            '</orig>\n'
+            '</norm_group>\n'
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_tt(root, body)
             report = self.audit.audit_upstream(root)
             self.assertEqual(report["entity_count"], 1)
             self.assertEqual(report["entity_unresolved_head_count"], 0)
