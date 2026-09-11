@@ -1,0 +1,61 @@
+name: issue13-parser
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: issue13-parser-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UPSTREAM_COMMIT: 3ac067f1709a0012daf39ea8da2fac79980176a5
+
+jobs:
+  parser-census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run focused issue 13 unit tests
+        run: python -m unittest discover -s tests -p 'test_issue13_*.py' -v
+      - name: Check out pinned TT sources
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: ${{ env.UPSTREAM_COMMIT }}
+          path: upstream
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*/*_TT/**
+            /*/*_TT.zip
+      - name: Verify pinned upstream source
+        working-directory: upstream
+        run: test "$(git rev-parse HEAD)" = "$UPSTREAM_COMMIT"
+      - name: Parse full pinned TT corpus and validate reviewed counts
+        run: >-
+          python research/issue-13/parser_census.py upstream
+          --output research/issue-13/parser-census.json
+          --validate
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue13-parser-census
+          path: research/issue-13/parser-census.json
+          if-no-files-found: warn
+          retention-days: 14
