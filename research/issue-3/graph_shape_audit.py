@@ -388,6 +388,7 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
     entity_missing_head = 0
     entity_unresolved_head = 0
     entity_head_outside_span = 0
+    entity_heads_outside_span: list[dict[str, Any]] = []
     entity_empty = 0
     entity_identity_count = 0
     entity_without_identity_count = 0
@@ -401,7 +402,8 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
         entity_class = entity["attrs"].get("entity")
         if entity_class:
             entity_class_counts[entity_class] += 1
-        if entity["attrs"].get("identity"):
+        identity = entity["attrs"].get("identity")
+        if identity:
             entity_identity_count += 1
         else:
             entity_without_identity_count += 1
@@ -414,6 +416,17 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
                 entity_unresolved_head += 1
             elif target not in ids:
                 entity_head_outside_span += 1
+                entity_heads_outside_span.append(
+                    {
+                        "source_record_id": source_record_id,
+                        "source": record["source"],
+                        "entity_class": entity_class,
+                        "identity": identity,
+                        "head_tok": head,
+                        "target_token_id": target,
+                        "span_token_ids": ids,
+                    }
+                )
 
     translation_token_counts: Counter[int] = Counter()
     zero_token_translation_count = 0
@@ -488,6 +501,7 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
         "entity_missing_head_count": entity_missing_head,
         "entity_unresolved_head_count": entity_unresolved_head,
         "entity_head_outside_span_count": entity_head_outside_span,
+        "entity_heads_outside_span": entity_heads_outside_span,
         "entity_empty_count": entity_empty,
         "entity_nested_count": nested_entity_count,
         "entity_identity_count": entity_identity_count,
@@ -548,6 +562,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     translation_token_histogram: Counter[int] = Counter()
     arabic_translation_token_histogram: Counter[int] = Counter()
     crossings: list[dict[str, Any]] = []
+    entity_heads_outside_span: list[dict[str, Any]] = []
     zero_token_translations: list[dict[str, Any]] = []
     zero_token_arabic_translations: list[dict[str, Any]] = []
     documents_without_sentence_start: list[str] = []
@@ -589,6 +604,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         arabic_translation_token_histogram.update(
             measured["arabic_translation_token_counts"]
         )
+        entity_heads_outside_span.extend(measured["entity_heads_outside_span"])
         zero_token_translations.extend(measured["zero_token_translations"])
         zero_token_arabic_translations.extend(
             measured["zero_token_arabic_translations"]
@@ -613,6 +629,15 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             item["kind"],
             item["char_offset"],
             str(item["to_value"]),
+        )
+    )
+    entity_heads_outside_span.sort(
+        key=lambda item: (
+            item["source_record_id"],
+            item["source"],
+            str(item["head_tok"]),
+            str(item["target_token_id"]),
+            tuple(str(value) for value in item["span_token_ids"]),
         )
     )
     zero_token_translations.sort(
@@ -692,6 +717,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "entity_missing_head_count": totals["entity_missing_head_count"],
         "entity_unresolved_head_count": totals["entity_unresolved_head_count"],
         "entity_head_outside_span_count": totals["entity_head_outside_span_count"],
+        "entity_heads_outside_span": entity_heads_outside_span,
         "entity_empty_count": totals["entity_empty_count"],
         "nested_entity_count": totals["entity_nested_count"],
         "entity_class_counts": _string_counter_json(entity_class_counts),
