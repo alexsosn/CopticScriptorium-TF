@@ -35,6 +35,8 @@ def graph(arabic_slots, *, include_synthetic=False):
                 "features": {
                     "source_record_id": "demo/demo:one",
                     "section_address": ["demo/demo:one"],
+                    "corpus": "demo",
+                    "dataset": "demo",
                 },
             },
             {"id": "s1", "type": "sentence", "slots": ["w1"], "features": {}},
