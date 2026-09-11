@@ -387,6 +387,7 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
 
     entity_missing_head = 0
     entity_unresolved_head = 0
+    entity_head_outside_span = 0
     entity_empty = 0
     entity_identity_count = 0
     entity_without_identity_count = 0
@@ -411,6 +412,8 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
             target = head[1:] if head.startswith("#") else head
             if target not in token_ids:
                 entity_unresolved_head += 1
+            elif target not in ids:
+                entity_head_outside_span += 1
 
     translation_token_counts: Counter[int] = Counter()
     zero_token_translation_count = 0
@@ -484,6 +487,7 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
         "entity_count": len(entities),
         "entity_missing_head_count": entity_missing_head,
         "entity_unresolved_head_count": entity_unresolved_head,
+        "entity_head_outside_span_count": entity_head_outside_span,
         "entity_empty_count": entity_empty,
         "entity_nested_count": nested_entity_count,
         "entity_identity_count": entity_identity_count,
@@ -562,6 +566,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             "entity_count",
             "entity_missing_head_count",
             "entity_unresolved_head_count",
+            "entity_head_outside_span_count",
             "entity_empty_count",
             "entity_nested_count",
             "entity_identity_count",
@@ -686,6 +691,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "entity_count": totals["entity_count"],
         "entity_missing_head_count": totals["entity_missing_head_count"],
         "entity_unresolved_head_count": totals["entity_unresolved_head_count"],
+        "entity_head_outside_span_count": totals["entity_head_outside_span_count"],
         "entity_empty_count": totals["entity_empty_count"],
         "nested_entity_count": totals["entity_nested_count"],
         "entity_class_counts": _string_counter_json(entity_class_counts),
