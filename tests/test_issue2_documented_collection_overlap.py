@@ -101,6 +101,37 @@ class DocumentedCollectionOverlapTests(unittest.TestCase):
             self.assertEqual(missing["left"], "sahidic.ruth/sahidic.ruth:Ruth_04")
             self.assertEqual(missing["expected_right"], "sahidic.ot/sahidic.ot:08_Ruth_04")
 
+    def test_both_missing_pair_is_explicit_when_both_documented_datasets_are_active(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # Activate both documented Mark datasets with chapter 2 while chapter 1
+            # is absent on both sides. A rerun must not silently shrink the finite
+            # README-derived relation set.
+            write_tt(
+                root,
+                "sahidica.mark",
+                "sahidica.mark",
+                "Mark_02",
+                cts="urn:cts:copticLit:nt.mark.sahidica_ed:2",
+            )
+            write_tt(
+                root,
+                "sahidica.nt",
+                "sahidica.nt",
+                "41_Mark_02",
+                cts="urn:cts:copticLit:nt.mark.sahidica:2",
+            )
+
+            report = self.audit.audit_upstream(root)
+            matches = [
+                item
+                for item in report["unmatched_documented_collection_overlaps"]
+                if item.get("expected_left") == "sahidica.mark/sahidica.mark:Mark_01"
+                and item.get("expected_right") == "sahidica.nt/sahidica.nt:41_Mark_01"
+            ]
+            self.assertEqual(len(matches), 1)
+            self.assertEqual(matches[0]["missing_side"], "both")
+
     def test_similar_cts_suffix_outside_documented_datasets_does_not_infer_overlap(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
