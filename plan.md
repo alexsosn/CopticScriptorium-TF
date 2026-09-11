@@ -1,172 +1,154 @@
 # Plan: Coptic Scriptorium → Text-Fabric
 
-## Goal
+## Product goal
 
-Build a reproducible, loss-aware Text-Fabric converter that preserves Coptic Scriptorium's linguistic annotations, document structure, layout, translations, metadata, quality signals, overlap relationships, licensing, and provenance without inventing source semantics.
+Deliver a usable local Coptic Scriptorium → Text-Fabric materializer that preserves the source semantics measured in issues #1–#3, loads cleanly in Text-Fabric/Context-Fabric, and can be invoked by Agora from either a pinned upstream checkout or a user-local source tree.
 
-The plan is deliberately staged. Decisions marked **research gate** are not implementation choices yet.
+The current product does **not** require publishing prebuilt TF data, solving aggregate redistribution licensing, maintaining historical generated corpora, or building release-certification machinery.
 
-## Phase 0 — repository/process bootstrap
+## Completed research gates
 
-- [ ] Persist agent workflow, research baseline, known-risk register, and PR review contract.
-- [ ] Establish issue-driven work and independent review expectations.
-- [ ] Add a parallel-agent claim protocol only after #5 determines the simplest reliable form.
+### Source authority — #1 complete
 
-## Phase 1 — source contract (**research gate: #1**)
+The canonical production inputs and conflict rules are established:
 
-Research first, then review:
+- TT is the source-native document/annotation authority;
+- structurally valid CoNLL-U supplies explicitly allowed supplementary UD/construction information;
+- `meta.json` is normalization/reference evidence, not an overwrite source;
+- PAULA/relANNIS and TEI remain validation/provenance evidence unless later implementation exposes a measured missing requirement;
+- malformed/empty/source-exception cases are ledgered;
+- provenance is bound to an immutable upstream revision.
 
-- corpus/release inventory;
-- field-by-field comparison of `*.tt`, CoNLL-U, TEI, PAULA, relANNIS, and `meta.json`;
-- malformed/empty/exception census;
-- annotation-quality inventory;
-- upstream revision pinning and source hashing;
-- license/distribution inventory.
+### Identity and overlap — #2 complete
+
+The default product is one logical union corpus preserving every physical source record. Scholarly CTS identity, source-record identity, overlap classes, witnesses, redundancy, and source-preference semantics remain separate and queryable. No silent deduplication is permitted.
+
+### TF graph schema — #3 finalization gate
+
+PR #12 contains the measured graph contract. Before production implementation begins in earnest:
+
+1. complete logically independent adversarial review of the exact PR head;
+2. fix any review findings;
+3. rerun the exact-head pinned-corpus gate;
+4. merge #12 and close #3.
+
+No additional broad corpus research is required before implementation. New research is triggered only by a failing fixture, an unseen source shape, or a concrete product requirement not covered by the reviewed contracts.
+
+## Implementation path
+
+### Phase 1 — parser and normalized source model
+
+Implement a deterministic parser/intermediate representation without assigning TF node IDs.
+
+RED-first coverage must include metadata, grouping/segmentation, dependencies, entities, translations, token-internal layout crossings, zero-token textual loci, malformed/optional fields, archive-packaged inputs, deterministic ordering, and source provenance.
 
 Exit criteria:
 
-- every candidate TF feature has a documented authoritative upstream representation;
-- disagreements between representations are measured;
-- source discovery is deterministic and reproducible;
-- valid exceptions and fatal failures are explicitly classified.
+- supported source records parse into one explicit normalized model;
+- invalid/unsupported records fail or ledger exactly as specified by #1;
+- source semantics can be reconstructed without TF-specific behavior;
+- focused and full parser tests pass.
 
-## Phase 2 — identity and overlap policy (**research/design gate: #2**)
+### Phase 2 — deterministic graph construction
 
-Define and independently review:
+Transform the normalized source model into the reviewed #3 graph contract.
 
-- stable scholarly document identity;
-- release-scoped source-record identity;
-- corpus membership;
-- identical-copy relation;
-- alternate-analysis relation;
-- parallel-witness/redundancy relation;
-- deterministic TF address disambiguation;
-- user-facing filtering/preference semantics.
+RED-first coverage must include semantic word slots, synthetic zero-span slots, document/sentence/group/layout/entity/translation nodes, dependency/entity-head edges, overlap/witness relations, deterministic node ordering, and TF-safe contiguous non-slot ranges.
 
-Exit criteria include corpus-wide uniqueness/collision measurements and machine-testable invariants.
+Exit criteria:
 
-## Phase 3 — TF schema (**research/design gate: #3**)
+- graph invariants are validated before serialization;
+- every physical source record remains distinct;
+- no technical anchor or synthetic slot fabricates visible Coptic text;
+- normalized and diplomatic representations remain independently recoverable.
 
-Choose only after phases 1–2 provide evidence:
+### Phase 3 — Text-Fabric writer and local load
 
-- slot type;
-- section/navigation policy across biblical and non-biblical corpora;
-- nodes/edges for `orig_group`, `norm_group`, `orig`, `norm`;
-- source and normalized text formats;
-- UD dependency representation;
-- entity and identity representation;
-- sentence/layout/translation structures;
-- metadata and quality features;
-- zero-span and technical-anchor policy;
-- deterministic node finalization/serialization order.
+Serialize the graph using the supported real Text-Fabric version.
 
-Required ADRs: slot semantics, section/address policy, zero-span/anchor policy, and identity/dedup policy.
+Tests must verify:
 
-## Phase 4 — parser and normalized intermediate source model
-
-Create implementation ticket(s) only after reviewed phases 1–3.
-
-RED-first tests must cover at least:
-
-- metadata extraction;
-- token/morpheme/bound-group nesting;
-- layout boundary inside a normalized token;
-- source-local dependency ID resolution;
-- dependency root and missing/optional heads;
-- entity span/head handling;
-- translations;
-- missing optional fields;
-- malformed source behavior;
-- deterministic source order and provenance.
-
-The parser must preserve source semantics without assigning TF node IDs yet.
-
-## Phase 5 — deterministic TF graph construction
-
-RED-first tests for:
-
-- contiguous semantic slot stream;
-- every required non-slot object and edge;
-- stable source-derived features;
-- deterministic node assignment;
-- TF-safe contiguous ranges per non-slot `otype`;
-- zero-span behavior;
-- no misleading `T.text()` rendering from technical anchors;
-- exact source identifiers plus technical disambiguation where required;
-- graph invariants before serialization.
-
-## Phase 6 — Text-Fabric writer and real-TF integration
-
-Tests must use the actual supported Text-Fabric version and verify:
-
-- save/reload;
-- warp and section indexes;
-- formats and `T.text()` for each important node type;
+- `otype.tf`/`oslots.tf` and required semantic features;
+- save/reload with real TF;
+- document section lookup;
+- named normalized, diplomatic/layout and translation text formats;
 - dependency/entity traversal;
-- feature metadata/value types;
-- deterministic artifact generation.
+- deterministic output for identical input;
+- clean Context-Fabric/cfabric-mcp discovery/load path.
 
-A mocked writer is insufficient as the final gate.
+A mocked writer is not a final acceptance gate.
 
-## Phase 7 — independent semantic parity audit
+### Phase 4 — independent source parity and full-corpus validation
 
-Build an audit path that rereads upstream material independently of the converter's normalized intermediate model.
+Keep the existing independent-audit principle, but scope it to product correctness rather than release certification.
 
-At minimum compare:
+At minimum verify against the pinned upstream source:
 
-- source files/hashes and conversion/exclusion ledger;
-- document metadata and quality flags;
-- structure and segmentation counts/content;
-- original and normalized text reconstruction;
-- lemmas/POS;
-- dependency arcs/relations;
+- document/source identity and provenance;
+- segmentation and reconstructed normalized/original text;
+- metadata/quality/license evidence;
+- lemma/POS and dependency information;
 - entities/identities;
-- layout boundaries;
-- translations;
-- overlap/redundancy classes;
-- license/provenance records.
+- layout boundaries including token-internal crossings;
+- translations and zero-span translation loci;
+- overlap/redundancy/witness relations.
 
-Deliberately corrupt generated data in tests and prove the audit detects it.
+The audit must reread upstream evidence independently of the converter's intermediate representation. Deliberate-corruption tests should prove important regressions are detected.
 
-A green audit with non-zero allowlisted loss must say `regression-valid` or equivalent, not `lossless`/`research-ready`.
+Exit criteria:
 
-## Phase 8 — pinned full-corpus CI, scale, and release certification
+- complete pinned-source materialization succeeds;
+- real TF reload succeeds;
+- representative research queries return the expected structures;
+- runtime, peak memory and output size are measured and reasonable for local use;
+- known source defects appear in the conversion report rather than being silently normalized away.
 
-- fetch/check out an immutable upstream release/tag/commit;
-- run full conversion;
-- run parity audit;
-- load generated TF with real Text-Fabric;
-- run representative research queries;
-- enforce runtime/memory budgets;
-- emit machine-readable census, structure, overlap, license, and provenance reports;
-- cryptographically bind release certification to the generated artifact and upstream revision;
-- keep published TF release directories immutable.
+### Phase 5 — Agora materializer integration
 
-## Phase 9 — research ergonomics and documentation
+Implement the smallest Agora-facing contract required for installation/use:
 
-After the corpus model is stable, add high-level helpers/examples for common tasks such as:
+- pinned Git acquisition from `CopticScriptorium/corpora`;
+- user-local source-directory input;
+- network-independent conversion after acquisition;
+- deterministic local output layout;
+- `conversion-report.json` with source revision, source-record provenance, exceptions and license evidence;
+- Agora manifest/schema validation;
+- local TF discovery/load through the intended Context-Fabric/cfabric-mcp path.
 
-- querying normalized vs original forms;
-- morphology/lemma/POS searches;
+Selective corpus materialization is deferred unless full-corpus measurements show a real disk/memory problem. If added later, it must reuse the same identity/schema model and may not introduce silent deduplication.
+
+### Phase 6 — user documentation and research ergonomics
+
+Before calling the materializer usable, document:
+
+- installation/materialization from Agora and directly from the CLI/module;
+- expected disk/time/memory footprint;
+- corpus/dataset filtering in the union corpus;
+- normalized vs diplomatic/original text;
+- morphology/lemma/POS queries;
 - dependency traversal;
-- entity/identity lookup;
-- retrieving translations;
-- excluding or selecting redundant/alternate records;
-- selecting annotation quality levels;
-- citation/navigation for different corpus families.
+- entities/identities;
+- translations;
+- overlap/redundancy/preference semantics;
+- provenance, licenses and known source defects.
 
-Document source semantics and known limitations, not only API syntax.
+Prefer a small number of working end-to-end examples over a large tutorial framework.
+
+## Explicitly deferred / not required for the first usable release
+
+- publication of prebuilt TF corpora;
+- aggregate mixed-license solving/relicensing;
+- cryptographic release certification;
+- immutable archives of historical generated TF versions;
+- a custom parallel-agent claim registry;
+- CI optimization work that does not unblock product implementation;
+- selective/sub-corpus materialization without measured local-resource need;
+- production TEI/PAULA/relANNIS parsers without measured missing semantics.
 
 ## Ticket lifecycle
 
-Each new implementation ticket must contain:
+Every implementation ticket follows:
 
-1. evidence/research references;
-2. reviewed plan/contract;
-3. explicit acceptance criteria;
-4. RED test cases or an explanation why RED-first testing is inapplicable;
-5. focused and full verification commands;
-6. corpus-scale gate impact where relevant;
-7. independent adversarial review bound to exact PR head.
+research evidence/contract → focused plan → RED tests → implementation → focused tests → relevant full-corpus gate → logically independent exact-head adversarial review.
 
-When a full-corpus run reveals a valid unseen source shape, add a failing minimal fixture before implementing support. Do not weaken validation simply to make the corpus pass.
+Do not rerun broad exploratory research for already settled questions. When implementation discovers a genuinely unseen valid source shape, first add a minimal failing fixture and record the measured source evidence; then extend the contract narrowly.
