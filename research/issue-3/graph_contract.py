@@ -12,7 +12,7 @@ from typing import Any
 
 
 LAYOUT_TYPES = {"page", "column", "line"}
-TEXTUAL_ZERO_SPAN_TYPES = {"translation"}
+TEXTUAL_ZERO_SPAN_TYPES = {"translation", "arabic_translation"}
 
 
 def _is_word_slot(slot: dict[str, Any] | None) -> bool:
