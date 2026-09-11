@@ -167,6 +167,22 @@ User-facing selection is non-destructive. The `all` view preserves every physica
 
 The detailed ADR and machine-testable invariants live in `research/issue-2/IDENTITY_POLICY.md`. Issue #3 and materializer #11 may consume these identity levels and relations, but neither may collapse them.
 
+## Text-Fabric graph schema contract
+
+Issue #3 measures the graph shapes needed by the local union-corpus materializer. The pinned 2,628 TT documents contain **2,394,354 normalized `norm` tokens**, 1,565,993 `orig` segments, 1,105,458 `norm_group` nodes and 736,574 `orig_group` nodes. The measured hierarchy is not one mandatory four-level chain: every `orig_group` has one `norm_group` and every `orig` has one `norm`, but 368,884 `norm_group` nodes are standalone, 828,361 `norm` tokens occur directly under `norm_group`, and a group may contain 0–11 `orig` nodes.
+
+The semantic TF slot is therefore one source `norm` token (`word`). Grouping/original structures are ordinary non-slot nodes. The materializer must not split a word slot to satisfy diplomatic layout: the corpus has **13,015 page/column/line boundary events inside word content**, affecting 12,307 words; 535 words have multiple internal crossings and the measured maximum is seven. Layout nodes retain their literal diplomatic text and token-relative boundary offsets and use own-text rendering.
+
+Source sentence starts total 78,993. Every token-bearing document has a source sentence start and no token occurs before the first one, so ordinary `sentence` nodes can partition all semantic word slots deterministically. The universal TF section hierarchy nevertheless remains **document-only**: each physical source record has one unique `source_record_id` section address, while sentence/chapter/verse/video structures remain ordinary source nodes/features. This avoids fabricating one biblical-style hierarchy for the heterogeneous union corpus.
+
+Entities become ordinary span nodes with class/identity features and an `entity_head` edge to a word slot. All 256,677 measured entities are non-empty and have resolved source heads; 78,243 are nested, so entity representation must permit nesting rather than force a flat partition. TT dependencies preserve source `func` on the word and use word→word head edges; source-local `xml:id` remains a literal feature, never a global TF node ID.
+
+Translations are textual annotation nodes whose literal text is rendered independently of Coptic slot text. The corpus has 52,346 English translations and 1,598 Arabic translations. Four English translations and one Arabic translation have **zero word-token coverage but non-empty literal text**. Each independently positioned zero-token translation therefore receives one surface-less synthetic slot in source order; it may not borrow a neighbouring real word slot. Synthetic slots carry no fabricated visible Coptic text and are excluded from sentence nodes. Non-textual technical anchors, when needed for serialization, likewise must not render unrelated anchor-slot content.
+
+Chapter markers occur in only 426 documents, verse markers in 2,571 and video markers in 206, confirming that none is a universal section level. Corpus/dataset membership and all issue-2 overlap/redundancy/witness relations remain document features/edges over one union TF graph; corpus-specific access is a query/view, not a separately maintained TF artifact.
+
+The complete slot/node/edge matrix, rendering rules, zero-span policy and RED-first materializer acceptance contract are in `research/issue-3/GRAPH_SCHEMA.md`. Any later change to slot type, a new zero-span textual family, or promotion of another structure into universal sections requires a new measured research/TDD gate.
+
 ## Licensing boundary for local materialization
 
 The TT census contains 17 literal license strings, including CC-BY, BY-SA 3.0/4.0, 11 BY-NC-SA 4.0 documents, Sahidica/Wells academic-use terms, public-domain-text-plus-CC-BY-annotations formulations and malformed/ambiguous string variants. At least four records combine a BY-SA URL with visible text `CC-BY 4.0`; URL and label cannot be normalized independently without conflict handling.
