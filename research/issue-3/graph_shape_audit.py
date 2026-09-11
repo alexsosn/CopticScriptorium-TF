@@ -186,7 +186,10 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
 
         is_close = bool(match.group(1))
         name = match.group(2)
-        attrs = _attrs(match.group(3)) if not is_close else {}
+        if is_close or name == "meta":
+            attrs = {}
+        else:
+            attrs = _attrs(match.group(3))
 
         if is_close:
             if name == "norm":
