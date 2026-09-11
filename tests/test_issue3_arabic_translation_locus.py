@@ -21,7 +21,10 @@ def fixture() -> str:
     return (
         '<meta corpus="demo" document_cts_urn="urn:cts:demo:one" title="Demo">\n'
         '<norm_group norm_group="a"><orig orig="a">\n'
-        '<norm xml:id="u1" new_sent="true" func="root" pos="N" lemma="a" norm="a">a</norm>\n'
+        '<norm xml:id="u1" new_sent="true" func="root" pos="N" lemma="a" norm="a">\n'
+        '<arabic arabic="داخل الكلمة">a</arabic>\n'
+        'a\n'
+        '</norm>\n'
         '</orig></norm_group>\n'
         '<arabic arabic="ترجمة">\n'
         '<norm_group norm_group="b"><orig orig="b">\n'
@@ -37,7 +40,7 @@ class ArabicTranslationLocusTests(unittest.TestCase):
     def setUpClass(cls):
         cls.audit = load_module()
 
-    def test_arabic_translation_has_independent_span_and_zero_span_ledger(self):
+    def test_arabic_translation_inherits_current_word_locus_before_zero_span_classification(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             directory = root / "demo" / "demo_TT"
@@ -46,10 +49,10 @@ class ArabicTranslationLocusTests(unittest.TestCase):
             (directory / "one.tt").write_text(text, encoding="utf-8")
 
             report = self.audit.audit_upstream(root)
-            self.assertEqual(report["arabic_translation_count"], 2)
+            self.assertEqual(report["arabic_translation_count"], 3)
             self.assertEqual(
                 report["arabic_translation_token_count_histogram"],
-                {"0": 1, "1": 1},
+                {"0": 1, "1": 2},
             )
             self.assertEqual(report["zero_token_arabic_translation_count"], 1)
             self.assertEqual(
