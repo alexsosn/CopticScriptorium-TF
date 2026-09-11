@@ -73,6 +73,26 @@ class Translation:
 
 
 @dataclass(frozen=True)
+class SupplementalWord:
+    ordinal: int
+    form_literal: str
+    form: str
+    lemma: str | None
+    upos: str | None
+    xpos: str | None
+    feats: Mapping[str, str]
+    head_ordinal: int
+    deprel: str | None
+    misc: Mapping[str, str]
+
+
+@dataclass(frozen=True)
+class ConlluSupplement:
+    source_path: str
+    words: tuple[SupplementalWord, ...]
+
+
+@dataclass(frozen=True)
 class DocumentModel:
     source_record_id: str
     source_path: str
