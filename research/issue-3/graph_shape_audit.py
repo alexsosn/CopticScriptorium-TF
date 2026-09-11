@@ -154,6 +154,7 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
         key: Counter() for key in GROUP_HISTOGRAM_KEYS
     }
     norm_group_parent_contexts: Counter[str] = Counter()
+    norm_parent_contexts: Counter[str] = Counter()
     layout_counts: Counter[str] = Counter()
     active_layout: dict[str, str | None] = {"page": None, "column": None, "line": None}
     last_layout: dict[str, str | None] = {"page": None, "column": None, "line": None}
@@ -258,9 +259,13 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError(f"nested norm tags in {source_record_id}")
             counts["norm"] += 1
             token_position += 1
-            if not orig_stack:
-                raise ValueError(f"norm outside orig in {source_record_id}")
-            orig_stack[-1]["norm_count"] += 1
+            if orig_stack:
+                orig_stack[-1]["norm_count"] += 1
+                norm_parent_contexts["orig"] += 1
+            elif norm_group_stack:
+                norm_parent_contexts["norm_group"] += 1
+            else:
+                raise ValueError(f"norm outside norm_group in {source_record_id}")
             token_id = attrs.get("xml:id")
             if token_id:
                 if token_id in token_ids:
@@ -377,6 +382,7 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
         "sentence_start_count": sentence_starts,
         "group_histograms": group_histograms,
         "norm_group_parent_contexts": norm_group_parent_contexts,
+        "norm_parent_contexts": norm_parent_contexts,
         "layout_counts": layout_counts,
         "crossings": crossings,
         "entity_count": len(entities),
@@ -423,6 +429,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         key: Counter() for key in GROUP_HISTOGRAM_KEYS
     }
     norm_group_parent_contexts: Counter[str] = Counter()
+    norm_parent_contexts: Counter[str] = Counter()
     entity_token_histogram: Counter[int] = Counter()
     crossings: list[dict[str, Any]] = []
     documents_without_sentence_start: list[str] = []
@@ -456,6 +463,7 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         for key in GROUP_HISTOGRAM_KEYS:
             group_histograms[key].update(measured["group_histograms"][key])
         norm_group_parent_contexts.update(measured["norm_group_parent_contexts"])
+        norm_parent_contexts.update(measured["norm_parent_contexts"])
         entity_token_histogram.update(measured["entity_token_counts"])
         crossings.extend(measured["crossings"])
         if measured["has_tokens_without_sentence_start"]:
@@ -495,6 +503,9 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "norm_group_parent_contexts": {
             key: norm_group_parent_contexts[key]
             for key in sorted(norm_group_parent_contexts)
+        },
+        "norm_parent_contexts": {
+            key: norm_parent_contexts[key] for key in sorted(norm_parent_contexts)
         },
         "entity_count": totals["entity_count"],
         "entity_missing_head_count": totals["entity_missing_head_count"],
