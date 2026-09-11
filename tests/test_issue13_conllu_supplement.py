@@ -115,6 +115,32 @@ class ConlluSupplementContractTests(unittest.TestCase):
         supplement = self.parse_supplement(doc, raw, source_path="two-sentences.conllu")
         self.assertEqual([word.head_ordinal for word in supplement.words], [0, 1, 0, 3])
 
+    def test_mwt_row_must_precede_its_first_basic_word(self):
+        raw = b'''1\ta\ta\tNOUN\tN\t_\t0\troot\t_\t_
+1-2\tab\t_\t_\t_\t_\t_\t_\t_\t_
+2\tb\tb\tNOUN\tN\t_\t1\tobj\t_\t_
+'''
+        with self.assertRaises(self.SupplementUnavailable) as caught:
+            self.parse_supplement(document(), raw, source_path="late-mwt.conllu")
+        self.assertEqual(caught.exception.reason, "malformed_conllu")
+
+    def test_empty_nodes_require_contiguous_suffixes_and_correct_row_position(self):
+        skipped_suffix = b'''0.2\tghost\t_\tX\tX\t_\t_\t_\t_\t_
+1\ta\ta\tNOUN\tN\t_\t0\troot\t_\t_
+2\tb\tb\tNOUN\tN\t_\t1\tobj\t_\t_
+'''
+        with self.assertRaises(self.SupplementUnavailable) as caught:
+            self.parse_supplement(document(), skipped_suffix, source_path="empty-gap.conllu")
+        self.assertEqual(caught.exception.reason, "malformed_conllu")
+
+        late_empty = b'''1\ta\ta\tNOUN\tN\t_\t0\troot\t_\t_
+2\tb\tb\tNOUN\tN\t_\t1\tobj\t_\t_
+1.1\tghost\t_\tX\tX\t_\t_\t_\t_\t_
+'''
+        with self.assertRaises(self.SupplementUnavailable) as caught:
+            self.parse_supplement(document(), late_empty, source_path="late-empty.conllu")
+        self.assertEqual(caught.exception.reason, "malformed_conllu")
+
 
 if __name__ == "__main__":
     unittest.main()
