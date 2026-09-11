@@ -119,7 +119,7 @@ class UnionDocumentContractTests(unittest.TestCase):
         self.assertTrue(any("same_scholarly" in error and "classification" in error for error in errors), errors)
 
         candidate = graph()
-        candidate["edges"][1]["features"]["classification"] = "byte_identical"
+        candidate["edges"][1]["features"]["classification"] = "not_measured"
         errors = self.contract.validate_graph(candidate)
         self.assertTrue(any("documented_overlap" in error and "classification" in error for error in errors), errors)
 
