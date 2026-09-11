@@ -58,6 +58,7 @@ class LayoutEvent:
 @dataclass(frozen=True)
 class Entity:
     ordinal: int
+    parent_entity_ordinal: int | None
     entity_class: str | None
     identity: str | None
     head_literal: str
