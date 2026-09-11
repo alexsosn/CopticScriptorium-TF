@@ -1,6 +1,6 @@
 """Corpus-wide TT graph-shape census for CopticScriptorium-TF issue #3.
 
-The source TT stream is overlapping SGML, not XML.  This audit therefore scans
+The source TT stream is overlapping SGML, not XML. This audit therefore scans
 start/end tags as events and keeps independent semantic stacks for linguistic
 structures while allowing layout spans to cross an open ``norm`` token.
 """
@@ -41,10 +41,9 @@ def _attrs(fragment: str) -> dict[str, str]:
 
 
 def _visible_token_piece(value: str) -> str:
-    # TT indentation/newlines are serialization whitespace, not part of a norm
-    # token's rendered form. A norm token itself is not expected to contain an
-    # ordinary word separator.
-    return "".join(character for character in html.unescape(value) if not character.isspace())
+    return "".join(
+        character for character in html.unescape(value) if not character.isspace()
+    )
 
 
 def _source_record_id(corpus: str, dataset: str, record: str) -> str:
@@ -132,6 +131,10 @@ def _counter_json(counter: Counter[int]) -> dict[str, int]:
     return {str(key): counter[key] for key in sorted(counter)}
 
 
+def _string_counter_json(counter: Counter[str]) -> dict[str, int]:
+    return {key: counter[key] for key in sorted(counter)}
+
+
 def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
     text = record["text"]
     source_record_id = record["source_record_id"]
@@ -141,6 +144,8 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
     orig_stack: list[dict[str, int]] = []
     entity_stack: list[dict[str, Any]] = []
     entities: list[dict[str, Any]] = []
+    translation_stack: list[dict[str, Any]] = []
+    translations: list[dict[str, Any]] = []
     token_ids: set[str] = set()
     current_norm: dict[str, Any] | None = None
 
@@ -156,8 +161,16 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
     norm_group_parent_contexts: Counter[str] = Counter()
     norm_parent_contexts: Counter[str] = Counter()
     layout_counts: Counter[str] = Counter()
-    active_layout: dict[str, str | None] = {"page": None, "column": None, "line": None}
-    last_layout: dict[str, str | None] = {"page": None, "column": None, "line": None}
+    active_layout: dict[str, str | None] = {
+        "page": None,
+        "column": None,
+        "line": None,
+    }
+    last_layout: dict[str, str | None] = {
+        "page": None,
+        "column": None,
+        "line": None,
+    }
     crossings: list[dict[str, Any]] = []
 
     translation_count = 0
@@ -201,12 +214,7 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
                 for candidate in current_norm["layout_candidates"]:
                     offset = candidate["char_offset"]
                     if 0 < offset < len(token_text):
-                        crossings.append(
-                            {
-                                **candidate,
-                                "token_text": token_text,
-                            }
-                        )
+                        crossings.append({**candidate, "token_text": token_text})
                 current_norm = None
             elif name == "orig":
                 if not orig_stack:
@@ -232,6 +240,12 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
                 if not entity_stack:
                     raise ValueError(f"closing entity without open entity in {source_record_id}")
                 entities.append(entity_stack.pop())
+            elif name == "translation":
+                if not translation_stack:
+                    raise ValueError(
+                        f"closing translation without open translation in {source_record_id}"
+                    )
+                translations.append(translation_stack.pop())
             elif name in LAYOUT_TAGS:
                 kind, _ = LAYOUT_TAGS[name]
                 active_layout[kind] = None
@@ -269,7 +283,9 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
             token_id = attrs.get("xml:id")
             if token_id:
                 if token_id in token_ids:
-                    raise ValueError(f"duplicate norm xml:id {token_id!r} in {source_record_id}")
+                    raise ValueError(
+                        f"duplicate norm xml:id {token_id!r} in {source_record_id}"
+                    )
                 token_ids.add(token_id)
             new_sent = (attrs.get("new_sent") or "").casefold() == "true"
             if first_token_new_sent is None:
@@ -285,12 +301,13 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
             }
             for entity in entity_stack:
                 entity["token_ids"].append(token_id)
+            for translation in translation_stack:
+                translation["token_count"] += 1
         elif name in LAYOUT_TAGS:
             kind, value_attribute = LAYOUT_TAGS[name]
             value = attrs.get(value_attribute)
             layout_counts[kind] += 1
             if current_norm is not None and last_layout[kind] is not None:
-                offset = current_norm_offset()
                 current_norm["layout_candidates"].append(
                     {
                         "source_record_id": source_record_id,
@@ -299,7 +316,7 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
                         "kind": kind,
                         "from_value": last_layout[kind],
                         "to_value": value,
-                        "char_offset": offset,
+                        "char_offset": current_norm_offset(),
                     }
                 )
             active_layout[kind] = value
@@ -307,16 +324,13 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
         elif name == "entity":
             if entity_stack:
                 nested_entity_count += 1
-            entity_stack.append(
-                {
-                    "attrs": attrs,
-                    "token_ids": [],
-                }
-            )
+            entity_stack.append({"attrs": attrs, "token_ids": []})
         elif name == "translation":
             translation_count += 1
-            if not (attrs.get("translation") or ""):
+            literal = attrs.get("translation") or ""
+            if not literal:
                 empty_translation_count += 1
+            translation_stack.append({"text": literal, "token_count": 0})
         elif name in {"arabic", "arabic_translation"}:
             arabic_translation_count += 1
             value = attrs.get("arabic") or attrs.get("arabic_translation") or ""
@@ -337,16 +351,28 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(f"unclosed linguistic grouping tag in {source_record_id}")
     if entity_stack:
         raise ValueError(f"unclosed entity tag in {source_record_id}")
+    if translation_stack:
+        raise ValueError(f"unclosed translation tag in {source_record_id}")
 
     entity_missing_head = 0
     entity_unresolved_head = 0
     entity_empty = 0
+    entity_identity_count = 0
+    entity_without_identity_count = 0
     entity_token_counts: Counter[int] = Counter()
+    entity_class_counts: Counter[str] = Counter()
     for entity in entities:
         ids = [token_id for token_id in entity["token_ids"] if token_id is not None]
         entity_token_counts[len(ids)] += 1
         if not ids:
             entity_empty += 1
+        entity_class = entity["attrs"].get("entity")
+        if entity_class:
+            entity_class_counts[entity_class] += 1
+        if entity["attrs"].get("identity"):
+            entity_identity_count += 1
+        else:
+            entity_without_identity_count += 1
         head = entity["attrs"].get("head_tok")
         if not head:
             entity_missing_head += 1
@@ -354,6 +380,17 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
             target = head[1:] if head.startswith("#") else head
             if target not in token_ids:
                 entity_unresolved_head += 1
+
+    translation_token_counts: Counter[int] = Counter()
+    zero_token_translation_count = 0
+    empty_zero_token_translation_count = 0
+    for translation in translations:
+        token_count = translation["token_count"]
+        translation_token_counts[token_count] += 1
+        if token_count == 0:
+            zero_token_translation_count += 1
+            if not translation["text"]:
+                empty_zero_token_translation_count += 1
 
     document_summary = {
         "source_record_id": source_record_id,
@@ -390,11 +427,17 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
         "entity_unresolved_head_count": entity_unresolved_head,
         "entity_empty_count": entity_empty,
         "entity_nested_count": nested_entity_count,
+        "entity_identity_count": entity_identity_count,
+        "entity_without_identity_count": entity_without_identity_count,
+        "entity_class_counts": entity_class_counts,
         "entity_token_counts": entity_token_counts,
         "translation_count": translation_count,
         "arabic_translation_count": arabic_translation_count,
         "empty_translation_count": empty_translation_count,
         "empty_arabic_translation_count": empty_arabic_translation_count,
+        "translation_token_counts": translation_token_counts,
+        "zero_token_translation_count": zero_token_translation_count,
+        "empty_zero_token_translation_count": empty_zero_token_translation_count,
         "chapter_marker_count": chapter_marker_count,
         "verse_marker_count": verse_marker_count,
         "video_marker_count": video_marker_count,
@@ -410,7 +453,10 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
 def audit_upstream(root: Path | str) -> dict[str, Any]:
     records = sorted(
         iter_tt_records(root),
-        key=lambda record: (record["source_record_id"].casefold(), record["source_record_id"]),
+        key=lambda record: (
+            record["source_record_id"].casefold(),
+            record["source_record_id"],
+        ),
     )
     address_index: dict[str, str] = {}
     for record in records:
@@ -431,6 +477,8 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
     norm_group_parent_contexts: Counter[str] = Counter()
     norm_parent_contexts: Counter[str] = Counter()
     entity_token_histogram: Counter[int] = Counter()
+    entity_class_counts: Counter[str] = Counter()
+    translation_token_histogram: Counter[int] = Counter()
     crossings: list[dict[str, Any]] = []
     documents_without_sentence_start: list[str] = []
     documents_with_tokens_before_first_sentence_start: list[str] = []
@@ -450,16 +498,22 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             "entity_unresolved_head_count",
             "entity_empty_count",
             "entity_nested_count",
+            "entity_identity_count",
+            "entity_without_identity_count",
             "translation_count",
             "arabic_translation_count",
             "empty_translation_count",
             "empty_arabic_translation_count",
+            "zero_token_translation_count",
+            "empty_zero_token_translation_count",
             "chapter_marker_count",
             "verse_marker_count",
             "video_marker_count",
         ):
             totals[key] += measured[key]
         layout_totals.update(measured["layout_counts"])
+        entity_class_counts.update(measured["entity_class_counts"])
+        translation_token_histogram.update(measured["translation_token_counts"])
         for key in GROUP_HISTOGRAM_KEYS:
             group_histograms[key].update(measured["group_histograms"][key])
         norm_group_parent_contexts.update(measured["norm_group_parent_contexts"])
@@ -469,7 +523,9 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         if measured["has_tokens_without_sentence_start"]:
             documents_without_sentence_start.append(record["source_record_id"])
         if measured["has_tokens_before_first_sentence_start"]:
-            documents_with_tokens_before_first_sentence_start.append(record["source_record_id"])
+            documents_with_tokens_before_first_sentence_start.append(
+                record["source_record_id"]
+            )
 
     crossings.sort(
         key=lambda item: (
@@ -479,6 +535,28 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
             item["char_offset"],
             str(item["to_value"]),
         )
+    )
+    crossing_kind_counts: Counter[str] = Counter(
+        item["kind"] for item in crossings
+    )
+    crossings_per_token: Counter[tuple[str, Any]] = Counter(
+        (item["source_record_id"], item["token_id"]) for item in crossings
+    )
+
+    documents_with_chapter_markers = sum(
+        summary["chapter_marker_count"] > 0 for summary in document_summaries
+    )
+    documents_with_verse_markers = sum(
+        summary["verse_marker_count"] > 0 for summary in document_summaries
+    )
+    documents_with_video_markers = sum(
+        summary["video_marker_count"] > 0 for summary in document_summaries
+    )
+    documents_with_translation = sum(
+        summary["translation_count"] > 0 for summary in document_summaries
+    )
+    documents_with_arabic_translation = sum(
+        summary["arabic_translation_count"] > 0 for summary in document_summaries
     )
 
     return {
@@ -497,6 +575,16 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         },
         "token_internal_layout_crossing_count": len(crossings),
         "token_internal_layout_crossings": crossings,
+        "token_internal_layout_crossing_kind_counts": _string_counter_json(
+            crossing_kind_counts
+        ),
+        "tokens_with_internal_layout_crossing_count": len(crossings_per_token),
+        "tokens_with_multiple_internal_layout_crossings_count": sum(
+            count > 1 for count in crossings_per_token.values()
+        ),
+        "max_internal_layout_crossings_per_token": max(
+            crossings_per_token.values(), default=0
+        ),
         "group_cardinalities": {
             key: _counter_json(group_histograms[key]) for key in GROUP_HISTOGRAM_KEYS
         },
@@ -512,14 +600,29 @@ def audit_upstream(root: Path | str) -> dict[str, Any]:
         "entity_unresolved_head_count": totals["entity_unresolved_head_count"],
         "entity_empty_count": totals["entity_empty_count"],
         "nested_entity_count": totals["entity_nested_count"],
+        "entity_class_counts": _string_counter_json(entity_class_counts),
+        "entity_identity_count": totals["entity_identity_count"],
+        "entity_without_identity_count": totals["entity_without_identity_count"],
         "entity_token_count_histogram": _counter_json(entity_token_histogram),
         "translation_count": totals["translation_count"],
         "arabic_translation_count": totals["arabic_translation_count"],
         "empty_translation_count": totals["empty_translation_count"],
         "empty_arabic_translation_count": totals["empty_arabic_translation_count"],
+        "translation_token_count_histogram": _counter_json(
+            translation_token_histogram
+        ),
+        "zero_token_translation_count": totals["zero_token_translation_count"],
+        "empty_zero_token_translation_count": totals[
+            "empty_zero_token_translation_count"
+        ],
         "chapter_marker_count": totals["chapter_marker_count"],
         "verse_marker_count": totals["verse_marker_count"],
         "video_marker_count": totals["video_marker_count"],
+        "documents_with_chapter_markers": documents_with_chapter_markers,
+        "documents_with_verse_markers": documents_with_verse_markers,
+        "documents_with_video_markers": documents_with_video_markers,
+        "documents_with_translation": documents_with_translation,
+        "documents_with_arabic_translation": documents_with_arabic_translation,
         "document_summaries": document_summaries,
     }
 
@@ -530,8 +633,12 @@ def render_report_json(report: dict[str, Any]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("upstream", type=Path, help="Pinned CopticScriptorium/corpora checkout")
-    parser.add_argument("--output", type=Path, help="Write JSON report here instead of stdout")
+    parser.add_argument(
+        "upstream", type=Path, help="Pinned CopticScriptorium/corpora checkout"
+    )
+    parser.add_argument(
+        "--output", type=Path, help="Write JSON report here instead of stdout"
+    )
     args = parser.parse_args(argv)
     report = audit_upstream(args.upstream)
     rendered = render_report_json(report)
