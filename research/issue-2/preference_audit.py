@@ -138,6 +138,7 @@ def evaluate_identity_report(identity_report: dict[str, Any]) -> dict[str, Any]:
         )
 
     return {
+        "source_provenance": identity_report.get("source_provenance"),
         "duplicate_group_count": len(groups),
         "best_parsing_unique_winner_group_count": best_unique,
         "best_parsing_tie_group_count": best_tie,
