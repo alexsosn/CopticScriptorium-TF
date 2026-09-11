@@ -24,15 +24,14 @@ def valid_graph():
         },
         "slots": [
             {"id": 1, "kind": "word", "surface": "ⲁⲃ", "source_word_id": "u1"},
-            {"id": 2, "kind": "synthetic", "surface": "", "source_word_id": None},
-            {"id": 3, "kind": "word", "surface": "ⲅ", "source_word_id": "u2"},
-            {"id": 4, "kind": "word", "surface": "ⲅ", "source_word_id": "u2"},
+            {"id": 2, "kind": "word", "surface": "ⲅ", "source_word_id": "u2"},
+            {"id": 3, "kind": "word", "surface": "ⲇ", "source_word_id": "u3"},
         ],
         "nodes": [
             {
                 "id": 10,
                 "type": "document",
-                "slots": [1, 2, 3],
+                "slots": [1, 2],
                 "features": {
                     "source_record_id": "demo/demo:one",
                     "corpus": "demo",
@@ -53,13 +52,13 @@ def valid_graph():
             {
                 "id": 12,
                 "type": "sentence",
-                "slots": [3],
+                "slots": [2],
                 "features": {"ordinal": 2, "render_mode": "normalized_slots"},
             },
             {
                 "id": 20,
                 "type": "line",
-                "slots": [1, 3],
+                "slots": [1, 2],
                 "features": {
                     "diplomatic_text": "ⲁ|ⲃⲅ",
                     "start_char": 1,
@@ -71,19 +70,16 @@ def valid_graph():
             {
                 "id": 21,
                 "type": "translation",
-                "slots": [2],
+                "slots": [1],
                 "features": {
-                    "text": "independently positioned translation",
-                    "zero_span": True,
+                    "text": "translation",
                     "render_mode": "own_text",
-                    "after_source_word_ordinal": 1,
-                    "source_char_offset": 0,
                 },
             },
             {
                 "id": 22,
                 "type": "entity",
-                "slots": [1, 3],
+                "slots": [1, 2],
                 "features": {
                     "entity_class": "person",
                     "identity": "Person A",
@@ -99,7 +95,7 @@ def valid_graph():
             {
                 "id": 24,
                 "type": "document",
-                "slots": [4],
+                "slots": [3],
                 "features": {
                     "source_record_id": "copy/copy:one",
                     "corpus": "copy",
@@ -114,12 +110,12 @@ def valid_graph():
             {
                 "id": 25,
                 "type": "sentence",
-                "slots": [4],
+                "slots": [3],
                 "features": {"ordinal": 1, "render_mode": "normalized_slots"},
             },
         ],
         "edges": [
-            {"type": "dependency_head", "from": 3, "to": 1},
+            {"type": "dependency_head", "from": 2, "to": 1},
             {"type": "entity_head", "from": 22, "to": 1},
             {
                 "type": "same_scholarly",
@@ -141,18 +137,24 @@ class GraphContractTests(unittest.TestCase):
         graph = valid_graph()
         self.assertEqual(self.contract.validate_graph(graph), [])
 
-    def test_zero_span_textual_node_requires_surface_less_synthetic_slot(self):
+    def test_current_schema_rejects_unmeasured_synthetic_slot(self):
+        graph = valid_graph()
+        graph["slots"][1] = {
+            "id": 2,
+            "kind": "synthetic",
+            "surface": "",
+            "source_word_id": None,
+        }
+        errors = self.contract.validate_graph(graph)
+        self.assertTrue(any("synthetic" in error and "not measured" in error for error in errors))
+
+    def test_current_schema_rejects_zero_span_textual_node(self):
         graph = valid_graph()
         translation = next(node for node in graph["nodes"] if node["type"] == "translation")
-        translation["slots"] = [1]
+        translation["slots"] = []
+        translation["features"]["zero_span"] = True
         errors = self.contract.validate_graph(graph)
-        self.assertTrue(any("zero-span textual" in error for error in errors))
-
-        graph = valid_graph()
-        synthetic = next(slot for slot in graph["slots"] if slot["kind"] == "synthetic")
-        synthetic["surface"] = "fabricated"
-        errors = self.contract.validate_graph(graph)
-        self.assertTrue(any("synthetic slot" in error for error in errors))
+        self.assertTrue(any("zero-span textual" in error and "not measured" in error for error in errors))
 
     def test_layout_crossing_requires_own_text_and_token_relative_offsets(self):
         graph = valid_graph()
@@ -166,9 +168,9 @@ class GraphContractTests(unittest.TestCase):
     def test_dependency_and_entity_head_edges_target_word_slots(self):
         graph = valid_graph()
         dependency = next(edge for edge in graph["edges"] if edge["type"] == "dependency_head")
-        dependency["to"] = 2
+        dependency["to"] = 999
         entity_head = next(edge for edge in graph["edges"] if edge["type"] == "entity_head")
-        entity_head["to"] = 2
+        entity_head["to"] = 999
         errors = self.contract.validate_graph(graph)
         self.assertTrue(any("dependency_head" in error and "word slot" in error for error in errors))
         self.assertTrue(any("entity_head" in error and "word slot" in error for error in errors))
@@ -178,7 +180,7 @@ class GraphContractTests(unittest.TestCase):
         entity = next(node for node in graph["nodes"] if node["type"] == "entity")
         entity["slots"] = [1]
         entity_head = next(edge for edge in graph["edges"] if edge["type"] == "entity_head")
-        entity_head["to"] = 3
+        entity_head["to"] = 2
         errors = self.contract.validate_graph(graph)
         self.assertFalse(any("entity span" in error for error in errors))
         self.assertFalse(any("crosses physical documents" in error for error in errors))
@@ -187,7 +189,7 @@ class GraphContractTests(unittest.TestCase):
         entity = next(node for node in graph["nodes"] if node["type"] == "entity")
         entity["slots"] = [1]
         entity_head = next(edge for edge in graph["edges"] if edge["type"] == "entity_head")
-        entity_head["to"] = 4
+        entity_head["to"] = 3
         errors = self.contract.validate_graph(graph)
         self.assertTrue(any("entity_head" in error and "crosses physical documents" in error for error in errors))
 
