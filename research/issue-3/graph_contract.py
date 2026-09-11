@@ -254,10 +254,19 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
                 errors.append(
                     f"entity_head edge target {target!r} must be a word slot"
                 )
-            elif target not in entity.get("slots", []):
-                errors.append(
-                    f"entity_head edge target {target!r} is outside entity span {source!r}"
-                )
+            else:
+                entity_owners: set[Any] = set()
+                for slot_id in entity.get("slots", []):
+                    entity_owners.update(slot_document_owners.get(slot_id, set()))
+                target_owners = slot_document_owners.get(target, set())
+                if (
+                    len(entity_owners) == 1
+                    and len(target_owners) == 1
+                    and entity_owners != target_owners
+                ):
+                    errors.append(
+                        f"entity_head edge {source!r}->{target!r} crosses physical documents"
+                    )
         elif edge_type in {"same_scholarly", "documented_overlap", "witness"}:
             source_document = node_index.get(source)
             target_document = node_index.get(target)
