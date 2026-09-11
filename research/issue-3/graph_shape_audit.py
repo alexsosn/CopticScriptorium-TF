@@ -334,7 +334,14 @@ def _analyze_document(record: dict[str, Any]) -> dict[str, Any]:
         elif name == "entity":
             if entity_stack:
                 nested_entity_count += 1
-            entity_stack.append({"attrs": attrs, "token_ids": []})
+            entity_stack.append(
+                {
+                    "attrs": attrs,
+                    "token_ids": [current_norm["token_id"]]
+                    if current_norm is not None
+                    else [],
+                }
+            )
         elif name == "translation":
             translation_count += 1
             literal = attrs.get("translation") or ""
