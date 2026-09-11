@@ -31,6 +31,8 @@ def valid_graph():
                 "slots": [1, 2, 3],
                 "features": {
                     "source_record_id": "demo/demo:one",
+                    "corpus": "demo",
+                    "dataset": "demo",
                     "scholarly_id": "urn:cts:demo:one",
                     "section_address": ["demo/demo:one"],
                     "render_mode": "normalized_slots",
@@ -93,6 +95,8 @@ def valid_graph():
                 "slots": [4],
                 "features": {
                     "source_record_id": "copy/copy:one",
+                    "corpus": "copy",
+                    "dataset": "copy",
                     "scholarly_id": "urn:cts:demo:one",
                     "section_address": ["copy/copy:one"],
                     "render_mode": "normalized_slots",
@@ -108,7 +112,12 @@ def valid_graph():
         "edges": [
             {"type": "dependency_head", "from": 3, "to": 1},
             {"type": "entity_head", "from": 22, "to": 1},
-            {"type": "same_scholarly", "from": 10, "to": 24},
+            {
+                "type": "same_scholarly",
+                "from": 10,
+                "to": 24,
+                "features": {"classification": "byte_identical"},
+            },
         ],
         "section_types": ["document"],
     }
