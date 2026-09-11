@@ -25,14 +25,13 @@ def graph():
         "section_types": ["document"],
         "slots": [
             {"id": "w1", "kind": "word", "surface": "ⲁ", "source_word_id": "u1"},
-            {"id": "z1", "kind": "synthetic", "surface": "", "source_word_id": None},
             {"id": "w2", "kind": "word", "surface": "ⲃ", "source_word_id": "u1"},
         ],
         "nodes": [
             {
                 "id": "d1",
                 "type": "document",
-                "slots": ["w1", "z1"],
+                "slots": ["w1"],
                 "features": {
                     "source_record_id": "a/a:one",
                     "section_address": ["a/a:one"],
@@ -67,19 +66,7 @@ def graph():
                 "id": "t1",
                 "type": "translation",
                 "slots": ["w1"],
-                "features": {"text": "A", "render_mode": "own_text", "zero_span": False},
-            },
-            {
-                "id": "t0",
-                "type": "translation",
-                "slots": ["z1"],
-                "features": {
-                    "text": "Between",
-                    "render_mode": "own_text",
-                    "zero_span": True,
-                    "after_source_word_ordinal": 1,
-                    "source_char_offset": 42,
-                },
+                "features": {"text": "A", "render_mode": "own_text"},
             },
         ],
         "edges": [],
@@ -137,16 +124,18 @@ class GraphLocalityRenderingProvenanceTests(unittest.TestCase):
         errors = self.contract.validate_graph(candidate)
         self.assertTrue(any("translation" in error and "own text" in error for error in errors), errors)
 
-    def test_zero_span_textual_node_requires_deterministic_source_order_locus(self):
+    def test_translation_requires_measured_word_locus(self):
         candidate = graph()
-        del candidate["nodes"][6]["features"]["source_char_offset"]
+        candidate["nodes"][5]["slots"] = []
         errors = self.contract.validate_graph(candidate)
-        self.assertTrue(any("zero-span textual node" in error and "source order" in error for error in errors), errors)
+        self.assertTrue(any("translation" in error and "word-slot locus" in error for error in errors), errors)
 
+    def test_new_zero_span_textual_shape_requires_schema_gate(self):
         candidate = graph()
-        del candidate["nodes"][6]["features"]["after_source_word_ordinal"]
+        candidate["nodes"][5]["slots"] = []
+        candidate["nodes"][5]["features"]["zero_span"] = True
         errors = self.contract.validate_graph(candidate)
-        self.assertTrue(any("zero-span textual node" in error and "source order" in error for error in errors), errors)
+        self.assertTrue(any("zero-span textual node" in error and "not measured" in error for error in errors), errors)
 
 
 if __name__ == "__main__":
