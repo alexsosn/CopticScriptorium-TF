@@ -168,12 +168,28 @@ class GraphContractTests(unittest.TestCase):
         dependency = next(edge for edge in graph["edges"] if edge["type"] == "dependency_head")
         dependency["to"] = 2
         entity_head = next(edge for edge in graph["edges"] if edge["type"] == "entity_head")
-        entity_head["to"] = 3
-        entity = next(node for node in graph["nodes"] if node["type"] == "entity")
-        entity["slots"] = [1]
+        entity_head["to"] = 2
         errors = self.contract.validate_graph(graph)
         self.assertTrue(any("dependency_head" in error and "word slot" in error for error in errors))
-        self.assertTrue(any("entity_head" in error and "entity span" in error for error in errors))
+        self.assertTrue(any("entity_head" in error and "word slot" in error for error in errors))
+
+    def test_resolved_entity_head_may_be_outside_span_but_not_outside_document(self):
+        graph = valid_graph()
+        entity = next(node for node in graph["nodes"] if node["type"] == "entity")
+        entity["slots"] = [1]
+        entity_head = next(edge for edge in graph["edges"] if edge["type"] == "entity_head")
+        entity_head["to"] = 3
+        errors = self.contract.validate_graph(graph)
+        self.assertFalse(any("entity span" in error for error in errors))
+        self.assertFalse(any("crosses physical documents" in error for error in errors))
+
+        graph = valid_graph()
+        entity = next(node for node in graph["nodes"] if node["type"] == "entity")
+        entity["slots"] = [1]
+        entity_head = next(edge for edge in graph["edges"] if edge["type"] == "entity_head")
+        entity_head["to"] = 4
+        errors = self.contract.validate_graph(graph)
+        self.assertTrue(any("entity_head" in error and "crosses physical documents" in error for error in errors))
 
     def test_document_section_addresses_are_unique_but_scholarly_ids_may_repeat(self):
         graph = valid_graph()
