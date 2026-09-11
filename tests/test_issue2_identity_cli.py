@@ -23,20 +23,39 @@ class IdentityAuditCliContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.audit = load_module()
 
-    def test_main_writes_deterministic_json_artifact(self):
+    def test_main_writes_deterministic_provenance_bound_json_artifact(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "upstream"
             root.mkdir()
             output = Path(tmp) / "identity.json"
+            repository = "CopticScriptorium/corpora"
+            commit = "3ac067f1709a0012daf39ea8da2fac79980176a5"
 
             self.assertEqual(
-                self.audit.main([str(root), "--output", str(output)]),
+                self.audit.main(
+                    [
+                        str(root),
+                        "--output",
+                        str(output),
+                        "--upstream-repository",
+                        repository,
+                        "--upstream-commit",
+                        commit,
+                    ]
+                ),
                 0,
             )
             self.assertTrue(output.is_file())
             report = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(report["document_count"], 0)
             self.assertEqual(report["records"], [])
+            self.assertEqual(
+                report["source_provenance"],
+                {
+                    "repository": repository,
+                    "commit": commit,
+                },
+            )
             self.assertEqual(
                 output.read_text(encoding="utf-8"),
                 self.audit.render_report_json(report),
