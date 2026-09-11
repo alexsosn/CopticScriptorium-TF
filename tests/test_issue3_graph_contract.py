@@ -22,6 +22,7 @@ def valid_graph():
             {"id": 1, "kind": "word", "surface": "ⲁⲃ", "source_word_id": "u1"},
             {"id": 2, "kind": "synthetic", "surface": "", "source_word_id": None},
             {"id": 3, "kind": "word", "surface": "ⲅ", "source_word_id": "u2"},
+            {"id": 4, "kind": "word", "surface": "ⲅ", "source_word_id": "u2"},
         ],
         "nodes": [
             {
@@ -89,13 +90,19 @@ def valid_graph():
             {
                 "id": 24,
                 "type": "document",
-                "slots": [3],
+                "slots": [4],
                 "features": {
                     "source_record_id": "copy/copy:one",
                     "scholarly_id": "urn:cts:demo:one",
                     "section_address": ["copy/copy:one"],
                     "render_mode": "normalized_slots",
                 },
+            },
+            {
+                "id": 25,
+                "type": "sentence",
+                "slots": [4],
+                "features": {"ordinal": 1, "render_mode": "normalized_slots"},
             },
         ],
         "edges": [
