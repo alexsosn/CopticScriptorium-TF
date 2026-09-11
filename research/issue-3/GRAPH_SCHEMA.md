@@ -18,7 +18,7 @@ The exact-head graph-shape audit measures 2,628 TT document streams containing:
 - 3,294 page, 3,291 column and 47,933 line markers;
 - 13,015 token-internal layout crossings affecting 12,307 tokens, with 535 tokens crossed more than once and a maximum of seven crossings in one token;
 - 256,677 entities, all non-empty and with all source head IDs resolving within the physical document, including 78,243 nested entities;
-- two resolved entity heads that point to a word outside the entity's measured surface span;
+- zero resolved entity heads outside the corrected measured word spans;
 - 52,346 English translation nodes in 1,490 documents;
 - 1,598 Arabic translation nodes in 96 documents.
 
@@ -27,6 +27,8 @@ Every document containing tokens has a source sentence start and no token occurs
 The group hierarchy is not one universal four-step chain. All 736,574 `orig_group` nodes have exactly one `norm_group`; every `orig` has exactly one `norm`; but 368,884 `norm_group` nodes have no `orig_group`, `norm_group` may contain 0–11 `orig` nodes, and 828,361 `norm` tokens occur directly under `norm_group` rather than `orig`.
 
 The corrected corpus-wide translation-locus audit reports **zero English and zero Arabic translations without word coverage**. An independent adversarial review found that an earlier audit initialized translation coverage to zero when a `<translation>`/`<arabic>` tag opened inside an already-open `norm`; the four English and one Arabic cases previously reported as zero-token loci were all instances of that event ordering. The audit now inherits the already-open word locus before counting later words.
+
+Entity locus required the same event-order correction. Two abstract entities had previously appeared to have heads immediately outside their spans, but direct source inspection shows that each `<entity>` opens *inside* its own head `norm` (`u1996` in `pachomius.instructions.01` and `u1371` in `shenoute.prince.XH185-194`). Once a newly opened entity inherits the current word locus, both heads are inside their measured word spans and the corpus-wide outside-span count is zero.
 
 Chapter/verse/video markers are heterogeneous rather than universal navigation: chapter markers occur in 426 documents, verse markers in 2,571 and video markers in 206.
 
@@ -128,9 +130,9 @@ Each source entity becomes an ordinary `entity` node spanning its measured word 
 - literal source head-token reference;
 - an `entity_head` edge from entity node to the resolved head word slot.
 
-Entity surface span and source head relation are distinct source facts. The pinned corpus contains no empty entities and no missing or unresolved entity heads, but it contains **two `abstract` entities whose resolved source head lies immediately outside the measured entity span**: one in `pachomius.instructions.01` (`#u1996` vs span `u1997`–`u1999`) and one in `shenoute.prince.XH185-194` (`#u1371` vs span `u1372`–`u1375`). These edges are preserved exactly rather than rejected or silently pulled into the entity span.
+At word-slot granularity, a source entity opened inside an already-open `norm` includes that current word in its locus before later words are counted. This matters for overlapping SGML: the two earlier apparent outside-span heads were parser artefacts caused by failing to inherit the already-open word.
 
-An entity head must resolve to a word in the same physical source document. A missing, unresolved or cross-document head is a source/contract failure that must be surfaced. Being outside the entity's surface span is ledgered source evidence, not by itself an error.
+The pinned corpus contains no empty entities, no missing or unresolved entity heads, and no entity heads outside the corrected measured word spans. An entity head must therefore resolve to a word inside the entity's measured word locus and inside the same physical source document. A missing, unresolved, outside-span, or cross-document head is a source/contract failure that must be surfaced.
 
 Nested entities are allowed and common (78,243 measured cases); the representation must not assume entity spans form a flat partition.
 
@@ -170,7 +172,7 @@ For Context-Fabric/cfabric-mcp discovery, the minimal corpus-view surface is the
 | `norm_group` | non-slot | literal group value/provenance | source group relations to `orig` and/or direct words |
 | `orig_group` | non-slot | literal group value/provenance | source relation to `norm_group` |
 | `page`/`column`/`line` | non-slot layout | label, diplomatic text, token-relative offsets | source-order/locus relation to words |
-| `entity` | non-slot span | class, identity, literal head reference | `entity_head` to document-local word; word-span locus may exclude the head |
+| `entity` | non-slot span | class, identity, literal head reference | `entity_head` to a word inside the measured entity locus |
 | `translation` | non-slot textual | literal English text, source position | measured word locus |
 | `arabic_translation` | non-slot textual | literal Arabic text, source position | measured word locus |
 
@@ -197,7 +199,7 @@ The production materializer must be RED-first tested against at least these inva
 3. repeated scholarly CTS IDs produce distinct document nodes/section addresses;
 4. direct `norm_group -> norm`, standalone `norm_group`, multi-`orig` groups and ordinary `orig -> norm` are all preserved without invented hierarchy;
 5. dependency and entity-head edges target word slots and resolve only within the source document;
-6. an entity head outside its entity surface span remains a valid source edge and does not expand/collapse that span;
+6. an entity opened inside an already-open `norm` inherits that current word locus, and every entity head remains inside the measured entity word span;
 7. page/column/line crossings preserve exact token-relative positions without splitting or duplicating words;
 8. multiple internal layout crossings in one word survive in source order;
 9. nested entities remain separately queryable;
