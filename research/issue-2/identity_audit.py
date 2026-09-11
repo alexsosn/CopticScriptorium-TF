@@ -312,7 +312,7 @@ def _documented_collection_overlaps(records: list[dict[str, Any]], *, strict_exp
             right_id = f"{spec['right_dataset']}:{spec['right_prefix']}{chapter_text}"
             left, right = by_source_id.get(left_id), by_source_id.get(right_id)
             if left is None and right is None:
-                if both_datasets_active and (strict_expected_set or chapter < max_observed):
+                if strict_expected_set or (both_datasets_active and chapter < max_observed):
                     unmatched.append({"expected_left": left_id, "expected_right": right_id, "missing_side": "both"})
                 continue
             if left is None:
