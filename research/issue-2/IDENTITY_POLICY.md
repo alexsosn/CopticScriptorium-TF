@@ -2,18 +2,30 @@
 
 Status: proposed ADR for issue #2, derived from the corpus-wide audit at pinned upstream `CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`.
 
-This ADR defines identity and non-destructive overlap semantics for later Text-Fabric graph design. It does not assign TF node IDs or section structures; those remain issue #3.
+This ADR defines identity, non-destructive overlap semantics, and materialization topology for later Text-Fabric graph design. It does not assign TF node IDs or section structures; those remain issue #3. The intended user product is the local Agora materializer tracked by #11, not a repository of prebuilt TF releases.
 
 ## Decision
 
-Keep every physical TT source record addressable. Do not deduplicate the stored corpus from CTS equality, treebank membership, `redundant=yes`, filename similarity, or a quality rank.
+Keep every physical TT source record addressable. Do not deduplicate the materialized corpus from CTS equality, treebank membership, `redundant=yes`, filename similarity, or a quality rank.
 
 Expose two independent identity levels:
 
-1. **Release-scoped source record identity** — the literal dataset plus record path, bound in provenance to the immutable upstream commit and raw source hash. This identifies one physical source copy in one release. It is unique case-insensitively in the pinned corpus. A source path is not promised to survive upstream reorganizations across releases.
+1. **Source-revision-scoped source record identity** — the literal dataset plus record path, bound in provenance to the exact upstream repository/revision and raw source hash. This identifies one physical source copy in one local materialization. It is unique case-insensitively in the pinned corpus. A source path is not promised to survive upstream reorganizations across revisions.
 2. **Scholarly identity** — the literal upstream `document_cts_urn` when valid. It can identify multiple physical records. It is never synthesized from filename, title, neighbouring records, or a documented overlap relation.
 
 The corpus also exposes relations among source records and scholarly identities. Those relations are data, not instructions to delete one side.
+
+## Materialization topology
+
+The canonical product topology is **one logical union TF corpus** produced locally from one exact upstream source revision.
+
+- All physical source records remain present and directly addressable in the union corpus.
+- Each record retains corpus/dataset identity as data, so users can query or view one source corpus without maintaining a second TF artifact.
+- Corpus-specific access is a non-destructive feature/query/view over the union graph, not a separately versioned corpus copy.
+- The materializer must not create one generated TF release per upstream corpus merely to model provenance boundaries.
+- #3 must design sections/features so this union corpus remains usable without confusing scholarly identity with physical source-copy identity.
+
+If a later disk/memory requirement justifies selective local materialization, a materializer may accept an explicit corpus filter. Such a subset build must reuse this exact identity/schema contract and preserve the same literal source-record identifiers for included records. A selective build is an optimization over one logical model, not a second identity system and not permission to deduplicate overlap classes.
 
 ## Corpus-wide identity measurements
 
@@ -37,7 +49,7 @@ All 108 duplicated scholarly identities were classified from raw bytes, original
 
 The classification is deliberately hierarchical: textual divergence outranks analysis divergence, which outranks a source-only/enrichment variant, which outranks byte identity.
 
-The upstream README calls the `coptic-treebank` copies “identical”, but this cannot be used as a generic deduplication rule. On the pinned release, `coptic-treebank` participates in 86 duplicate-CTS groups: 69 byte-identical, 15 alternate analyses, one core-identical source variant, and one textual divergence. `bohairic-treebank` participates in 22 groups, all byte-identical on this release. Treebank membership is therefore provenance/topology, not an equivalence proof.
+The upstream README calls the `coptic-treebank` copies “identical”, but this cannot be used as a generic deduplication rule. On the pinned revision, `coptic-treebank` participates in 86 duplicate-CTS groups: 69 byte-identical, 15 alternate analyses, one core-identical source variant, and one textual divergence. `bohairic-treebank` participates in 22 groups, all byte-identical on this revision. Treebank membership is therefore provenance/topology, not an equivalence proof.
 
 ## Documented book ↔ aggregate overlap
 
@@ -70,9 +82,9 @@ The pinned corpus contains:
 - 83 are free-text source values and remain preserved literally;
 - five of those free-text values contain embedded CTS URNs;
 - **35 CTS targets** are extractable from 33 witness relations;
-- **35/35 targets resolve** to a known scholarly identity on the pinned release; unresolved-target count is 0.
+- **35/35 targets resolve** to a known scholarly identity on the pinned revision; unresolved-target count is 0.
 
-Embedded target extraction does not rewrite the literal witness string. Free-text witness metadata remains `free_text`; extracted CTS targets are a parallel machine-readable relation layer. If a future release contains an unresolved target, it must remain in an explicit unresolved-target ledger.
+Embedded target extraction does not rewrite the literal witness string. Free-text witness metadata remains `free_text`; extracted CTS targets are a parallel machine-readable relation layer. If a future source revision contains an unresolved target, it must remain in an explicit unresolved-target ledger.
 
 ## Fingerprints are evidence, not public identity
 
@@ -84,13 +96,13 @@ The research audit computes deterministic fingerprints for:
 - linguistic analysis (`norm`, lemma, fine POS, dependency relation, dependency head resolved to document token position);
 - selected orthogonal enrichment counts.
 
-These hashes classify relationships inside a pinned release. They are not public identifiers and must not replace literal source provenance or CTS identity.
+These hashes classify relationships inside one exact source revision. They are not public identifiers and must not replace literal source provenance or CTS identity.
 
-A changed fingerprint in a later source release means the relation must be remeasured. It is not evidence that an old address should be silently redirected to a new record.
+A changed fingerprint in a later source revision means the relation must be remeasured. It is not evidence that an old address should be silently redirected to a new record.
 
 ## User-facing views
 
-Storage/default materialization policy is **preserve all**. Views are non-destructive filters over that storage.
+Default materialization policy is **preserve all**. Views are non-destructive filters over that local union corpus.
 
 ### `all`
 
@@ -112,20 +124,20 @@ On the pinned corpus, **92/108 duplicate groups are eligible** and 16 are inelig
 
 ### `best-parsing`
 
-No automatic winner is evidence-backed on this release. Among all 108 duplicated CTS groups:
+No automatic winner is evidence-backed on this revision. Among all 108 duplicated CTS groups:
 
 - **0 have a unique highest parsing-quality candidate**;
 - **108 are ties**;
 - 104 are `gold`/`gold` ties and four are `automatic`/`automatic` ties;
 - 0 groups lack parsing-quality metadata.
 
-A deterministic source-record ID can order tied candidates for stable output, but that ordering is not a scholarly preference and must not be exposed as “best”. If a future release produces a unique explicit quality winner, the view may report it only when every candidate in that scholarly-identity group has a recognized parsing-quality value. If all candidates lack recognized quality the status is `missing_quality`; if known and unknown quality values are mixed the status is `incomplete_quality`. Both statuses return no winner and preserve all candidates.
+A deterministic source-record ID can order tied candidates for stable output, but that ordering is not a scholarly preference and must not be exposed as “best”. If a future source revision produces a unique explicit quality winner, the view may report it only when every candidate in that scholarly-identity group has a recognized parsing-quality value. If all candidates lack recognized quality the status is `missing_quality`; if known and unknown quality values are mixed the status is `incomplete_quality`. Both statuses return no winner and preserve all candidates.
 
-## Addressing invariants for issue #3
+## Addressing invariants for issue #3 and materializer #11
 
-Issue #3 may choose TF section/navigation structure, but it must preserve these identity invariants:
+Issue #3 may choose TF section/navigation structure, and #11 may implement source acquisition/local materialization, but both must preserve these identity invariants:
 
-- every physical source record keeps its release-scoped source identity and immutable source provenance;
+- every physical source record keeps its source-revision-scoped identity and immutable source provenance;
 - literal `document_cts_urn` remains separately available as scholarly identity;
 - a CTS identity is not assumed to identify exactly one physical record;
 - documented book↔aggregate relations do not synthesize CTS equivalence;
@@ -133,16 +145,21 @@ Issue #3 may choose TF section/navigation structure, but it must preserve these 
 - `redundant=yes` and witness relations remain independently queryable;
 - literal witness text and extracted CTS targets remain separately recoverable;
 - no preference/filter view mutates stored records or redirects one source identity onto another;
-- case-insensitive source-address collisions fail closed rather than receiving silent suffixes.
+- case-insensitive source-address collisions fail closed rather than receiving silent suffixes;
+- corpus/dataset membership is preserved as a queryable feature so the union materialization does not require duplicate corpus-specific TF artifacts.
 
-## Release behavior
+## Source-revision behavior
 
-A generated release must record the upstream commit used to derive source identities and relationship classifications. Re-running against a newer upstream revision recomputes all fingerprints, duplicate classes, documented-overlap pairs, witness resolutions, and preference eligibility.
+Every local materialization must record the upstream repository/revision used to derive source identities and relationship classifications. Re-running against a newer upstream revision recomputes all fingerprints, duplicate classes, documented-overlap pairs, witness resolutions, and preference eligibility.
 
-The public source-record identity is release-scoped by design. Stable cross-release scholarly linkage is supplied by literal CTS identity where upstream provides it; the converter must not pretend source paths are permanent identifiers.
+The physical source-record identity is source-revision-scoped by design. Stable cross-revision scholarly linkage is supplied by literal CTS identity where upstream provides it; the converter must not pretend source paths are permanent scholarly identifiers.
+
+This requirement is about reproducible local builds, not about publishing immutable generated TF releases. Public redistribution of generated artifacts is outside the current product path; issue #8 is deferred unless that goal returns.
 
 ## Consequences for implementation planning
 
-Issue #3 can now design a union TF corpus without choosing one record per CTS identity. The graph should preserve all source copies and expose scholarly identity plus explicit overlap/witness relations as features/edges or metadata suitable for querying.
+Issue #3 must design the union TF graph without choosing one record per CTS identity. The graph should preserve all source copies and expose corpus/dataset membership, scholarly identity, plus explicit overlap/witness relations as features/edges or metadata suitable for querying.
+
+Issue #11 must package that converter as an Agora-compatible local materializer with pinned-Git and user-local acquisition paths and no need for prebuilt TF distribution.
 
 Implementation tickets should test the four duplicate classes separately. In particular, optimization must never replace “same CTS” with “same node” or use treebank membership as a destructive deduplication shortcut.
