@@ -13,7 +13,6 @@ from typing import Any
 
 LAYOUT_TYPES = {"page", "column", "line"}
 TEXTUAL_TYPES = {"translation", "arabic_translation"}
-TEXTUAL_ZERO_SPAN_TYPES = TEXTUAL_TYPES
 OVERLAP_CLASSES = {
     "byte_identical",
     "core_identical_source_variant",
@@ -52,20 +51,15 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
         object_ids.add(slot_id)
         slot_index[slot_id] = slot
         kind = slot.get("kind")
-        if kind not in {"word", "synthetic"}:
+        if kind == "synthetic":
+            errors.append(
+                f"synthetic slot {slot_id!r} is not measured in the pinned corpus; "
+                "a future zero-span textual source shape requires a new research gate"
+            )
+        elif kind != "word":
             errors.append(f"slot {slot_id!r} has unsupported kind {kind!r}")
-        elif kind == "word":
-            if not slot.get("source_word_id"):
-                errors.append(f"word slot {slot_id!r} lacks literal source_word_id")
-        else:
-            if slot.get("surface") not in {"", None}:
-                errors.append(
-                    f"synthetic slot {slot_id!r} must be surface-less; visible content is fabricated"
-                )
-            if slot.get("source_word_id") not in {None, ""}:
-                errors.append(
-                    f"synthetic slot {slot_id!r} must not masquerade as a source word"
-                )
+        elif not slot.get("source_word_id"):
+            errors.append(f"word slot {slot_id!r} lacks literal source_word_id")
 
     node_index: dict[Any, dict[str, Any]] = {}
     for node in nodes:
@@ -155,7 +149,7 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
             slot = slot_index.get(slot_id)
             if slot and slot.get("kind") != "word":
                 errors.append(
-                    f"sentence {sentence.get('id')!r} must not absorb synthetic slot {slot_id!r}"
+                    f"sentence {sentence.get('id')!r} may contain only measured word slots"
                 )
             if slot and slot.get("kind") == "word":
                 word_sentence_membership[slot_id] += 1
@@ -188,30 +182,16 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
                 errors.append(
                     f"{node_type} node {node.get('id')!r} must render its own text"
                 )
-
-        if node_type in TEXTUAL_ZERO_SPAN_TYPES and features.get("zero_span"):
-            valid = len(node_slots) == 1
-            if valid:
-                slot = slot_index.get(node_slots[0])
-                valid = bool(
-                    slot
-                    and slot.get("kind") == "synthetic"
-                    and slot.get("surface") in {"", None}
-                )
-            if not valid:
+            if features.get("zero_span"):
                 errors.append(
-                    f"zero-span textual node {node.get('id')!r} requires exactly one surface-less synthetic slot"
+                    f"zero-span textual node {node.get('id')!r} is not measured in the pinned corpus; "
+                    "a new source shape requires a research/schema gate"
                 )
-            if not features.get("text"):
-                errors.append(
-                    f"zero-span textual node {node.get('id')!r} must retain non-empty literal text"
-                )
-            if (
-                "after_source_word_ordinal" not in features
-                or "source_char_offset" not in features
+            if not node_slots or any(
+                not _is_word_slot(slot_index.get(slot_id)) for slot_id in node_slots
             ):
                 errors.append(
-                    f"zero-span textual node {node.get('id')!r} requires deterministic source order locus"
+                    f"{node_type} node {node.get('id')!r} requires a measured word-slot locus"
                 )
 
         if features.get("technical_anchor") and features.get("render_mode") not in {
