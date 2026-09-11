@@ -33,7 +33,7 @@ jobs:
           python-version: "3.12"
       - name: Run focused issue 13 unit tests
         run: python -m unittest discover -s tests -p 'test_issue13_*.py' -v
-      - name: Check out pinned TT sources
+      - name: Check out pinned TT and CoNLL-U sources
         uses: actions/checkout@v4
         with:
           repository: CopticScriptorium/corpora
@@ -44,6 +44,8 @@ jobs:
           sparse-checkout: |
             /*/*_TT/**
             /*/*_TT.zip
+            /*/*_CONLLU/**
+            /*/*_CONLLU.zip
       - name: Verify pinned upstream source
         working-directory: upstream
         run: test "$(git rev-parse HEAD)" = "$UPSTREAM_COMMIT"
@@ -54,10 +56,24 @@ jobs:
           python research/issue-13/parser_census.py upstream
           --output research/issue-13/parser-census.json
           --validate
+      - name: Validate CoNLL-U supplementation across the pinned corpus
+        env:
+          PYTHONPATH: .
+        run: >-
+          python research/issue-13/conllu_census.py upstream
+          --output research/issue-13/conllu-census.json
+          --validate
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: issue13-parser-census
           path: research/issue-13/parser-census.json
+          if-no-files-found: warn
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue13-conllu-census
+          path: research/issue-13/conllu-census.json
           if-no-files-found: warn
           retention-days: 14
