@@ -18,6 +18,10 @@ def load_module():
 
 def graph():
     return {
+        "provenance": {
+            "upstream_repository": "CopticScriptorium/corpora",
+            "upstream_commit": "abc123",
+        },
         "section_types": ["document"],
         "slots": [
             {"id": "w1", "kind": "word", "surface": "ⲁ", "source_word_id": "u1"},
@@ -34,6 +38,8 @@ def graph():
                     "corpus": "source",
                     "dataset": "source",
                     "scholarly_id": "urn:cts:demo:one",
+                    "source_path": "source/source_TT/one.tt",
+                    "source_sha256": "1" * 64,
                 },
             },
             {
@@ -46,6 +52,8 @@ def graph():
                     "corpus": "treebank",
                     "dataset": "treebank",
                     "scholarly_id": "urn:cts:demo:one",
+                    "source_path": "treebank/treebank_TT/one.tt",
+                    "source_sha256": "2" * 64,
                 },
             },
             {"id": "s1", "type": "sentence", "slots": ["w1"], "features": {"ordinal": 1}},
