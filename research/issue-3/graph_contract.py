@@ -7,12 +7,13 @@ machine-testable invariants derived from the corpus-wide research evidence.
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from typing import Any
 
 
 LAYOUT_TYPES = {"page", "column", "line"}
-TEXTUAL_ZERO_SPAN_TYPES = {"translation", "arabic_translation"}
+TEXTUAL_TYPES = {"translation", "arabic_translation"}
+TEXTUAL_ZERO_SPAN_TYPES = TEXTUAL_TYPES
 OVERLAP_CLASSES = {
     "byte_identical",
     "core_identical_source_variant",
@@ -34,6 +35,12 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
     slots = graph.get("slots", [])
     nodes = graph.get("nodes", [])
     edges = graph.get("edges", [])
+
+    provenance = graph.get("provenance", {})
+    if not provenance.get("upstream_repository") or not provenance.get("upstream_commit"):
+        errors.append(
+            "graph provenance requires upstream_repository and upstream_commit"
+        )
 
     slot_index: dict[Any, dict[str, Any]] = {}
     object_ids: set[Any] = set()
@@ -83,6 +90,7 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
     source_record_ids: set[str] = set()
     section_addresses: set[tuple[Any, ...]] = set()
     slot_document_membership: Counter[Any] = Counter()
+    slot_document_owners: dict[Any, set[Any]] = defaultdict(set)
     for document in documents:
         document_id = document.get("id")
         features = document.get("features", {})
@@ -100,6 +108,10 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
             errors.append(f"document {document_id!r} lacks corpus feature")
         if not features.get("dataset"):
             errors.append(f"document {document_id!r} lacks dataset feature")
+        if not features.get("source_path"):
+            errors.append(f"document {document_id!r} lacks source_path provenance")
+        if not features.get("source_sha256"):
+            errors.append(f"document {document_id!r} lacks source_sha256 provenance")
         address = features.get("section_address")
         address_tuple = tuple(address) if isinstance(address, list) else ()
         if not address_tuple:
@@ -115,12 +127,25 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
                 section_addresses.add(address_tuple)
         for slot_id in document.get("slots", []):
             slot_document_membership[slot_id] += 1
+            slot_document_owners[slot_id].add(document_id)
 
     for slot_id in slot_index:
         membership = slot_document_membership[slot_id]
         if membership != 1:
             errors.append(
                 f"slot {slot_id!r} must belong to exactly one physical document; found {membership}"
+            )
+
+    for node in nodes:
+        if node.get("type") == "document":
+            continue
+        node_slots = node.get("slots", [])
+        owners: set[Any] = set()
+        for slot_id in node_slots:
+            owners.update(slot_document_owners.get(slot_id, set()))
+        if len(owners) > 1:
+            errors.append(
+                f"{node.get('type')} node {node.get('id')!r} crosses physical documents"
             )
 
     sentences = [node for node in nodes if node.get("type") == "sentence"]
@@ -146,14 +171,22 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
         features = node.get("features", {})
         node_slots = node.get("slots", [])
 
-        if node_type in LAYOUT_TYPES and features.get("has_internal_boundary"):
-            if not features.get("diplomatic_text") or features.get("render_mode") != "own_text":
+        if node_type in LAYOUT_TYPES:
+            if "diplomatic_text" not in features or features.get("render_mode") != "own_text":
                 errors.append(
-                    f"layout node {node.get('id')!r} with internal boundary requires own text rendering"
+                    f"layout node {node.get('id')!r} requires own text rendering"
                 )
-            if "start_char" not in features or "end_char" not in features:
+            if features.get("has_internal_boundary") and (
+                "start_char" not in features or "end_char" not in features
+            ):
                 errors.append(
                     f"layout node {node.get('id')!r} with internal boundary requires token-relative offsets"
+                )
+
+        if node_type in TEXTUAL_TYPES:
+            if "text" not in features or features.get("render_mode") != "own_text":
+                errors.append(
+                    f"{node_type} node {node.get('id')!r} must render its own text"
                 )
 
         if node_type in TEXTUAL_ZERO_SPAN_TYPES and features.get("zero_span"):
@@ -169,9 +202,16 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
                 errors.append(
                     f"zero-span textual node {node.get('id')!r} requires exactly one surface-less synthetic slot"
                 )
-            if features.get("render_mode") != "own_text" or not features.get("text"):
+            if not features.get("text"):
                 errors.append(
-                    f"zero-span textual node {node.get('id')!r} must render its literal own text"
+                    f"zero-span textual node {node.get('id')!r} must retain non-empty literal text"
+                )
+            if (
+                "after_source_word_ordinal" not in features
+                or "source_char_offset" not in features
+            ):
+                errors.append(
+                    f"zero-span textual node {node.get('id')!r} requires deterministic source order locus"
                 )
 
         if features.get("technical_anchor") and features.get("render_mode") not in {
@@ -188,12 +228,23 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
         target = edge.get("to")
         features = edge.get("features", {})
         if edge_type == "dependency_head":
-            if not _is_word_slot(slot_index.get(source)) or not _is_word_slot(
-                slot_index.get(target)
-            ):
+            source_slot = slot_index.get(source)
+            target_slot = slot_index.get(target)
+            if not _is_word_slot(source_slot) or not _is_word_slot(target_slot):
                 errors.append(
                     f"dependency_head edge {source!r}->{target!r} must connect word slot to word slot"
                 )
+            else:
+                source_owners = slot_document_owners.get(source, set())
+                target_owners = slot_document_owners.get(target, set())
+                if (
+                    len(source_owners) == 1
+                    and len(target_owners) == 1
+                    and source_owners != target_owners
+                ):
+                    errors.append(
+                        f"dependency_head edge {source!r}->{target!r} crosses physical documents"
+                    )
         elif edge_type == "entity_head":
             entity = node_index.get(source)
             if not entity or entity.get("type") != "entity":
@@ -228,11 +279,10 @@ def validate_graph(graph: dict[str, Any]) -> list[str]:
                         errors.append(
                             f"same_scholarly edge {source!r}->{target!r} requires matching scholarly_id"
                         )
-                else:
-                    if not features.get("family"):
-                        errors.append(
-                            f"documented_overlap edge {source!r}->{target!r} requires relation family"
-                        )
+                elif not features.get("family"):
+                    errors.append(
+                        f"documented_overlap edge {source!r}->{target!r} requires relation family"
+                    )
             else:
                 witness_literal = features.get("witness_literal")
                 target_scholarly_id = features.get("target_scholarly_id")
