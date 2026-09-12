@@ -31,6 +31,10 @@ class _MalformedConllu(ValueError):
     pass
 
 
+class _UnsupportedConlluShape(ValueError):
+    pass
+
+
 def _kv_field(value: str) -> dict[str, str]:
     if value == "_" or value == "":
         return {}
@@ -52,12 +56,15 @@ def _validate_sentence(rows: list[tuple[int, list[str]]]) -> list[dict[str, Any]
     mwt_ranges: list[tuple[int, int, int]] = []
     empty_rows: list[tuple[int, int, int]] = []
     empty_ids: set[tuple[int, int]] = set()
+    has_enhanced_deps = False
 
     for line_number, columns in rows:
         if len(columns) != 10:
             raise _MalformedConllu(
                 f"line {line_number} has {len(columns)} columns instead of 10"
             )
+        if columns[8] not in {"", "_"}:
+            has_enhanced_deps = True
         literal_id = columns[0]
         if BASIC_ID_RE.fullmatch(literal_id):
             token_id = int(literal_id)
@@ -148,6 +155,15 @@ def _validate_sentence(rows: list[tuple[int, list[str]]]) -> list[dict[str, Any]
             raise _MalformedConllu(
                 f"HEAD {head} for word {token['local_id']} is not a sentence word"
             )
+
+    if empty_rows:
+        raise _UnsupportedConlluShape(
+            "empty-node rows are not part of the reviewed supplementation model"
+        )
+    if has_enhanced_deps:
+        raise _UnsupportedConlluShape(
+            "enhanced DEPS are not part of the reviewed supplementation model"
+        )
     return basics
 
 
@@ -185,6 +201,10 @@ def parse_conllu_supplement(
         raise SupplementUnavailable("placeholder", source_path)
     try:
         sentences = _parse_sentences(text)
+    except _UnsupportedConlluShape as exc:
+        raise SupplementUnavailable(
+            "unsupported_conllu_shape", source_path, str(exc)
+        ) from exc
     except _MalformedConllu as exc:
         raise SupplementUnavailable("malformed_conllu", source_path, str(exc)) from exc
 
