@@ -141,6 +141,28 @@ class ConlluSupplementContractTests(unittest.TestCase):
             self.parse_supplement(document(), late_empty, source_path="late-empty.conllu")
         self.assertEqual(caught.exception.reason, "malformed_conllu")
 
+    def test_unmeasured_empty_nodes_and_enhanced_deps_are_non_supplementing(self):
+        valid_empty_node = b'''1\ta\ta\tNOUN\tN\t_\t0\troot\t_\t_
+1.1\tghost\t_\tX\tX\t_\t_\t_\t1:dep\t_
+2\tb\tb\tNOUN\tN\t_\t1\tobj\t_\t_
+'''
+        with self.subTest("valid empty node"):
+            with self.assertRaises(self.SupplementUnavailable) as caught:
+                self.parse_supplement(
+                    document(), valid_empty_node, source_path="empty-node.conllu"
+                )
+            self.assertEqual(caught.exception.reason, "unsupported_conllu_shape")
+
+        enhanced_deps = b'''1\ta\ta\tNOUN\tN\t_\t0\troot\t0:root\t_
+2\tb\tb\tNOUN\tN\t_\t1\tobj\t1:obj\t_
+'''
+        with self.subTest("enhanced dependencies"):
+            with self.assertRaises(self.SupplementUnavailable) as caught:
+                self.parse_supplement(
+                    document(), enhanced_deps, source_path="enhanced-deps.conllu"
+                )
+            self.assertEqual(caught.exception.reason, "unsupported_conllu_shape")
+
 
 if __name__ == "__main__":
     unittest.main()
