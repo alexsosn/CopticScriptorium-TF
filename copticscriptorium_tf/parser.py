@@ -133,6 +133,15 @@ def parse_tt_record(
             return 0
         return sum(len(piece) for piece in current_word["text_parts"])
 
+    def open_linguistic(name: str, allowed_parents: set[str | None]) -> None:
+        parent = linguistic_stack[-1] if linguistic_stack else None
+        if parent not in allowed_parents:
+            raise ValueError(
+                f"linguistic tag order violation in {source_record_id}: "
+                f"opening {name!r} inside {parent!r}"
+            )
+        linguistic_stack.append(name)
+
     def close_linguistic(name: str) -> None:
         if not linguistic_stack or linguistic_stack[-1] != name:
             actual = linguistic_stack[-1] if linguistic_stack else None
@@ -194,11 +203,12 @@ def parse_tt_record(
         if name == "meta":
             continue
         if name == "orig_group":
+            open_linguistic("orig_group", {None})
             index = len(orig_groups_raw)
             orig_groups_raw.append({"value": attrs.get("orig_group"), "norm_group_indices": []})
             orig_group_stack.append(index)
-            linguistic_stack.append("orig_group")
         elif name == "norm_group":
+            open_linguistic("norm_group", {None, "orig_group"})
             index = len(norm_groups_raw)
             parent = orig_group_stack[-1] if orig_group_stack else None
             norm_groups_raw.append(
@@ -212,10 +222,10 @@ def parse_tt_record(
             if parent is not None:
                 orig_groups_raw[parent]["norm_group_indices"].append(index)
             norm_group_stack.append(index)
-            linguistic_stack.append("norm_group")
         elif name == "orig":
             if not norm_group_stack:
                 raise ValueError(f"orig outside norm_group in {source_record_id}")
+            open_linguistic("orig", {"norm_group"})
             index = len(origs_raw)
             parent = norm_group_stack[-1]
             origs_raw.append(
@@ -227,12 +237,12 @@ def parse_tt_record(
             )
             norm_groups_raw[parent]["orig_indices"].append(index)
             orig_stack.append(index)
-            linguistic_stack.append("orig")
         elif name == "norm":
             if current_word is not None:
                 raise ValueError(f"nested norm tags in {source_record_id}")
             if not norm_group_stack:
                 raise ValueError(f"norm outside norm_group in {source_record_id}")
+            open_linguistic("norm", {"norm_group", "orig"})
             ordinal = len(raw_words) + 1
             source_id = attrs.get("xml:id")
             if source_id:
@@ -250,7 +260,6 @@ def parse_tt_record(
                 "text_parts": [],
                 "source_text": "",
             }
-            linguistic_stack.append("norm")
             if (attrs.get("new_sent") or "").casefold() == "true":
                 sentence_starts.append(ordinal)
             if orig_stack:
