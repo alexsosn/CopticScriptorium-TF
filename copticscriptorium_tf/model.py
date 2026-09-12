@@ -53,6 +53,7 @@ class LayoutEvent:
     value: str | None
     word_ordinal: int | None
     char_offset: int | None
+    after_word_ordinal: int
 
 
 @dataclass(frozen=True)

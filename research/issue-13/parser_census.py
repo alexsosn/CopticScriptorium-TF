@@ -34,6 +34,8 @@ EXPECTED = {
     "page_event_count": 3294,
     "column_event_count": 3291,
     "line_event_count": 47933,
+    "layout_event_count": 54518,
+    "positionable_layout_event_count": 54518,
     "token_internal_layout_crossing_count": 13015,
 }
 
@@ -53,6 +55,7 @@ def build_report(root: Path) -> dict[str, object]:
     zero_sentence_documents: list[str] = []
     zero_word_translations: list[str] = []
     entity_head_outside_locus: list[str] = []
+    invalid_layout_positions: list[str] = []
 
     for document in documents:
         source_ids.append(document.source_record_id)
@@ -79,10 +82,32 @@ def build_report(root: Path) -> dict[str, object]:
         word_by_ordinal = {word.ordinal: word for word in document.words}
         for event in document.layout_events:
             totals[f"{event.kind}_event_count"] += 1
-            if event.word_ordinal is not None and event.char_offset is not None:
-                word = word_by_ordinal[event.word_ordinal]
-                if 0 < event.char_offset < len(word.source_text):
+            totals["layout_event_count"] += 1
+            valid_position = 0 <= event.after_word_ordinal <= len(document.words)
+            if event.word_ordinal is not None:
+                word = word_by_ordinal.get(event.word_ordinal)
+                valid_position = (
+                    valid_position
+                    and word is not None
+                    and event.after_word_ordinal == event.word_ordinal - 1
+                    and event.char_offset is not None
+                    and 0 <= event.char_offset <= len(word.source_text)
+                )
+                if (
+                    word is not None
+                    and event.char_offset is not None
+                    and 0 < event.char_offset < len(word.source_text)
+                ):
                     totals["token_internal_layout_crossing_count"] += 1
+            else:
+                valid_position = valid_position and event.char_offset is None
+
+            if valid_position:
+                totals["positionable_layout_event_count"] += 1
+            else:
+                invalid_layout_positions.append(
+                    f"{document.source_record_id}:{event.ordinal}"
+                )
 
         for translation in (*document.translations, *document.arabic_translations):
             if not translation.word_ordinals:
@@ -114,6 +139,9 @@ def build_report(root: Path) -> dict[str, object]:
         "source_record_ids_are_unique_casefolded": len(source_ids)
         == len({value.casefold() for value in source_ids}),
         "provenance_hash_count": sum(len(value) == 64 for value in source_hashes),
+        "layout_event_count": totals["layout_event_count"],
+        "positionable_layout_event_count": totals["positionable_layout_event_count"],
+        "invalid_layout_positions": invalid_layout_positions,
         "zero_word_documents": zero_word_documents,
         "zero_sentence_documents": zero_sentence_documents,
         "zero_word_translations": zero_word_translations,
@@ -146,6 +174,7 @@ def main(argv: list[str] | None = None) -> int:
         if report["provenance_hash_count"] != EXPECTED["document_count"]:
             failures.append("not every document has a SHA-256 provenance hash")
         for key in (
+            "invalid_layout_positions",
             "zero_word_documents",
             "zero_sentence_documents",
             "zero_word_translations",
