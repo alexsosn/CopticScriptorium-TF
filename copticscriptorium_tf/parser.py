@@ -281,6 +281,7 @@ def parse_tt_record(
                     value=attrs.get(attr_name),
                     word_ordinal=current_word["ordinal"] if current_word else None,
                     char_offset=current_offset() if current_word else None,
+                    after_word_ordinal=len(raw_words),
                 )
             )
         elif name == "entity":
