@@ -56,6 +56,33 @@ class FailClosedSgmlContractTests(unittest.TestCase):
                     '</orig>'
                 )
 
+    def test_unmeasured_linguistic_opening_order_fails_closed(self):
+        with self.subTest("orig_group nested under norm_group"):
+            with self.assertRaisesRegex(ValueError, "linguistic.*order"):
+                self.parse(
+                    '<meta corpus="demo">'
+                    '<norm_group norm_group="outer">'
+                    '<orig_group orig_group="inner">'
+                    '<norm_group norm_group="inner">'
+                    '<norm xml:id="u1" new_sent="true" func="root" norm="x">x</norm>'
+                    '</norm_group>'
+                    '</orig_group>'
+                    '</norm_group>'
+                )
+
+        with self.subTest("orig nested under orig"):
+            with self.assertRaisesRegex(ValueError, "linguistic.*order"):
+                self.parse(
+                    '<meta corpus="demo">'
+                    '<norm_group norm_group="x">'
+                    '<orig orig="outer">'
+                    '<orig orig="inner">'
+                    '<norm xml:id="u1" new_sent="true" func="root" norm="x">x</norm>'
+                    '</orig>'
+                    '</orig>'
+                    '</norm_group>'
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
