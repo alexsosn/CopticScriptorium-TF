@@ -24,3 +24,9 @@ Coptic Scriptorium publishes each document in multiple formats. Upstream documen
 The upstream repository explicitly documents duplicate and overlapping data: the `coptic-treebank` collection repeats gold treebanked documents from source corpora, some individual biblical-book corpora overlap larger automatically annotated OT/NT corpora, and parallel witnesses may be marked `redundant="yes"`. The converter will preserve and classify these relationships rather than silently deduplicating them.
 
 Licensing is document/corpus-sensitive and must be carried through provenance; generated-data redistribution is not assumed until the license inventory is complete.
+
+## License
+
+Software authored for this repository — including converter code, utility scripts, tests, and supporting software documentation — is licensed under the [MIT License](LICENSE). See [LICENSE_SCOPE.md](LICENSE_SCOPE.md) for the explicit code/data boundary.
+
+The MIT license does **not** apply to Coptic Scriptorium corpora, source texts, translations, annotations, metadata, or imported/generated data artifacts. Those retain the licenses and terms of their original corpora and sources, and corpus/document-level provenance should preserve the applicable upstream licensing information.
