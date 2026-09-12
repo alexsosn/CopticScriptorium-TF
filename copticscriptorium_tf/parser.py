@@ -88,8 +88,14 @@ def parse_tt_record(
     except ValueError as exc:
         raise ValueError(f"invalid source_record_id {source_record_id!r}") from exc
 
-    first_tag = TAG_RE.search(text)
-    if first_tag is None or first_tag.group(1) or first_tag.group(2) != "meta":
+    metadata_view = text[1:] if text.startswith("\ufeff") else text
+    first_tag = TAG_RE.search(metadata_view)
+    if (
+        first_tag is None
+        or first_tag.group(1)
+        or first_tag.group(2) != "meta"
+        or metadata_view[: first_tag.start()].strip()
+    ):
         raise ValueError(f"TT record {source_record_id} does not start with metadata")
     metadata, metadata_duplicates = _scan_attrs(first_tag.group(3), allow_duplicates=True)
 
@@ -103,6 +109,7 @@ def parse_tt_record(
     orig_group_stack: list[int] = []
     norm_group_stack: list[int] = []
     orig_stack: list[int] = []
+    linguistic_stack: list[str] = []
 
     entities_raw: list[dict[str, Any]] = []
     entity_stack: list[dict[str, Any]] = []
@@ -126,6 +133,15 @@ def parse_tt_record(
             return 0
         return sum(len(piece) for piece in current_word["text_parts"])
 
+    def close_linguistic(name: str) -> None:
+        if not linguistic_stack or linguistic_stack[-1] != name:
+            actual = linguistic_stack[-1] if linguistic_stack else None
+            raise ValueError(
+                f"linguistic tag order violation in {source_record_id}: "
+                f"closing {name!r} while {actual!r} is open"
+            )
+        linguistic_stack.pop()
+
     cursor = 0
     for match in TAG_RE.finditer(text):
         append_word_text(text[cursor : match.start()])
@@ -142,20 +158,24 @@ def parse_tt_record(
             if name == "norm":
                 if current_word is None:
                     raise ValueError(f"closing norm without open norm in {source_record_id}")
+                close_linguistic("norm")
                 current_word["source_text"] = "".join(current_word["text_parts"])
                 raw_words.append(current_word)
                 current_word = None
             elif name == "orig":
                 if not orig_stack:
                     raise ValueError(f"closing orig without open orig in {source_record_id}")
+                close_linguistic("orig")
                 orig_stack.pop()
             elif name == "norm_group":
                 if not norm_group_stack:
                     raise ValueError(f"closing norm_group without open norm_group in {source_record_id}")
+                close_linguistic("norm_group")
                 norm_group_stack.pop()
             elif name == "orig_group":
                 if not orig_group_stack:
                     raise ValueError(f"closing orig_group without open orig_group in {source_record_id}")
+                close_linguistic("orig_group")
                 orig_group_stack.pop()
             elif name == "entity":
                 if not entity_stack:
@@ -177,6 +197,7 @@ def parse_tt_record(
             index = len(orig_groups_raw)
             orig_groups_raw.append({"value": attrs.get("orig_group"), "norm_group_indices": []})
             orig_group_stack.append(index)
+            linguistic_stack.append("orig_group")
         elif name == "norm_group":
             index = len(norm_groups_raw)
             parent = orig_group_stack[-1] if orig_group_stack else None
@@ -191,6 +212,7 @@ def parse_tt_record(
             if parent is not None:
                 orig_groups_raw[parent]["norm_group_indices"].append(index)
             norm_group_stack.append(index)
+            linguistic_stack.append("norm_group")
         elif name == "orig":
             if not norm_group_stack:
                 raise ValueError(f"orig outside norm_group in {source_record_id}")
@@ -205,6 +227,7 @@ def parse_tt_record(
             )
             norm_groups_raw[parent]["orig_indices"].append(index)
             orig_stack.append(index)
+            linguistic_stack.append("orig")
         elif name == "norm":
             if current_word is not None:
                 raise ValueError(f"nested norm tags in {source_record_id}")
@@ -227,6 +250,7 @@ def parse_tt_record(
                 "text_parts": [],
                 "source_text": "",
             }
+            linguistic_stack.append("norm")
             if (attrs.get("new_sent") or "").casefold() == "true":
                 sentence_starts.append(ordinal)
             if orig_stack:
@@ -286,7 +310,7 @@ def parse_tt_record(
     append_word_text(text[cursor:])
     if current_word is not None:
         raise ValueError(f"unclosed norm in {source_record_id}")
-    if orig_stack or norm_group_stack or orig_group_stack:
+    if orig_stack or norm_group_stack or orig_group_stack or linguistic_stack:
         raise ValueError(f"unclosed linguistic grouping tag in {source_record_id}")
     if entity_stack:
         raise ValueError(f"unclosed entity tag in {source_record_id}")
@@ -430,7 +454,7 @@ def parse_source_tree(
     ):
         relative = directory.relative_to(root_path)
         if len(relative.parts) != 2 or not relative.parts[1].endswith("_TT"):
-            continue
+            raise ValueError(f"unsupported TT dataset layout: {relative.as_posix()!r}")
         corpus = relative.parts[0]
         dataset = relative.parts[1][:-3]
         for path in sorted(
@@ -451,7 +475,7 @@ def parse_source_tree(
     for archive_path in sorted(root_path.rglob("*_TT.zip"), key=lambda path: path.as_posix()):
         relative = archive_path.relative_to(root_path)
         if len(relative.parts) != 2 or not relative.parts[1].endswith("_TT.zip"):
-            continue
+            raise ValueError(f"unsupported TT dataset layout: {relative.as_posix()!r}")
         corpus = relative.parts[0]
         dataset = relative.parts[1][:-7]
         expected_prefix = f"{dataset}_TT/"
