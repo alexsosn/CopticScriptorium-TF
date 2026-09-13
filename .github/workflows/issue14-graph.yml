@@ -1,0 +1,32 @@
+name: issue14-graph
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: issue14-graph-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  graph-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run issue 14 RED/graph tests
+        run: python -m unittest discover -s tests -p 'test_issue14_*.py' -v
