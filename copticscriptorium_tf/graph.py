@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Iterable, Sequence
+from typing import Iterable, Iterator, Sequence
 
 from .model import DocumentModel, LayoutEvent
 
@@ -70,11 +70,7 @@ class GraphNode:
 
     @property
     def slots(self) -> tuple[int, ...]:
-        return tuple(
-            slot
-            for start, end in self.slot_ranges
-            for slot in range(start, end + 1)
-        )
+        return tuple(_iter_ranges(self.slot_ranges))
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,16 +115,18 @@ class Graph:
 
 
 def _ranges(values: Iterable[int]) -> tuple[tuple[int, int], ...]:
-    items = tuple(values)
-    if not items:
+    iterator = iter(values)
+    try:
+        first = next(iterator)
+    except StopIteration:
         return ()
-    if any(value <= 0 for value in items):
+    if first <= 0:
         raise ValueError("graph slot ids must be positive")
-    if any(right <= left for left, right in zip(items, items[1:])):
-        raise ValueError("graph slot loci must be strictly increasing")
     result: list[tuple[int, int]] = []
-    start = previous = items[0]
-    for value in items[1:]:
+    start = previous = first
+    for value in iterator:
+        if value <= previous:
+            raise ValueError("graph slot loci must be strictly increasing")
         if value == previous + 1:
             previous = value
         else:
@@ -138,7 +136,7 @@ def _ranges(values: Iterable[int]) -> tuple[tuple[int, int], ...]:
     return tuple(result)
 
 
-def _iter_ranges(ranges: tuple[tuple[int, int], ...]):
+def _iter_ranges(ranges: tuple[tuple[int, int], ...]) -> Iterator[int]:
     for start, end in ranges:
         yield from range(start, end + 1)
 
@@ -159,31 +157,28 @@ def _ordered_documents(documents: Sequence[DocumentModel]) -> tuple[DocumentMode
     return result
 
 
-def _check_document(document: DocumentModel):
-    expected = tuple(range(1, len(document.words) + 1))
-    if tuple(word.ordinal for word in document.words) != expected:
+def _check_document(document: DocumentModel) -> None:
+    word_count = len(document.words)
+    expected = set(range(1, word_count + 1))
+    if tuple(word.ordinal for word in document.words) != tuple(range(1, word_count + 1)):
         raise ValueError(f"word ordinals are not contiguous in {document.source_record_id}")
-    if not expected:
+    if not word_count:
         raise ValueError(f"document has no source words in {document.source_record_id}")
-    expected_set = set(expected)
     for word in document.words:
         head = word.dependency_head_ordinal
-        if head not in (None, 0) and head not in expected_set:
+        if head not in (None, 0) and head not in expected:
             raise ValueError(
                 f"dependency head ordinal {head} is unresolved in {document.source_record_id}"
             )
 
-    orig_words: list[tuple[int, ...]] = []
     for index, orig in enumerate(document.origs):
         locus = tuple(orig.word_ordinals)
-        if tuple(sorted(set(locus))) != locus or any(x not in expected_set for x in locus):
+        if tuple(sorted(set(locus))) != locus or any(x not in expected for x in locus):
             raise ValueError(f"orig {index + 1} has invalid word locus in {document.source_record_id}")
         if not 0 <= orig.norm_group_index < len(document.norm_groups):
             raise ValueError(f"orig {index + 1} has invalid norm_group_index in {document.source_record_id}")
-        orig_words.append(locus)
 
-    norm_words: list[tuple[int, ...]] = []
-    membership = {ordinal: 0 for ordinal in expected}
+    membership = [0] * (word_count + 1)
     for index, group in enumerate(document.norm_groups):
         if tuple(sorted(set(group.orig_indices))) != group.orig_indices:
             raise ValueError(f"norm_group {index + 1} has unordered orig indices in {document.source_record_id}")
@@ -191,18 +186,17 @@ def _check_document(document: DocumentModel):
         for orig_index in group.orig_indices:
             if not 0 <= orig_index < len(document.origs):
                 raise ValueError(f"norm_group {index + 1} references unknown orig in {document.source_record_id}")
-            if document.origs[orig_index].norm_group_index != index:
+            orig = document.origs[orig_index]
+            if orig.norm_group_index != index:
                 raise ValueError(f"norm_group/orig parent mismatch in {document.source_record_id}")
-            locus.update(orig_words[orig_index])
+            locus.update(orig.word_ordinals)
         direct = tuple(group.direct_word_ordinals)
-        if tuple(sorted(set(direct))) != direct or any(x not in expected_set for x in direct):
+        if tuple(sorted(set(direct))) != direct or any(x not in expected for x in direct):
             raise ValueError(f"norm_group {index + 1} has invalid direct-word locus in {document.source_record_id}")
         if locus.intersection(direct):
             raise ValueError(f"norm_group {index + 1} duplicates direct/orig membership in {document.source_record_id}")
         locus.update(direct)
-        ordered = tuple(sorted(locus))
-        norm_words.append(ordered)
-        for ordinal in ordered:
+        for ordinal in locus:
             membership[ordinal] += 1
         parent = group.orig_group_index
         if parent is not None:
@@ -210,32 +204,42 @@ def _check_document(document: DocumentModel):
                 raise ValueError(f"norm_group {index + 1} has invalid orig_group_index in {document.source_record_id}")
             if index not in document.orig_groups[parent].norm_group_indices:
                 raise ValueError(f"norm_group/orig_group parent mismatch in {document.source_record_id}")
-    if document.norm_groups and any(count != 1 for count in membership.values()):
+    if document.norm_groups and any(count != 1 for count in membership[1:]):
         raise ValueError(f"source words must belong to exactly one norm_group in {document.source_record_id}")
 
-    orig_group_words: list[tuple[int, ...]] = []
     for index, group in enumerate(document.orig_groups):
         if tuple(sorted(set(group.norm_group_indices))) != group.norm_group_indices:
             raise ValueError(f"orig_group {index + 1} has unordered norm_group indices in {document.source_record_id}")
-        locus: set[int] = set()
         for norm_index in group.norm_group_indices:
             if not 0 <= norm_index < len(document.norm_groups):
                 raise ValueError(f"orig_group {index + 1} references unknown norm_group in {document.source_record_id}")
             if document.norm_groups[norm_index].orig_group_index != index:
                 raise ValueError(f"orig_group/norm_group parent mismatch in {document.source_record_id}")
-            locus.update(norm_words[norm_index])
-        orig_group_words.append(tuple(sorted(locus)))
 
-    sentence_membership = {ordinal: 0 for ordinal in expected}
+    sentence_membership = [0] * (word_count + 1)
     for sentence in document.sentences:
         locus = tuple(sentence.word_ordinals)
-        if tuple(sorted(set(locus))) != locus or any(x not in expected_set for x in locus):
+        if tuple(sorted(set(locus))) != locus or any(x not in expected for x in locus):
             raise ValueError(f"sentence {sentence.ordinal} has invalid word locus in {document.source_record_id}")
         for ordinal in locus:
             sentence_membership[ordinal] += 1
-    if any(count != 1 for count in sentence_membership.values()):
+    if any(count != 1 for count in sentence_membership[1:]):
         raise ValueError(f"source words must belong to exactly one sentence in {document.source_record_id}")
-    return tuple(norm_words), tuple(orig_group_words)
+
+
+def _norm_group_ordinals(document: DocumentModel, index: int) -> tuple[int, ...]:
+    group = document.norm_groups[index]
+    values: set[int] = set(group.direct_word_ordinals)
+    for orig_index in group.orig_indices:
+        values.update(document.origs[orig_index].word_ordinals)
+    return tuple(sorted(values))
+
+
+def _orig_group_ordinals(document: DocumentModel, index: int) -> tuple[int, ...]:
+    values: set[int] = set()
+    for norm_index in document.orig_groups[index].norm_group_indices:
+        values.update(_norm_group_ordinals(document, norm_index))
+    return tuple(sorted(values))
 
 
 def _boundary(document: DocumentModel, event: LayoutEvent) -> tuple[int, int]:
@@ -254,7 +258,7 @@ def _boundary(document: DocumentModel, event: LayoutEvent) -> tuple[int, int]:
     return event.after_word_ordinal + 1, 0
 
 
-def _layout_segment(document, event, next_event, slot_lookup):
+def _layout_segment(document: DocumentModel, event: LayoutEvent, next_event: LayoutEvent | None, slot_id):
     start = _boundary(document, event)
     end = _boundary(document, next_event) if next_event else (len(document.words) + 1, 0)
     if end < start:
@@ -268,9 +272,9 @@ def _layout_segment(document, event, next_event, slot_lookup):
         if ordinal == end[0] and end[1] == 0:
             hi = 0
         if hi > lo:
-            slots.append(slot_lookup[(document.source_record_id, ordinal)])
+            slots.append(slot_id(document, ordinal))
             text.append(source_text[lo:hi])
-    return tuple(slots), "".join(text), start, end
+    return tuple(slots), "".join(text)
 
 
 def build_graph(
@@ -286,23 +290,24 @@ def build_graph(
     if len(repositories) != 1 or len(commits) != 1:
         raise ValueError("all documents must come from one exact upstream repository revision")
 
-    norm_words: dict[str, tuple[tuple[int, ...], ...]] = {}
-    orig_group_words: dict[str, tuple[tuple[int, ...], ...]] = {}
+    starts: dict[str, int] = {}
     slots: list[GraphSlot] = []
-    slot_lookup: dict[tuple[str, int], int] = {}
     for document in ordered:
-        norm_words[document.source_record_id], orig_group_words[document.source_record_id] = _check_document(document)
+        _check_document(document)
+        starts[document.source_record_id] = len(slots) + 1
         for word in document.words:
-            slot_id = len(slots) + 1
-            slot_lookup[(document.source_record_id, word.ordinal)] = slot_id
             slots.append(GraphSlot(
-                slot_id, document.source_record_id, word.ordinal, word.source_id,
+                len(slots) + 1, document.source_record_id, word.ordinal, word.source_id,
                 word.norm, word.lemma, word.pos, word.func, word.head_literal,
                 word.dependency_head_ordinal, word.source_text,
             ))
 
+    def slot_id(document: DocumentModel, ordinal: int) -> int:
+        return starts[document.source_record_id] + ordinal - 1
+
     def gslots(document: DocumentModel, ordinals: Iterable[int]) -> tuple[int, ...]:
-        return tuple(slot_lookup[(document.source_record_id, ordinal)] for ordinal in ordinals)
+        start = starts[document.source_record_id] - 1
+        return tuple(start + ordinal for ordinal in ordinals)
 
     nodes: list[GraphNode] = []
     node_ranges: list[NodeRange] = []
@@ -310,7 +315,7 @@ def build_graph(
     orig_group_ids: dict[tuple[str, int], int] = {}
     norm_group_ids: dict[tuple[str, int], int] = {}
     entity_ids: dict[tuple[str, int], int] = {}
-    entity_heads: list[tuple[int, str, int]] = []
+    entity_heads: list[tuple[int, DocumentModel, int]] = []
 
     def add(otype: str, **kwargs) -> GraphNode:
         node = GraphNode(len(slots) + len(nodes) + 1, otype, **kwargs)
@@ -325,12 +330,11 @@ def build_graph(
             if otype == "document":
                 node = add(
                     otype, source_record_id=record, source_ordinal=None,
-                    slot_ranges=_ranges(gslots(document, range(1, len(document.words) + 1))),
+                    slot_ranges=_ranges(range(starts[record], starts[record] + len(document.words))),
                     scholarly_id=document.scholarly_id, corpus=document.corpus,
                     dataset=document.dataset, source_path=document.source_path,
                     source_sha256=document.source_sha256, packaging=document.packaging,
-                    section_address=(record,),
-                    metadata=tuple(sorted(document.metadata.items())),
+                    section_address=(record,), metadata=tuple(sorted(document.metadata.items())),
                     metadata_duplicates=tuple(sorted(document.metadata_duplicates.items())),
                 )
                 document_ids[record] = node.id
@@ -341,14 +345,14 @@ def build_graph(
             elif otype == "orig_group":
                 for index, item in enumerate(document.orig_groups):
                     node = add(otype, source_record_id=record, source_ordinal=index + 1,
-                        slot_ranges=_ranges(gslots(document, orig_group_words[record][index])),
+                        slot_ranges=_ranges(gslots(document, _orig_group_ordinals(document, index))),
                         value=item.value)
                     orig_group_ids[(record, index)] = node.id
             elif otype == "norm_group":
                 for index, item in enumerate(document.norm_groups):
                     parent = None if item.orig_group_index is None else orig_group_ids[(record, item.orig_group_index)]
                     node = add(otype, source_record_id=record, source_ordinal=index + 1,
-                        slot_ranges=_ranges(gslots(document, norm_words[record][index])),
+                        slot_ranges=_ranges(gslots(document, _norm_group_ordinals(document, index))),
                         value=item.value, parent_node_id=parent,
                         direct_word_slots=gslots(document, item.direct_word_ordinals))
                     norm_group_ids[(record, index)] = node.id
@@ -364,7 +368,7 @@ def build_graph(
                 )
                 for index, event in enumerate(events):
                     next_event = events[index + 1] if index + 1 < len(events) else None
-                    locus, text, start, end = _layout_segment(document, event, next_event, slot_lookup)
+                    locus, text = _layout_segment(document, event, next_event, slot_id)
                     add(
                         otype, source_record_id=record, source_ordinal=event.ordinal,
                         slot_ranges=_ranges(locus), text=text, label=event.value,
@@ -393,7 +397,7 @@ def build_graph(
                         identity=item.identity, head_literal=item.head_literal,
                     )
                     entity_ids[(record, item.ordinal)] = node.id
-                    entity_heads.append((node.id, record, item.head_word_ordinal))
+                    entity_heads.append((node.id, document, item.head_word_ordinal))
             elif otype in {"translation", "arabic_translation"}:
                 items = document.translations if otype == "translation" else document.arabic_translations
                 for item in sorted(items, key=lambda x: x.ordinal):
@@ -408,14 +412,13 @@ def build_graph(
 
     edges: list[GraphEdge] = []
     for slot in slots:
-        head = slot.dependency_head_ordinal
-        if head not in (None, 0):
-            target = slot_lookup.get((slot.source_record_id, head))
-            if target is None:
-                raise ValueError(f"dependency head ordinal {head} is unresolved in {slot.source_record_id}")
-            edges.append(GraphEdge("dependency_head", slot.id, target))
-    for entity_id, record, head in entity_heads:
-        edges.append(GraphEdge("entity_head", entity_id, slot_lookup[(record, head)]))
+        if slot.dependency_head_ordinal not in (None, 0):
+            start = starts[slot.source_record_id]
+            edges.append(GraphEdge(
+                "dependency_head", slot.id, start + slot.dependency_head_ordinal - 1
+            ))
+    for entity_id, document, head in entity_heads:
+        edges.append(GraphEdge("entity_head", entity_id, slot_id(document, head)))
 
     document_nodes = {node.source_record_id: node for node in nodes if node.otype == "document"}
     for relation in sorted(document_relations, key=lambda item: (
@@ -464,76 +467,90 @@ def build_graph(
 
 def validate_graph(graph: Graph) -> tuple[str, ...]:
     errors: list[str] = []
+    slot_count = len(graph.slots)
+    node_count = len(graph.nodes)
     if not graph.upstream_repository or not graph.upstream_commit:
         errors.append("graph provenance requires upstream repository and commit")
     if graph.section_types != ("document",):
         errors.append("section hierarchy must be document-only")
-    slot_by_id = {slot.id: slot for slot in graph.slots}
-    if tuple(slot_by_id) != tuple(range(1, len(graph.slots) + 1)):
-        errors.append("slot ids are not contiguous from 1")
-    if any(slot.kind != "word" for slot in graph.slots):
-        errors.append("graph contains non-word/synthetic slot")
-
-    node_by_id = {node.id: node for node in graph.nodes}
-    expected_node_ids = range(len(graph.slots) + 1, len(graph.slots) + len(graph.nodes) + 1)
-    if tuple(node_by_id) != tuple(expected_node_ids):
-        errors.append("non-slot node ids are not contiguous after slots")
-    nodes_by_type: dict[str, list[GraphNode]] = {otype: [] for otype in NODE_TYPE_ORDER}
-    for node in graph.nodes:
-        nodes_by_type.setdefault(node.otype, []).append(node)
+    for expected_id, slot in enumerate(graph.slots, 1):
+        if slot.id != expected_id:
+            errors.append("slot ids are not contiguous from 1")
+            break
+        if slot.kind != "word":
+            errors.append("graph contains non-word/synthetic slot")
+            break
+    for offset, node in enumerate(graph.nodes, slot_count + 1):
+        if node.id != offset:
+            errors.append("non-slot node ids are not contiguous after slots")
+            break
         for start, end in node.slot_ranges:
-            if start > end or start not in slot_by_id or end not in slot_by_id:
+            if start > end or start < 1 or end > slot_count:
                 errors.append(f"node {node.id} has invalid slot range")
 
+    def node_at(node_id: int | None) -> GraphNode | None:
+        if node_id is None:
+            return None
+        index = node_id - slot_count - 1
+        return graph.nodes[index] if 0 <= index < node_count else None
+
+    def slot_at(slot_id: int) -> GraphSlot | None:
+        return graph.slots[slot_id - 1] if 1 <= slot_id <= slot_count else None
+
     range_by_type = {item.otype: item for item in graph.node_ranges}
-    cursor = len(graph.slots) + 1
+    cursor = slot_count + 1
     for otype in NODE_TYPE_ORDER:
-        typed = nodes_by_type.get(otype, [])
-        if not typed:
-            continue
         declared = range_by_type.get(otype)
         if declared is None:
-            errors.append(f"missing node range for {otype}")
             continue
-        if (declared.start, declared.end, declared.count) != (
-            cursor, cursor + len(typed) - 1, len(typed)
-        ):
+        if declared.start != cursor or declared.end < declared.start or declared.count != declared.end - declared.start + 1:
             errors.append(f"node range for {otype} is not contiguous")
-        if typed[0].id != declared.start or typed[-1].id != declared.end:
+            continue
+        first = node_at(declared.start)
+        last = node_at(declared.end)
+        if first is None or last is None or first.otype != otype or last.otype != otype:
             errors.append(f"node ids for {otype} do not occupy their declared range")
         cursor = declared.end + 1
-    if cursor != len(graph.slots) + len(graph.nodes) + 1:
+    if cursor != slot_count + node_count + 1:
         errors.append("node ranges do not cover every non-slot node")
 
-    documents = nodes_by_type.get("document", [])
+    def typed(otype: str) -> Iterator[GraphNode]:
+        declared = range_by_type.get(otype)
+        if declared is None:
+            return
+        start = declared.start - slot_count - 1
+        end = declared.end - slot_count
+        yield from graph.nodes[start:end]
+
     document_by_record: dict[str, GraphNode] = {}
-    slot_document: dict[int, int] = {}
-    for document in documents:
+    slot_document = [0] * (slot_count + 1)
+    for document in typed("document"):
         if document.source_record_id in document_by_record:
             errors.append(f"duplicate physical document {document.source_record_id}")
         document_by_record[document.source_record_id] = document
         if document.section_address != (document.source_record_id,):
             errors.append(f"document {document.id} has invalid section address")
         for slot_id in _iter_ranges(document.slot_ranges):
-            if slot_id in slot_document:
+            if slot_document[slot_id]:
                 errors.append(f"slot {slot_id} belongs to multiple documents")
             slot_document[slot_id] = document.id
     for slot in graph.slots:
         owner = document_by_record.get(slot.source_record_id)
-        if owner is None or slot_document.get(slot.id) != owner.id:
+        if owner is None or slot_document[slot.id] != owner.id:
             errors.append(f"slot {slot.id} document/source_record mismatch")
 
-    sentence_membership = [0] * (len(graph.slots) + 1)
-    for sentence in nodes_by_type.get("sentence", []):
+    sentence_membership = bytearray(slot_count + 1)
+    for sentence in typed("sentence"):
         owner = document_by_record.get(sentence.source_record_id)
         for slot_id in _iter_ranges(sentence.slot_ranges):
-            sentence_membership[slot_id] += 1
-            if owner is None or slot_document.get(slot_id) != owner.id:
+            if sentence_membership[slot_id] < 255:
+                sentence_membership[slot_id] += 1
+            if owner is None or slot_document[slot_id] != owner.id:
                 errors.append(f"sentence {sentence.id} crosses physical documents")
-    for slot in graph.slots:
-        if sentence_membership[slot.id] != 1:
+    for slot_id in range(1, slot_count + 1):
+        if sentence_membership[slot_id] != 1:
             errors.append(
-                f"slot {slot.id} must belong to exactly one sentence; found {sentence_membership[slot.id]}"
+                f"slot {slot_id} must belong to exactly one sentence; found {sentence_membership[slot_id]}"
             )
 
     for node in graph.nodes:
@@ -544,7 +561,7 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
             errors.append(f"node {node.id} references unknown source record")
             continue
         for slot_id in _iter_ranges(node.slot_ranges):
-            if slot_document.get(slot_id) != owner.id:
+            if slot_document[slot_id] != owner.id:
                 errors.append(f"{node.otype} node {node.id} crosses physical documents")
         if node.otype in {"translation", "arabic_translation"}:
             if not node.slot_ranges:
@@ -554,33 +571,35 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
         if node.otype in LAYOUT_TYPES and (node.render_mode != "own_text" or node.text is None):
             errors.append(f"layout node {node.id} must render own text")
         if node.otype == "norm_group":
-            if node.parent_node_id is not None:
-                parent = node_by_id.get(node.parent_node_id)
-                if parent is None or parent.otype != "orig_group" or parent.source_record_id != node.source_record_id:
-                    errors.append(f"norm_group node {node.id} has invalid orig_group parent")
-            locus = set(_iter_ranges(node.slot_ranges))
-            if any(slot_id not in locus for slot_id in node.direct_word_slots):
-                errors.append(f"norm_group node {node.id} direct words escape its locus")
+            parent = node_at(node.parent_node_id)
+            if node.parent_node_id is not None and (
+                parent is None or parent.otype != "orig_group" or parent.source_record_id != node.source_record_id
+            ):
+                errors.append(f"norm_group node {node.id} has invalid orig_group parent")
+            if node.direct_word_slots:
+                locus = set(_iter_ranges(node.slot_ranges))
+                if any(slot_id not in locus for slot_id in node.direct_word_slots):
+                    errors.append(f"norm_group node {node.id} direct words escape its locus")
         if node.otype == "orig":
-            parent = node_by_id.get(node.parent_node_id) if node.parent_node_id else None
+            parent = node_at(node.parent_node_id)
             if parent is None or parent.otype != "norm_group" or parent.source_record_id != node.source_record_id:
                 errors.append(f"orig node {node.id} has invalid norm_group parent")
         if node.otype == "entity" and node.parent_node_id is not None:
-            parent = node_by_id.get(node.parent_node_id)
+            parent = node_at(node.parent_node_id)
             if parent is None or parent.otype != "entity" or parent.source_record_id != node.source_record_id:
                 errors.append(f"entity node {node.id} has invalid parent entity")
 
     for edge in graph.edges:
         if edge.kind == "dependency_head":
-            source = slot_by_id.get(edge.source)
-            target = slot_by_id.get(edge.target)
+            source = slot_at(edge.source)
+            target = slot_at(edge.target)
             if source is None or target is None:
                 errors.append(f"dependency edge {edge.source}->{edge.target} must connect word slots")
             elif source.source_record_id != target.source_record_id:
                 errors.append(f"dependency edge {edge.source}->{edge.target} crosses documents")
         elif edge.kind == "entity_head":
-            source = node_by_id.get(edge.source)
-            target = slot_by_id.get(edge.target)
+            source = node_at(edge.source)
+            target = slot_at(edge.target)
             if source is None or source.otype != "entity" or target is None:
                 errors.append(f"entity_head edge {edge.source}->{edge.target} has invalid endpoints")
             elif edge.target not in set(_iter_ranges(source.slot_ranges)):
@@ -588,8 +607,8 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
             elif source.source_record_id != target.source_record_id:
                 errors.append(f"entity_head edge {edge.source}->{edge.target} crosses documents")
         elif edge.kind in DOCUMENT_RELATION_TYPES:
-            source = node_by_id.get(edge.source)
-            target = node_by_id.get(edge.target)
+            source = node_at(edge.source)
+            target = node_at(edge.target)
             if source is None or target is None or source.otype != "document" or target.otype != "document":
                 errors.append(f"{edge.kind} edge must connect document nodes")
             elif edge.kind in {"same_scholarly", "documented_overlap"} and edge.classification not in OVERLAP_CLASSES:

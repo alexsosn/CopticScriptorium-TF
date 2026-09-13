@@ -13,6 +13,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  UPSTREAM_COMMIT: 3ac067f1709a0012daf39ea8da2fac79980176a5
+
 jobs:
   graph-unit:
     runs-on: ubuntu-latest
@@ -28,5 +31,49 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Run issue 14 RED/graph tests
+      - name: Run focused issue 14 tests
         run: python -m unittest discover -s tests -p 'test_issue14_*.py' -v
+
+  graph-census:
+    needs: graph-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check out pinned TT source
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: ${{ env.UPSTREAM_COMMIT }}
+          path: upstream
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*/*_TT/**
+            /*/*_TT.zip
+      - name: Verify pinned upstream source
+        working-directory: upstream
+        run: test "$(git rev-parse HEAD)" = "$UPSTREAM_COMMIT"
+      - name: Build and validate full graph twice
+        env:
+          PYTHONPATH: .
+        run: >-
+          python research/issue-14/graph_census.py upstream
+          --output research/issue-14/graph-census.json
+          --validate
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue14-graph-census
+          path: research/issue-14/graph-census.json
+          if-no-files-found: warn
+          retention-days: 14
