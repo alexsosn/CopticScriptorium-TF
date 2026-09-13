@@ -33,6 +33,17 @@ EXPECTED_NODE_COUNTS = {
     "translation": 52_346,
     "arabic_translation": 1_598,
 }
+EXPECTED_SAME_SCHOLARLY_CLASSES = {
+    "alternate_analysis": 15,
+    "byte_identical": 91,
+    "core_identical_source_variant": 1,
+    "textual_divergence": 1,
+}
+EXPECTED_DOCUMENTED_OVERLAP_CLASSES = {
+    "alternate_analysis": 19,
+    "textual_divergence": 17,
+}
+MIN_EXPECTED_WITNESS_EDGES = 35
 
 
 def _rss_mb() -> float:
@@ -42,12 +53,24 @@ def _rss_mb() -> float:
 def _snapshot(graph, *, seconds: float) -> dict[str, object]:
     node_counts = Counter(node.otype for node in graph.nodes)
     edge_counts = Counter(edge.kind for edge in graph.edges)
+    same_scholarly_classes = Counter(
+        edge.classification for edge in graph.edges if edge.kind == "same_scholarly"
+    )
+    documented_overlap_classes = Counter(
+        edge.classification for edge in graph.edges if edge.kind == "documented_overlap"
+    )
     return {
         "slot_count": len(graph.slots),
         "node_count": len(graph.nodes),
         "node_counts": {key: node_counts[key] for key in sorted(node_counts)},
         "edge_count": len(graph.edges),
         "edge_counts": {key: edge_counts[key] for key in sorted(edge_counts)},
+        "same_scholarly_classifications": {
+            key: same_scholarly_classes[key] for key in sorted(same_scholarly_classes)
+        },
+        "documented_overlap_classifications": {
+            key: documented_overlap_classes[key] for key in sorted(documented_overlap_classes)
+        },
         "node_ranges": [
             {"otype": item.otype, "start": item.start, "end": item.end, "count": item.count}
             for item in graph.node_ranges
@@ -108,6 +131,23 @@ def _failures(report: dict[str, object]) -> list[str]:
         if snapshot["node_counts"] != EXPECTED_NODE_COUNTS:
             failures.append(
                 f"{label} node counts: expected {EXPECTED_NODE_COUNTS}, got {snapshot['node_counts']}"
+            )
+        if snapshot["same_scholarly_classifications"] != EXPECTED_SAME_SCHOLARLY_CLASSES:
+            failures.append(
+                f"{label} same-scholarly classes: expected {EXPECTED_SAME_SCHOLARLY_CLASSES}, "
+                f"got {snapshot['same_scholarly_classifications']}"
+            )
+        if snapshot["documented_overlap_classifications"] != EXPECTED_DOCUMENTED_OVERLAP_CLASSES:
+            failures.append(
+                f"{label} documented-overlap classes: expected {EXPECTED_DOCUMENTED_OVERLAP_CLASSES}, "
+                f"got {snapshot['documented_overlap_classifications']}"
+            )
+        edge_counts = snapshot["edge_counts"]
+        assert isinstance(edge_counts, dict)
+        if int(edge_counts.get("witness", 0)) < MIN_EXPECTED_WITNESS_EDGES:
+            failures.append(
+                f"{label} witness edges: expected at least {MIN_EXPECTED_WITNESS_EDGES}, "
+                f"got {edge_counts.get('witness', 0)}"
             )
         if snapshot["validation_errors"]:
             failures.append(f"{label} graph validation errors: {snapshot['validation_errors']}")
