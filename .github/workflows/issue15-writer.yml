@@ -32,3 +32,36 @@ jobs:
         run: python -m pip install 'text-fabric==13.1.0'
       - name: Run issue 15 writer and reload tests
         run: python -m unittest discover -s tests -p 'test_issue15_*.py' -v
+
+  pinned-real-source-slice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned real Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+      - name: Checkout pinned upstream TT evidence
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: upstream
+          persist-credentials: false
+      - name: Verify immutable upstream commit
+        run: test "$(git -C upstream rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+      - name: Save and reload pinned real directory and ZIP source slice
+        run: python research/issue-15/writer_slice.py upstream --output "$RUNNER_TEMP/issue15-writer-slice.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue15-writer-slice
+          path: ${{ runner.temp }}/issue15-writer-slice.json
+          if-no-files-found: error
