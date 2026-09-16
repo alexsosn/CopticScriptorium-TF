@@ -1,15 +1,17 @@
 """Issue #15 pinned, bounded real-TT slice save/reload gate.
 
 This is a writer integration test, NOT issue #16's independent whole-corpus
-semantic parity.  External witness targets are absent from this slice: document
+semantic parity. External witness targets are absent from this slice: document
 relations are explicitly omitted rather than silently treated as complete.
 """
 from __future__ import annotations
 
 import argparse
 from hashlib import sha256
+import html
 import json
 from pathlib import Path
+import re
 import resource
 import sys
 from tempfile import TemporaryDirectory
@@ -29,14 +31,18 @@ UPSTREAM = "CopticScriptorium/corpora"
 COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
 DIRECT = ("Mark_01.tt", "Mark_02.tt")
 ARCHIVE_RECORD = "41_Mark_01.tt"
+ORIG_GROUP_SOURCE_RE = re.compile(r'<orig_group\b[^>]*\borig_group="([^"]*)"')
 
 
 def run(root: Path) -> dict[str, object]:
     began = monotonic()
     docs = []
+    raw_mark_01: bytes | None = None
     for filename in DIRECT:
         relative = Path("sahidica.mark/sahidica.mark_TT") / filename
         raw = (root / relative).read_bytes()
+        if filename == "Mark_01.tt":
+            raw_mark_01 = raw
         docs.append(parse_tt_record(
             raw,
             source_record_id=f"sahidica.mark/sahidica.mark:{filename[:-3]}",
@@ -105,12 +111,36 @@ def run(root: Path) -> dict[str, object]:
             if edge.kind in {"dependency_head", "entity_head"}:
                 if edge.target not in api.E.__getattribute__(edge.kind).f(edge.source):
                     raise AssertionError(f"lost {edge.kind} edge {edge.source}->{edge.target}")
+
+        # Independent evidence: extract three diplomatic group literals from
+        # the raw on-disk TT record, not from the parser's intermediate graph.
+        if raw_mark_01 is None:
+            raise AssertionError("Mark_01 raw evidence is missing")
+        original_groups = [
+            html.unescape(value)
+            for value in ORIG_GROUP_SOURCE_RE.findall(raw_mark_01.decode("utf-8"))[:3]
+        ]
+        if len(original_groups) != 3:
+            raise AssertionError("cannot independently extract three original groups")
+        mark = next(node for node in graph.nodes if node.otype == "document" and node.source_record_id == "sahidica.mark/sahidica.mark:Mark_01")
+        expected_diplomatic_prefix = " ".join(original_groups) + " "
+        diplomatic = api.T.text(mark.id, fmt="text-diplomatic-full")
+        normalized = api.T.text(mark.id, fmt="text-orig-full")
+        if not diplomatic.startswith(expected_diplomatic_prefix):
+            raise AssertionError(
+                f"real diplomatic prefix mismatch: expected {expected_diplomatic_prefix!r}, "
+                f"got {diplomatic[:len(expected_diplomatic_prefix) + 12]!r}"
+            )
+        if diplomatic == normalized:
+            raise AssertionError("diplomatic text unexpectedly identical to normalized text")
+
         stats = {
             "source_records": len(docs),
             "source_words": expected_words,
             "tf_slots": api.F.otype.maxSlot,
             "tf_nodes": api.F.otype.maxNode,
             "tf_edge_counts": {kind: sum(edge.kind == kind for edge in graph.edges) for kind in ("dependency_head", "entity_head")},
+            "independent_diplomatic_groups_checked": len(original_groups),
             "tf_files": len(tf_files),
             "tf_total_bytes": sum(path.stat().st_size for path in tf_files),
             "output_sha256": sha256(b"".join(path.read_bytes() for path in tf_files)).hexdigest(),
