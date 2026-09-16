@@ -1,6 +1,6 @@
 """Serialize a validated, writer-independent graph into a local Text-Fabric dataset.
 
-No network access or source-data acquisition happens here.  Write into an isolated
+No network access or source-data acquisition happens here. Write into an isolated
 staging directory and publish only after Fabric.save() reports success.
 """
 from __future__ import annotations
@@ -20,6 +20,53 @@ def _json(value: object) -> str:
 def _slot_ids(ranges):
     for first, last in ranges:
         yield from range(first, last + 1)
+
+
+def _diplomatic_features(graph: Graph, node_features: dict[str, dict[int, str | int]]) -> None:
+    """Project independently sourced diplomatic surfaces without extra slots.
+
+    Source original units override per-word fallback. Nested original-group
+    literals have final authority over child originals; direct words under a
+    norm-group retain their own source text. Only group-final words receive a
+    separator; group-internal words concatenate. Layout nodes separately own
+    their character-accurate, potentially word-internal source text.
+    """
+    surfaces = {slot.id: slot.source_text for slot in graph.slots if slot.source_text}
+    separators = {slot.id: " " for slot in graph.slots}
+
+    def terminate_group(node) -> tuple[int, ...]:
+        ids = tuple(_slot_ids(node.slot_ranges))
+        if not ids:
+            raise ValueError(f"{node.otype} {node.id} has no diplomatic locus")
+        for slot_id in ids[:-1]:
+            separators.pop(slot_id, None)
+        separators[ids[-1]] = " "
+        return ids
+
+    for node in graph.nodes:
+        if node.otype != "orig":
+            continue
+        ids = tuple(_slot_ids(node.slot_ranges))
+        if node.value is not None and ids:
+            surfaces[ids[0]] = node.value
+            for slot_id in ids[1:]:
+                surfaces.pop(slot_id, None)
+
+    for node in graph.nodes:
+        if node.otype == "norm_group":
+            terminate_group(node)
+
+    for node in graph.nodes:
+        if node.otype != "orig_group":
+            continue
+        ids = terminate_group(node)
+        if node.value is not None:
+            surfaces[ids[0]] = node.value
+            for slot_id in ids[1:]:
+                surfaces.pop(slot_id, None)
+
+    node_features["diplomatic_surface"] = surfaces
+    node_features["diplomatic_after"] = separators
 
 
 def _project(graph: Graph):
@@ -51,6 +98,10 @@ def _project(graph: Graph):
             "pos", "func", "head_literal", "dependency_head_ordinal", "source_text",
         ):
             put(name, slot.id, getattr(slot, name))
+
+    _diplomatic_features(graph, node_features)
+    value_types["diplomatic_surface"] = "str"
+    value_types["diplomatic_after"] = "str"
 
     for node in graph.nodes:
         for name in (
@@ -108,6 +159,10 @@ def _project(graph: Graph):
         "sectionTypes": "document",
         "sectionFeatures": "source_record_id",
         "fmt:text-orig-full": "{norm} ",
+        "fmt:text-diplomatic-full": "{diplomatic_surface}{diplomatic_after}",
+        "fmt:orig-default": "orig#{value}",
+        "fmt:norm_group-default": "norm_group#{value}",
+        "fmt:orig_group-default": "orig_group#{value}",
         "fmt:translation-default": "translation#{own_text}",
         "fmt:arabic_translation-default": "arabic_translation#{own_text}",
         "fmt:page-default": "page#{own_text}",
