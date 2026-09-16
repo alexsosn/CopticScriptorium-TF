@@ -1,7 +1,8 @@
-"""Real-TF acceptance tests: intentionally RED until writer implementation exists."""
+"""Real-TF acceptance tests: RED contract committed ahead of writer implementation."""
 from __future__ import annotations
 
 from dataclasses import replace
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -112,8 +113,17 @@ class WriterIntegrationTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             api = _reload(write_graph(graph, Path(temporary) / "corpus"))
             for edge in graph.edges:
-                if edge.kind in {"dependency_head", "entity_head", "same_scholarly", "witness"}:
+                if edge.kind in {"dependency_head", "entity_head"}:
                     self.assertIn(edge.target, api.E.__getattribute__(edge.kind).f(edge.source))
+                elif edge.kind == "same_scholarly":
+                    # TF 13.1.0 valued-edge .f(source) returns ((target, value), ...).
+                    self.assertIn((edge.target, edge.classification), api.E.same_scholarly.f(edge.source))
+                elif edge.kind == "witness":
+                    evidence = dict(api.E.witness.f(edge.source))[edge.target]
+                    self.assertEqual(json.loads(evidence), {
+                        "witness_literal": edge.witness_literal,
+                        "target_scholarly_id": edge.target_scholarly_id,
+                    })
             entity = next(node for node in graph.nodes if node.otype == "entity")
             head = next(edge.target for edge in graph.edges if edge.kind == "entity_head")
             self.assertIn(head, entity.slots)
