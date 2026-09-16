@@ -6,10 +6,23 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
+from tf.fabric import Fabric
+
 from copticscriptorium_tf.graph import build_graph
 from copticscriptorium_tf.model import NormGroup, Orig, OrigGroup
 from copticscriptorium_tf.writer import write_graph
-from test_issue15_writer_integration import _doc, _reload
+from test_issue15_writer_integration import _doc
+
+
+def _reload_single(path: Path):
+    # A one-document graph has no same_scholarly/witness edge files; do not
+    # require fixture-specific features unrelated to diplomatic rendering.
+    api = Fabric(locations=[str(path)], silent="deep").load(
+        "norm source_record_id value own_text", silent="deep"
+    )
+    if api is False or api is None:
+        raise AssertionError("single-document TF reload failed")
+    return api
 
 
 class DiplomaticTextTests(unittest.TestCase):
@@ -17,7 +30,7 @@ class DiplomaticTextTests(unittest.TestCase):
         document = _doc("alpha:a", expanded=True)
         graph = build_graph((document,), document_relations=())
         with TemporaryDirectory() as temporary:
-            api = _reload(write_graph(graph, Path(temporary) / "tf"))
+            api = _reload_single(write_graph(graph, Path(temporary) / "tf"))
             doc = next(node for node in graph.nodes if node.otype == "document")
             orig = next(node for node in graph.nodes if node.otype == "orig")
             group = next(node for node in graph.nodes if node.otype == "norm_group")
@@ -37,7 +50,7 @@ class DiplomaticTextTests(unittest.TestCase):
         )
         graph = build_graph((document,), document_relations=())
         with TemporaryDirectory() as temporary:
-            api = _reload(write_graph(graph, Path(temporary) / "tf"))
+            api = _reload_single(write_graph(graph, Path(temporary) / "tf"))
             doc = next(node for node in graph.nodes if node.otype == "document")
             group = next(node for node in graph.nodes if node.otype == "orig_group")
             origs = [node for node in graph.nodes if node.otype == "orig"]
