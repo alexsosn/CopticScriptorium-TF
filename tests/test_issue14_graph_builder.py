@@ -235,6 +235,23 @@ class GraphBuilderTests(unittest.TestCase):
         self.assertTrue(all(node.render_mode == "own_text" for node in lines))
         self.assertEqual(validate_graph(graph), ())
 
+    def test_trailing_zero_width_layout_boundary_uses_adjacent_real_word_as_technical_locus(self) -> None:
+        document = _doc(
+            "alpha/sample:trailing-layout",
+            words=(_word(1, "ab", head=0, func="root"),),
+            layout_events=(LayoutEvent(1, "line", "tail", None, None, 1),),
+        )
+
+        graph = build_graph([document])
+        line = next(node for node in graph.nodes if node.otype == "line")
+
+        self.assertEqual(line.text, "")
+        self.assertEqual(line.slots, (1,))
+        self.assertEqual(line.start_after_word_ordinal, 1)
+        self.assertIsNone(line.start_word_ordinal)
+        self.assertEqual(line.render_mode, "own_text")
+        self.assertEqual(validate_graph(graph), ())
+
     def test_explicit_document_relations_survive_without_deduplication(self) -> None:
         source = _doc("alpha/sample:a", scholarly_id="urn:cts:copticLit:same.work")
         target = _doc("beta/sample:b", scholarly_id="urn:cts:copticLit:same.work")
