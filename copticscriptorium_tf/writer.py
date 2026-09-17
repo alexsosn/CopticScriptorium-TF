@@ -6,15 +6,29 @@ staging directory and publish only after Fabric.save() reports success.
 from __future__ import annotations
 
 from collections import defaultdict
-import json
 from pathlib import Path
+import re
 from tempfile import TemporaryDirectory
 
 from .graph import Graph, validate_graph
 
 
-def _json(value: object) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+_META_SAFE_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z")
+_META_OCCURRENCE_SUFFIX_RE = re.compile(r"__\d+\Z")
+
+
+def _metadata_feature_name(key: str) -> str:
+    """Return a deterministic, TF-safe and injective feature name for a metadata key.
+
+    Ordinary Coptic Scriptorium keys remain readable. Keys unsafe for TF feature
+    names, and keys that could collide with the ``__N`` duplicate-occurrence
+    namespace, are represented by reversible UTF-8 hex.
+    """
+    if not isinstance(key, str) or not key:
+        raise ValueError("metadata keys must be non-empty strings")
+    if _META_SAFE_RE.fullmatch(key) and not _META_OCCURRENCE_SUFFIX_RE.search(key):
+        return f"meta_{key}"
+    return f"meta__hex_{key.encode('utf-8').hex()}"
 
 
 def _slot_ids(ranges):
@@ -70,10 +84,12 @@ def _diplomatic_features(graph: Graph, node_features: dict[str, dict[int, str | 
 
 
 def _project(graph: Graph):
-    """Produce TF's typed scalar features and directed edge maps without renumbering."""
+    """Produce TF typed scalar features and directed edge maps without renumbering."""
     node_features: dict[str, dict[int, str | int]] = defaultdict(dict)
     edge_features: dict[str, dict[int, object]] = defaultdict(dict)
     value_types: dict[str, str] = {}
+    valued_edge_features: set[str] = set()
+
     node_features["otype"] = {slot.id: "word" for slot in graph.slots}
     for node in graph.nodes:
         node_features["otype"][node.id] = node.otype
@@ -91,6 +107,27 @@ def _project(graph: Graph):
         if previous != kind:
             raise ValueError(f"mixed TF value types for {name}")
         node_features[name][node_id] = value
+
+    def add_unvalued_edge(name: str, source: int, target: int) -> None:
+        targets = edge_features[name].setdefault(source, set())
+        if not isinstance(targets, set):
+            raise ValueError(f"edge feature {name} mixes valued and unvalued edges")
+        if target in targets:
+            raise ValueError(f"duplicate {name} edge for {source}->{target}")
+        targets.add(target)
+
+    def add_valued_edge(name: str, source: int, target: int, value: str | None) -> None:
+        if value is None:
+            return
+        if not isinstance(value, str):
+            raise ValueError(f"valued edge {name} requires a string value")
+        targets = edge_features[name].setdefault(source, {})
+        if not isinstance(targets, dict):
+            raise ValueError(f"edge feature {name} mixes valued and unvalued edges")
+        if target in targets:
+            raise ValueError(f"duplicate {name} edge value for {source}->{target}")
+        targets[target] = value
+        valued_edge_features.add(name)
 
     for slot in graph.slots:
         for name in (
@@ -114,37 +151,73 @@ def _project(graph: Graph):
         ):
             feature_name = "own_text" if name == "text" else name
             put(feature_name, node.id, getattr(node, name))
-        if node.otype == "document":
-            put("metadata_json", node.id, _json(dict(node.metadata)))
-            put("metadata_duplicates_json", node.id, _json(dict(node.metadata_duplicates)))
-        if node.direct_word_slots:
-            put("direct_word_slots_json", node.id, _json(node.direct_word_slots))
-        if node.section_address:
-            put("section_address_json", node.id, _json(node.section_address))
 
-    # The relation evidence is a deterministic string on the directed edge.
-    # A TF valued edge's .f(source) maps targets to values; target identity is
-    # never chosen by a lossy source-record deduplication operation.
+        if node.otype == "document":
+            metadata = dict(node.metadata)
+            duplicates = dict(node.metadata_duplicates)
+            for key, value in node.metadata:
+                put(_metadata_feature_name(key), node.id, value)
+            for key, values in node.metadata_duplicates:
+                if key not in metadata:
+                    raise ValueError(f"duplicate metadata key {key!r} has no primary value")
+                if not values or values[0] != metadata[key]:
+                    raise ValueError(
+                        f"duplicate metadata evidence for {key!r} does not preserve the primary source value"
+                    )
+                for occurrence, value in enumerate(values[1:], start=2):
+                    put(f"{_metadata_feature_name(key)}__{occurrence}", node.id, value)
+            unknown_duplicate_keys = set(duplicates) - set(metadata)
+            if unknown_duplicate_keys:
+                raise ValueError(
+                    "duplicate metadata keys without scalar values: "
+                    + ", ".join(sorted(unknown_duplicate_keys))
+                )
+
+        if node.direct_word_slots:
+            for slot_id in node.direct_word_slots:
+                add_unvalued_edge("direct_word", node.id, slot_id)
+
     for edge in graph.edges:
         if edge.kind in {"dependency_head", "entity_head"}:
-            targets = edge_features[edge.kind].setdefault(edge.source, set())
-            targets.add(edge.target)
+            add_unvalued_edge(edge.kind, edge.source, edge.target)
+        elif edge.kind == "same_scholarly":
+            add_unvalued_edge("same_scholarly", edge.source, edge.target)
+            add_valued_edge(
+                "same_scholarly_classification",
+                edge.source,
+                edge.target,
+                edge.classification,
+            )
+        elif edge.kind == "documented_overlap":
+            add_unvalued_edge("documented_overlap", edge.source, edge.target)
+            add_valued_edge(
+                "documented_overlap_classification",
+                edge.source,
+                edge.target,
+                edge.classification,
+            )
+            add_valued_edge(
+                "documented_overlap_family",
+                edge.source,
+                edge.target,
+                edge.family,
+            )
+        elif edge.kind == "witness":
+            add_unvalued_edge("witness", edge.source, edge.target)
+            add_valued_edge(
+                "witness_literal",
+                edge.source,
+                edge.target,
+                edge.witness_literal,
+            )
+            add_valued_edge(
+                "witness_target_scholarly_id",
+                edge.source,
+                edge.target,
+                edge.target_scholarly_id,
+            )
         else:
-            targets = edge_features[edge.kind].setdefault(edge.source, {})
-            if edge.kind == "same_scholarly":
-                evidence = edge.classification or ""
-            elif edge.kind == "documented_overlap":
-                evidence = _json({"classification": edge.classification, "family": edge.family})
-            elif edge.kind == "witness":
-                evidence = _json({
-                    "witness_literal": edge.witness_literal,
-                    "target_scholarly_id": edge.target_scholarly_id,
-                })
-            else:
-                raise ValueError(f"unknown graph edge kind {edge.kind!r}")
-            if edge.target in targets:
-                raise ValueError(f"multiple {edge.kind} edges for {edge.source}->{edge.target} cannot be represented losslessly")
-            targets[edge.target] = evidence
+            raise ValueError(f"unknown graph edge kind {edge.kind!r}")
 
     metadata: dict[str, dict[str, str | bool]] = {
         name: {"valueType": value_type}
@@ -153,7 +226,7 @@ def _project(graph: Graph):
     metadata["otype"] = {"valueType": "str"}
     for name in edge_features:
         metadata[name] = {"valueType": "str"}
-        if name in {"same_scholarly", "documented_overlap", "witness"}:
+        if name in valued_edge_features:
             metadata[name]["edgeValues"] = True
     metadata["otext"] = {
         "sectionTypes": "document",
