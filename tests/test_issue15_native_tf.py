@@ -35,6 +35,7 @@ def _document(
     )
     metadata = {
         "title": title,
+        "Title": f"{title} uppercase key",
         "title__2": "literal source key using occurrence-like suffix",
         "document_cts_urn": scholarly_id,
         "license": "literal <a href='https://example.invalid/'>source markup</a>",
@@ -99,7 +100,7 @@ def _graph():
 
 def _reload(location: Path):
     api = Fabric(locations=[str(location)], silent="deep").load(
-        "meta_title meta_title__2 meta__hex_7469746c655f5f32 "
+        "meta_title meta_title__2 meta__hex_5469746c65 meta__hex_7469746c655f5f32 "
         "meta_document_cts_urn meta_license meta__hex_6f64642d6b6579 "
         "parent direct_word dependency_head same_scholarly same_scholarly_classification "
         "documented_overlap documented_overlap_classification documented_overlap_family "
@@ -116,15 +117,19 @@ class NativeTfProjectionTests(unittest.TestCase):
         self.assertEqual(writer._metadata_feature_name("title"), "meta_title")
         self.assertEqual(writer._metadata_feature_name("document_cts_urn"), "meta_document_cts_urn")
         self.assertEqual(writer._metadata_feature_name("odd-key"), "meta__hex_6f64642d6b6579")
+        self.assertEqual(writer._metadata_feature_name("Title"), "meta__hex_5469746c65")
         self.assertEqual(writer._metadata_feature_name("title__2"), "meta__hex_7469746c655f5f32")
         self.assertNotEqual(writer._metadata_feature_name("title__2"), "meta_title__2")
         names = {
+            writer._metadata_feature_name("title"),
+            writer._metadata_feature_name("Title"),
             writer._metadata_feature_name("odd-key"),
             writer._metadata_feature_name("_hex_6f64642d6b6579"),
             writer._metadata_feature_name("odd_key"),
             writer._metadata_feature_name("title__2"),
         }
-        self.assertEqual(len(names), 4)
+        self.assertEqual(len(names), 6)
+        self.assertEqual(len({name.casefold() for name in names}), len(names))
         self.assertTrue(all(re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", name) for name in names))
 
     def test_saved_feature_inventory_has_no_structural_json_features(self):
@@ -137,6 +142,7 @@ class NativeTfProjectionTests(unittest.TestCase):
             self.assertNotIn("direct_word_slots_json", feature_names)
             self.assertNotIn("section_address_json", feature_names)
             self.assertNotIn("parent_node_id", feature_names)
+            self.assertEqual(len(feature_names), len({name.casefold() for name in feature_names}))
 
     def test_metadata_duplicates_and_literal_markup_are_native_scalar_features(self):
         graph = _graph()
@@ -145,6 +151,7 @@ class NativeTfProjectionTests(unittest.TestCase):
             source = next(node for node in graph.nodes if node.otype == "document" and node.corpus == "alpha")
             self.assertEqual(api.F.meta_title.v(source.id), "Alpha")
             self.assertEqual(api.F.meta_title__2.v(source.id), "Alpha duplicate")
+            self.assertEqual(api.F.meta__hex_5469746c65.v(source.id), "Alpha uppercase key")
             self.assertEqual(
                 api.F.meta__hex_7469746c655f5f32.v(source.id),
                 "literal source key using occurrence-like suffix",
