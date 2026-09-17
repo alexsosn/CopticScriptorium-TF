@@ -274,6 +274,9 @@ def _layout_segment(document: DocumentModel, event: LayoutEvent, next_event: Lay
         if hi > lo:
             slots.append(slot_id(document, ordinal))
             text.append(source_text[lo:hi])
+    if not slots:
+        anchor_ordinal = min(max(start[0], 1), len(document.words))
+        slots.append(slot_id(document, anchor_ordinal))
     return tuple(slots), "".join(text)
 
 
