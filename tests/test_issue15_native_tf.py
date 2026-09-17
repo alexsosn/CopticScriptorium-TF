@@ -14,7 +14,7 @@ import unittest
 from tf.fabric import Fabric
 
 from copticscriptorium_tf.graph import DocumentRelation, build_graph
-from copticscriptorium_tf.model import DocumentModel, NormGroup, Sentence, Word
+from copticscriptorium_tf.model import DocumentModel, NormGroup, Orig, Sentence, Word
 from copticscriptorium_tf import writer
 
 
@@ -55,8 +55,8 @@ def _document(
         metadata_duplicates={"title": (title, f"{title} duplicate")} if expanded else {},
         words=words,
         sentences=(Sentence(1, tuple(range(1, len(words) + 1))),),
-        origs=(),
-        norm_groups=(NormGroup("ab", (), (1, 2), None),) if expanded else (),
+        origs=(Orig("a", (1,), 0),) if expanded else (),
+        norm_groups=(NormGroup("ab", (0,), (2,), None),) if expanded else (),
         orig_groups=(),
         layout_events=(),
         entities=(),
@@ -101,7 +101,7 @@ def _reload(location: Path):
     api = Fabric(locations=[str(location)], silent="deep").load(
         "meta_title meta_title__2 meta__hex_7469746c655f5f32 "
         "meta_document_cts_urn meta_license meta__hex_6f64642d6b6579 "
-        "direct_word dependency_head same_scholarly same_scholarly_classification "
+        "parent direct_word dependency_head same_scholarly same_scholarly_classification "
         "documented_overlap documented_overlap_classification documented_overlap_family "
         "witness witness_literal witness_target_scholarly_id",
         silent="deep",
@@ -136,6 +136,7 @@ class NativeTfProjectionTests(unittest.TestCase):
             self.assertNotIn("metadata_duplicates_json", feature_names)
             self.assertNotIn("direct_word_slots_json", feature_names)
             self.assertNotIn("section_address_json", feature_names)
+            self.assertNotIn("parent_node_id", feature_names)
 
     def test_metadata_duplicates_and_literal_markup_are_native_scalar_features(self):
         graph = _graph()
@@ -155,12 +156,15 @@ class NativeTfProjectionTests(unittest.TestCase):
             )
             self.assertEqual(api.F.meta__hex_6f64642d6b6579.v(source.id), "unsafe feature-name key")
 
-    def test_direct_word_membership_is_a_native_edge(self):
+    def test_parent_and_direct_word_membership_are_native_edges(self):
         graph = _graph()
         with TemporaryDirectory() as temporary:
             api = _reload(writer.write_graph(graph, Path(temporary) / "corpus"))
             group = next(node for node in graph.nodes if node.otype == "norm_group")
+            orig = next(node for node in graph.nodes if node.otype == "orig")
             self.assertEqual(tuple(api.E.direct_word.f(group.id)), group.direct_word_slots)
+            self.assertEqual(orig.parent_node_id, group.id)
+            self.assertEqual(tuple(api.E.parent.f(orig.id)), (group.id,))
 
     def test_document_relation_evidence_is_split_into_native_edge_features(self):
         graph = _graph()
