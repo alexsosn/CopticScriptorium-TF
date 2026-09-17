@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Mapping
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Word:
     ordinal: int
     source_id: str | None
@@ -19,20 +19,20 @@ class Word:
     source_text: str
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Sentence:
     ordinal: int
     word_ordinals: tuple[int, ...]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Orig:
     value: str | None
     word_ordinals: tuple[int, ...]
     norm_group_index: int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class NormGroup:
     value: str | None
     orig_indices: tuple[int, ...]
@@ -40,13 +40,13 @@ class NormGroup:
     orig_group_index: int | None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class OrigGroup:
     value: str | None
     norm_group_indices: tuple[int, ...]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class LayoutEvent:
     ordinal: int
     kind: str
@@ -56,7 +56,7 @@ class LayoutEvent:
     after_word_ordinal: int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Entity:
     ordinal: int
     parent_entity_ordinal: int | None
@@ -67,14 +67,14 @@ class Entity:
     word_ordinals: tuple[int, ...]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Translation:
     ordinal: int
     text: str
     word_ordinals: tuple[int, ...]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SupplementalWord:
     ordinal: int
     form_literal: str
@@ -88,13 +88,13 @@ class SupplementalWord:
     misc: Mapping[str, str]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ConlluSupplement:
     source_path: str
     words: tuple[SupplementalWord, ...]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DocumentModel:
     source_record_id: str
     source_path: str
