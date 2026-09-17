@@ -97,11 +97,24 @@ class ConverterContractTests(unittest.TestCase):
             translation = api.F.otype.s("translation")[0]
             self.assertEqual(api.T.text(translation), "English A")
 
-    def test_converter_fails_closed_for_invalid_input_and_existing_destination(self):
+    def test_converter_fails_closed_for_invalid_empty_input_and_existing_destination(self):
         from copticscriptorium_tf.converter import convert_source_tree
 
         with TemporaryDirectory() as temporary:
             base = Path(temporary)
+
+            empty_root = base / "empty"
+            empty_root.mkdir()
+            empty_destination = base / "empty-output"
+            with self.assertRaisesRegex(ValueError, "no supported TT source records"):
+                convert_source_tree(
+                    empty_root,
+                    empty_destination,
+                    upstream_repository="fixture/repo",
+                    upstream_commit="deadbeef",
+                )
+            self.assertFalse(empty_destination.exists())
+
             invalid_root = base / "invalid"
             nested = invalid_root / "alpha" / "alpha_TT" / "nested"
             nested.mkdir(parents=True)
@@ -161,6 +174,7 @@ class ConverterContractTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertNotIn("RuntimeWarning", completed.stderr)
             report = json.loads(summary.read_text(encoding="utf-8"))
             self.assertEqual(report["source_records"], 2)
             self.assertEqual(report["slots"], 3)
