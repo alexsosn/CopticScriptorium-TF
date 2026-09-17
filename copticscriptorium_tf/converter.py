@@ -81,6 +81,8 @@ def convert_source_tree(
     )
     parse_seconds = monotonic() - parse_started
     source_records = len(documents)
+    if not documents:
+        raise ValueError(f"no supported TT source records found under {Path(source_root)}")
 
     graph_started = monotonic()
     graph = build_graph(documents)
