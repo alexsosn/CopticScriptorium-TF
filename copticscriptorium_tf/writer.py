@@ -256,6 +256,21 @@ def _project(graph: Graph):
     return dict(node_features), dict(edge_features), metadata
 
 
+def _remove_volatile_tf_write_metadata(directory: Path) -> None:
+    """Remove Fabric's wall-clock header while preserving feature data byte-for-byte."""
+    for path in directory.glob("*.tf"):
+        lines = path.read_bytes().splitlines(keepends=True)
+        normalized: list[bytes] = []
+        in_header = True
+        for line in lines:
+            if in_header and line.rstrip(b"\r\n") == b"":
+                in_header = False
+            if in_header and line.startswith(b"@dateWritten="):
+                continue
+            normalized.append(line)
+        path.write_bytes(b"".join(normalized))
+
+
 def write_graph(graph: Graph, destination: Path | str) -> Path:
     """Write atomically to a fresh destination; fail closed on invalid graph/TF."""
     errors = validate_graph(graph)
@@ -282,5 +297,6 @@ def write_graph(graph: Graph, destination: Path | str) -> Path:
         required = ("otype.tf", "oslots.tf", "otext.tf")
         if any(not (staging / name).is_file() for name in required):
             raise ValueError("Text-Fabric omitted mandatory warp/otext files")
+        _remove_volatile_tf_write_metadata(staging)
         staging.rename(target)
     return target
