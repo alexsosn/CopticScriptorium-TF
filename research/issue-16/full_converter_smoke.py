@@ -1,13 +1,12 @@
 """Run the public converter on a complete source tree and reload the result.
 
 This is an operational converter/resource regression, not a scholarly corpus
-certification.  It intentionally does not compare against historical corpus
+certification. It intentionally does not compare against historical corpus
 counts or classifications.
 """
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
 import json
 from pathlib import Path
 import shutil
@@ -31,6 +30,13 @@ REQUIRED_EDGE_FEATURES = (
     "documented_overlap",
     "witness",
 )
+REQUIRED_EVIDENCE_EDGE_FEATURES = (
+    "same_scholarly_classification",
+    "documented_overlap_classification",
+    "documented_overlap_family",
+    "witness_literal",
+    "witness_target_scholarly_id",
+)
 REQUIRED_FORMATS = ("text-orig-full", "text-diplomatic-full")
 
 
@@ -43,7 +49,8 @@ def _reload_and_check(tf_dir: Path, result) -> dict[str, object]:
     if forbidden:
         raise RuntimeError(f"structural JSON features found: {forbidden}")
 
-    requested = ["source_record_id", "norm", *REQUIRED_EDGE_FEATURES]
+    required_edges = (*REQUIRED_EDGE_FEATURES, *REQUIRED_EVIDENCE_EDGE_FEATURES)
+    requested = ["source_record_id", "norm", *required_edges]
     started = monotonic()
     api = Fabric(locations=str(tf_dir), silent=DEEP).load(" ".join(requested), silent=DEEP)
     reload_seconds = monotonic() - started
@@ -79,7 +86,7 @@ def _reload_and_check(tf_dir: Path, result) -> dict[str, object]:
         # strings need not differ for every individual source document.
         api.T.text(first_document, fmt=fmt)
 
-    for feature in REQUIRED_EDGE_FEATURES:
+    for feature in required_edges:
         if feature not in feature_names:
             raise RuntimeError(f"required native edge feature not serialized: {feature}")
 
@@ -91,6 +98,7 @@ def _reload_and_check(tf_dir: Path, result) -> dict[str, object]:
         "first_document_section": list(first_section),
         "available_formats": list(available_formats),
         "required_edge_features": list(REQUIRED_EDGE_FEATURES),
+        "required_evidence_edge_features": list(REQUIRED_EVIDENCE_EDGE_FEATURES),
         "structural_json_features": forbidden,
     }
 
