@@ -1,8 +1,8 @@
 """Issue #15 pinned, bounded real-TT slice save/reload gate.
 
-This is a writer integration test, NOT issue #16's independent whole-corpus
-semantic parity. External witness targets are absent from this slice: document
-relations are explicitly omitted rather than silently treated as complete.
+This is a converter regression fixture, not a certification of upstream data.
+External witness targets are absent from this bounded slice, so document
+relations are explicitly omitted rather than treated as complete.
 """
 from __future__ import annotations
 
@@ -72,8 +72,8 @@ def run(root: Path) -> dict[str, object]:
     expected_words = sum(len(doc.words) for doc in docs)
     if expected_words < 1000:
         raise AssertionError(f"real-source slice unexpectedly small: {expected_words} words")
-    # Exclude external witness targets explicitly; real document-edge parity is
-    # covered by focused fixtures and later independently by full-corpus #16.
+    # Exclude external witness targets explicitly; focused fixtures cover the
+    # relation writer and #16 owns the later full-corpus converter regression.
     graph = build_graph(docs, document_relations=())
     if len(graph.slots) != expected_words or validate_graph(graph):
         raise AssertionError("source/graph slot parity or graph validation failed")
@@ -82,9 +82,13 @@ def run(root: Path) -> dict[str, object]:
         tf_files = sorted(location.glob("*.tf"))
         if not tf_files:
             raise AssertionError("writer produced no TF files")
+        tf_feature_names = {path.stem for path in tf_files}
+        forbidden = {name for name in tf_feature_names if name.endswith("_json")}
+        if forbidden:
+            raise AssertionError(f"writer emitted structural JSON features: {sorted(forbidden)!r}")
         api = Fabric(locations=[str(location)], silent="deep").load(
-            "source_record_id scholarly_id norm lemma pos source_sha256 "
-            "source_path corpus dataset dependency_head entity_head metadata_json",
+            "source_record_id scholarly_id norm lemma pos source_sha256 source_path corpus dataset "
+            "dependency_head entity_head meta_document_cts_urn meta_license",
             silent="deep",
         )
         if api is False or api is None:
@@ -104,6 +108,12 @@ def run(root: Path) -> dict[str, object]:
                 raise AssertionError(f"source hash lost: {doc.source_record_id}")
             if api.F.source_path.v(node.id) != doc.source_path:
                 raise AssertionError(f"record source path lost: {doc.source_record_id}")
+            if doc.metadata.get("document_cts_urn") is not None:
+                if api.F.meta_document_cts_urn.v(node.id) != doc.metadata["document_cts_urn"]:
+                    raise AssertionError(f"document CTS metadata lost: {doc.source_record_id}")
+            if doc.metadata.get("license") is not None:
+                if api.F.meta_license.v(node.id) != doc.metadata["license"]:
+                    raise AssertionError(f"license metadata literal altered: {doc.source_record_id}")
         for slot in graph.slots:
             if api.F.norm.v(slot.id) != slot.norm:
                 raise AssertionError(f"normalized word altered at slot {slot.id}")
@@ -112,8 +122,8 @@ def run(root: Path) -> dict[str, object]:
                 if edge.target not in api.E.__getattribute__(edge.kind).f(edge.source):
                     raise AssertionError(f"lost {edge.kind} edge {edge.source}->{edge.target}")
 
-        # Independent evidence: extract three diplomatic group literals from
-        # the raw on-disk TT record, not from the parser's intermediate graph.
+        # Independent evidence for this rendering regression only: extract three
+        # diplomatic group literals from the raw TT record, not parser helpers.
         if raw_mark_01 is None:
             raise AssertionError("Mark_01 raw evidence is missing")
         original_groups = [
@@ -121,7 +131,7 @@ def run(root: Path) -> dict[str, object]:
             for value in ORIG_GROUP_SOURCE_RE.findall(raw_mark_01.decode("utf-8"))[:3]
         ]
         if len(original_groups) != 3:
-            raise AssertionError("cannot independently extract three original groups")
+            raise AssertionError("cannot extract three original groups from regression fixture")
         mark = next(node for node in graph.nodes if node.otype == "document" and node.source_record_id == "sahidica.mark/sahidica.mark:Mark_01")
         expected_diplomatic_prefix = " ".join(original_groups) + " "
         diplomatic = api.T.text(mark.id, fmt="text-diplomatic-full")
@@ -140,13 +150,14 @@ def run(root: Path) -> dict[str, object]:
             "tf_slots": api.F.otype.maxSlot,
             "tf_nodes": api.F.otype.maxNode,
             "tf_edge_counts": {kind: sum(edge.kind == kind for edge in graph.edges) for kind in ("dependency_head", "entity_head")},
-            "independent_diplomatic_groups_checked": len(original_groups),
+            "native_metadata_features_checked": 2,
+            "diplomatic_groups_checked": len(original_groups),
             "tf_files": len(tf_files),
             "tf_total_bytes": sum(path.stat().st_size for path in tf_files),
             "output_sha256": sha256(b"".join(path.read_bytes() for path in tf_files)).hexdigest(),
             "peak_rss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0, 1),
             "wall_seconds": round(monotonic() - began, 3),
-            "relations_policy": "omitted explicitly from bounded slice; full relation parity belongs to issue 16",
+            "relations_policy": "omitted explicitly from bounded slice; full-corpus converter regression belongs to issue 16",
         }
     return stats
 
