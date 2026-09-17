@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from tf.fabric import Fabric
 
@@ -141,13 +143,18 @@ class WriterIntegrationTests(unittest.TestCase):
 
     def test_native_metadata_and_deterministic_file_bytes(self):
         graph = _graph()
+        first_clock = datetime(2026, 1, 1, 0, 0, 1, tzinfo=timezone.utc)
+        second_clock = datetime(2026, 1, 1, 0, 0, 9, tzinfo=timezone.utc)
         with TemporaryDirectory() as first_dir, TemporaryDirectory() as second_dir:
-            one = write_graph(graph, Path(first_dir) / "corpus")
-            two = write_graph(graph, Path(second_dir) / "corpus")
+            with patch("tf.core.data.utcnow", return_value=first_clock):
+                one = write_graph(graph, Path(first_dir) / "corpus")
+            with patch("tf.core.data.utcnow", return_value=second_clock):
+                two = write_graph(graph, Path(second_dir) / "corpus")
             first = {p.name: p.read_bytes() for p in one.glob("*.tf")}
             second = {p.name: p.read_bytes() for p in two.glob("*.tf")}
             self.assertTrue(first)
             self.assertEqual(first, second)
+            self.assertFalse(any(b"@dateWritten=" in contents for contents in first.values()))
             self.assertFalse(any(name.endswith("_json.tf") for name in first))
             api = _reload(one)
             document = next(n for n in graph.nodes if n.otype == "document" and n.corpus == "alpha")

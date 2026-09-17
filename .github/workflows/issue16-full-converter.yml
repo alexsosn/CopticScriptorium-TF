@@ -1,0 +1,59 @@
+name: issue16-full-converter
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: issue16-full-converter-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  full-source-convert-reload:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'impl/full-converter-smoke'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned real Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+      - name: Checkout pinned complete upstream source
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: upstream
+          persist-credentials: false
+      - name: Verify pinned source revision
+        run: test "$(git -C upstream rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+      - name: Convert complete source and reload native TF
+        run: |
+          /usr/bin/time -v -o "$RUNNER_TEMP/issue16-time.txt" \
+            python research/issue-16/full_converter_smoke.py upstream \
+              --work-root "$RUNNER_TEMP/issue16-work" \
+              --output "$RUNNER_TEMP/issue16-full-converter.json"
+      - name: Show resource measurements
+        if: always()
+        run: |
+          test ! -f "$RUNNER_TEMP/issue16-time.txt" || cat "$RUNNER_TEMP/issue16-time.txt"
+          test ! -f "$RUNNER_TEMP/issue16-full-converter.json" || cat "$RUNNER_TEMP/issue16-full-converter.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue16-full-converter
+          path: |
+            ${{ runner.temp }}/issue16-time.txt
+            ${{ runner.temp }}/issue16-full-converter.json
+          if-no-files-found: warn

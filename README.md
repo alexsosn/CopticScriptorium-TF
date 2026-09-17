@@ -1,29 +1,76 @@
 # CopticScriptorium-TF
 
-Text-Fabric converter for the public [Coptic Scriptorium corpora](https://github.com/CopticScriptorium/corpora).
+A pre-alpha converter from Coptic Scriptorium TT sources to ordinary native [Text-Fabric](https://annotation.github.io/text-fabric/tf/index.html).
 
-## Status
+The converter preserves physical source documents, one TT `norm` as one `word` slot, linguistic/grouping structure, layout boundaries, entities, translations, document relations, source metadata, and source provenance. Structural relationships are represented with normal TF node/edge features; generated semantic features do not hide internal JSON/XML containers.
 
-Research and schema design are in progress. Production conversion has deliberately not started yet: the upstream repository exposes several overlapping representations and duplicate/parallel corpus records, so the canonical source contract, identity policy, and TF graph model are being established first.
+## Current status
 
-Initial work is tracked in GitHub issues. The repository follows an issue-driven research → plan → RED-first TDD → exact-head verification → logically independent adversarial review workflow.
+The source parser, deterministic graph builder, native TF writer, and end-to-end local converter are implemented. Current release work is validating the complete upstream corpus and reducing full-corpus resource usage before calling the converter practically ready for broad local use.
 
-## Current research priorities
+The first complete-source #16 run reached TF writing with about 7.1 GB maximum RSS before exposing a trailing-layout edge case. Memory reduction is tracked separately in #26; the converter is therefore still **pre-alpha** and full-corpus conversion should currently be treated as memory-heavy.
 
-1. Inventory the upstream representations (`*.tt`, CoNLL-U, TEI, PAULA, relANNIS, `meta.json`) and assign semantic authority per field.
-2. Define stable document identity, overlap/redundancy semantics, and release-stable addressing.
-3. Design a loss-aware TF graph for original/normalized segmentation, UD syntax, entities, layout boundaries, translations, and metadata.
-4. Only then create implementation tickets with executable acceptance criteria.
+This repository converts local source data. It does not download Coptic Scriptorium data itself and does not certify the scholarly correctness or completeness of upstream corpora.
 
-See `research.md`, `plan.md`, `KNOWN-ISSUES.md`, and `AGENTS.md`.
+## Local conversion
 
-## Upstream facts already established
+Use Python 3.12 with the supported Text-Fabric version:
 
-Coptic Scriptorium publishes each document in multiple formats. Upstream documentation states that TreeTagger SGML (`*.tt`) generally contains the most complete document annotations, while corpus-level metadata is available in PAULA XML and relANNIS; aggregated document metadata is also available in `meta.json`.
+```bash
+python -m pip install 'text-fabric==13.1.0'
+```
 
-The upstream repository explicitly documents duplicate and overlapping data: the `coptic-treebank` collection repeats gold treebanked documents from source corpora, some individual biblical-book corpora overlap larger automatically annotated OT/NT corpora, and parallel witnesses may be marked `redundant="yes"`. The converter will preserve and classify these relationships rather than silently deduplicating them.
+From the repository root, convert a local Coptic Scriptorium source checkout:
 
-Licensing is document/corpus-sensitive and must be carried through provenance; generated-data redistribution is not assumed until the license inventory is complete.
+```bash
+python -m copticscriptorium_tf.converter \
+  /path/to/CopticScriptorium-corpora \
+  /path/to/output-tf \
+  --upstream-repository CopticScriptorium/corpora \
+  --upstream-commit <exact-source-commit> \
+  --summary /path/to/conversion-summary.json
+```
+
+The input tree may contain supported direct `*_TT/*.tt` datasets and `*_TT.zip` packages. The destination must not already exist; conversion fails closed rather than overwriting it. The repository/commit arguments are provenance labels for the local source tree and do not trigger network access.
+
+The JSON summary is operational only: source-document, slot/node/edge and output-file counts, phase timings, output size, and peak process RSS where the platform exposes it. It is not a corpus-certification report.
+
+Generated TF can then be loaded with normal Text-Fabric APIs, for example:
+
+```python
+from tf.fabric import Fabric
+
+api = Fabric(locations=["/path/to/output-tf"], silent="deep").load(
+    "norm lemma pos source_record_id dependency_head entity_head",
+    silent="deep",
+)
+```
+
+## Native TF model
+
+The current model uses:
+
+- `word` as the sole slot type;
+- `document` as the TF section level, keyed by physical `source_record_id`;
+- `oslots` for node loci;
+- scalar node features for lexical, source, layout, translation, provenance, and document metadata values;
+- native `parent`, `direct_word`, `dependency_head`, `entity_head`, `same_scholarly`, `documented_overlap`, and `witness` edges;
+- separate valued edge features for document-relation evidence;
+- normalized and diplomatic text formats plus own-text rendering for translations/layout nodes.
+
+Repeated metadata attributes are preserved as deterministic scalar occurrence features rather than serialized arrays. Literal source metadata may itself contain markup-like text; that literal content is preserved as data and is not used as a hidden structural encoding.
+
+## Development process
+
+The `research/` directory contains measured source investigations and schema decisions that preceded implementation. Active converter changes follow research/plan → RED tests → implementation → exact-head tests → independent adversarial review.
+
+Important active follow-ups include:
+
+- #16 — complete-source end-to-end converter/reload regression;
+- #26 — reduce full-corpus peak memory for practical local use;
+- #17 — later Agora integration/distribution work.
+
+Historical research scripts and pinned-source regression fixtures are evidence for converter decisions; they are not release-certification machinery.
 
 ## License
 
