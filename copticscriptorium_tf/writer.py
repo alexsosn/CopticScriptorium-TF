@@ -154,7 +154,6 @@ def _project(graph: Graph):
 
         if node.otype == "document":
             metadata = dict(node.metadata)
-            duplicates = dict(node.metadata_duplicates)
             for key, value in node.metadata:
                 put(_metadata_feature_name(key), node.id, value)
             for key, values in node.metadata_duplicates:
@@ -166,12 +165,6 @@ def _project(graph: Graph):
                     )
                 for occurrence, value in enumerate(values[1:], start=2):
                     put(f"{_metadata_feature_name(key)}__{occurrence}", node.id, value)
-            unknown_duplicate_keys = set(duplicates) - set(metadata)
-            if unknown_duplicate_keys:
-                raise ValueError(
-                    "duplicate metadata keys without scalar values: "
-                    + ", ".join(sorted(unknown_duplicate_keys))
-                )
 
         if node.direct_word_slots:
             for slot_id in node.direct_word_slots:
@@ -228,20 +221,30 @@ def _project(graph: Graph):
         metadata[name] = {"valueType": "str"}
         if name in valued_edge_features:
             metadata[name]["edgeValues"] = True
-    metadata["otext"] = {
+
+    otext: dict[str, str] = {
         "sectionTypes": "document",
         "sectionFeatures": "source_record_id",
-        "fmt:text-orig-full": "{norm} ",
-        "fmt:text-diplomatic-full": "{diplomatic_surface}{diplomatic_after}",
-        "fmt:orig-default": "orig#{value}",
-        "fmt:norm_group-default": "norm_group#{value}",
-        "fmt:orig_group-default": "orig_group#{value}",
-        "fmt:translation-default": "translation#{own_text}",
-        "fmt:arabic_translation-default": "arabic_translation#{own_text}",
-        "fmt:page-default": "page#{own_text}",
-        "fmt:column-default": "column#{own_text}",
-        "fmt:line-default": "line#{own_text}",
     }
+    if node_features.get("norm"):
+        otext["fmt:text-orig-full"] = "{norm} "
+    if node_features.get("diplomatic_surface") and node_features.get("diplomatic_after"):
+        otext["fmt:text-diplomatic-full"] = "{diplomatic_surface}{diplomatic_after}"
+    if node_features.get("value"):
+        otext.update({
+            "fmt:orig-default": "orig#{value}",
+            "fmt:norm_group-default": "norm_group#{value}",
+            "fmt:orig_group-default": "orig_group#{value}",
+        })
+    if node_features.get("own_text"):
+        otext.update({
+            "fmt:translation-default": "translation#{own_text}",
+            "fmt:arabic_translation-default": "arabic_translation#{own_text}",
+            "fmt:page-default": "page#{own_text}",
+            "fmt:column-default": "column#{own_text}",
+            "fmt:line-default": "line#{own_text}",
+        })
+    metadata["otext"] = otext
     metadata[""] = {
         "upstreamRepository": graph.upstream_repository,
         "upstreamCommit": graph.upstream_commit,
