@@ -112,6 +112,31 @@ A complete upstream checkout is currently expensive and the parse/graph path is 
 - do not build a second independent semantic model for comparison;
 - if memory prevents a complete write/reload, route directly to #26 and optimize the production path rather than adding certification/audit infrastructure.
 
+## First complete-source attempt: measured findings
+
+Exact head `7a60f9b980c387740fdb921a6e34315dd1702e7b` reached the writer projection after a single parse + graph build but failed before TF publication with:
+
+`line node 5934833 has no measured word locus; reopen schema gate`
+
+The same run measured 7,144,964 KiB maximum RSS and about 3:03 wall time before the failure. This is useful resource evidence for #26, but the immediate #16 blocker is a layout projection edge case, not an OOM.
+
+Research against the existing layout contract shows that a layout marker after the final word is a valid, positionable source event (#23). `_layout_segment()` currently represents such a final zero-width segment with empty `slot_ranges`, while Text-Fabric requires every non-slot node to participate in `oslots`. The intended loss-aware representation is therefore:
+- keep `word` as the sole slot type;
+- keep the exact zero-width source position in the existing boundary fields;
+- keep the layout node's own text as the empty string;
+- give the zero-width layout node a **technical locus on the adjacent real word slot** so it can be serialized through normal `oslots`;
+- never render or otherwise borrow the technical anchor word's text.
+
+This does not introduce a synthetic slot and preserves the previously reviewed own-text rendering rule for layout nodes. A minimal trailing-layout fixture must be RED before changing graph construction.
+
+The same exact-head run also exposed a pre-existing deterministic-writer test weakness: Text-Fabric itself appends volatile `@dateWritten=<utcnow>` metadata to every `.tf` file, so two otherwise identical saves can differ when they cross a clock-second boundary. The writer must normalize only that generated volatile metadata line before publication, and the regression test must force different write times rather than rely on timing luck.
+
+Additional adversarial findings to cover before finalization:
+- an empty source tree should fail at the public converter boundary with an actionable message, not leak a lower-layer graph error;
+- `python -m copticscriptorium_tf.converter` should not produce a `runpy` warning caused by eager package-level import of the same module;
+- the complete-source smoke must load the native document-relation evidence companion edge features as well as the relation edges themselves;
+- README status and local conversion instructions must describe the implemented converter instead of the old research-only state.
+
 ## Finalization gate
 
 Research/plan → RED orchestration tests → minimal converter/API/CLI implementation → fast exact-head tests → full-corpus smoke/resource measurement → any required #26 fix → exact-head retest → logically independent adversarial review → merge #16.
