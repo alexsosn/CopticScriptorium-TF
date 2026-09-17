@@ -1,8 +1,7 @@
-"""Real-TF acceptance tests: RED contract committed ahead of writer implementation."""
+"""Real-TF acceptance tests for issue #15 native writer behavior."""
 from __future__ import annotations
 
 from dataclasses import replace
-import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -66,8 +65,9 @@ def _graph():
 def _reload(path: Path):
     tf = Fabric(locations=[str(path)], silent="deep")
     api = tf.load(
-        "source_record_id scholarly_id norm lemma pos metadata_json metadata_duplicates_json "
-        "dependency_head entity_head same_scholarly witness",
+        "source_record_id scholarly_id norm lemma pos meta_title meta_title__2 meta_license "
+        "dependency_head entity_head same_scholarly same_scholarly_classification "
+        "witness witness_literal witness_target_scholarly_id",
         silent="deep",
     )
     if api is False or api is None:
@@ -116,14 +116,21 @@ class WriterIntegrationTests(unittest.TestCase):
                 if edge.kind in {"dependency_head", "entity_head"}:
                     self.assertIn(edge.target, api.E.__getattribute__(edge.kind).f(edge.source))
                 elif edge.kind == "same_scholarly":
-                    # TF 13.1.0 valued-edge .f(source) returns ((target, value), ...).
-                    self.assertIn((edge.target, edge.classification), api.E.same_scholarly.f(edge.source))
+                    self.assertIn(edge.target, api.E.same_scholarly.f(edge.source))
+                    self.assertEqual(
+                        dict(api.E.same_scholarly_classification.f(edge.source))[edge.target],
+                        edge.classification,
+                    )
                 elif edge.kind == "witness":
-                    evidence = dict(api.E.witness.f(edge.source))[edge.target]
-                    self.assertEqual(json.loads(evidence), {
-                        "witness_literal": edge.witness_literal,
-                        "target_scholarly_id": edge.target_scholarly_id,
-                    })
+                    self.assertIn(edge.target, api.E.witness.f(edge.source))
+                    self.assertEqual(
+                        dict(api.E.witness_literal.f(edge.source))[edge.target],
+                        edge.witness_literal,
+                    )
+                    self.assertEqual(
+                        dict(api.E.witness_target_scholarly_id.f(edge.source))[edge.target],
+                        edge.target_scholarly_id,
+                    )
             entity = next(node for node in graph.nodes if node.otype == "entity")
             head = next(edge.target for edge in graph.edges if edge.kind == "entity_head")
             self.assertIn(head, entity.slots)
@@ -132,7 +139,7 @@ class WriterIntegrationTests(unittest.TestCase):
             self.assertEqual(len({api.F.source_record_id.v(d.id) for d in physical_docs}), 2)
             self.assertEqual(len({api.F.scholarly_id.v(d.id) for d in physical_docs}), 1)
 
-    def test_structured_metadata_and_deterministic_file_bytes(self):
+    def test_native_metadata_and_deterministic_file_bytes(self):
         graph = _graph()
         with TemporaryDirectory() as first_dir, TemporaryDirectory() as second_dir:
             one = write_graph(graph, Path(first_dir) / "corpus")
@@ -141,10 +148,12 @@ class WriterIntegrationTests(unittest.TestCase):
             second = {p.name: p.read_bytes() for p in two.glob("*.tf")}
             self.assertTrue(first)
             self.assertEqual(first, second)
+            self.assertFalse(any(name.endswith("_json.tf") for name in first))
             api = _reload(one)
             document = next(n for n in graph.nodes if n.otype == "document" and n.corpus == "alpha")
-            self.assertIn('"license":"evidence-only"', api.F.metadata_json.v(document.id))
-            self.assertIn('"title"', api.F.metadata_duplicates_json.v(document.id))
+            self.assertEqual(api.F.meta_license.v(document.id), "evidence-only")
+            self.assertEqual(api.F.meta_title.v(document.id), "a")
+            self.assertEqual(api.F.meta_title__2.v(document.id), "a")
 
     def test_graph_validation_fails_before_any_final_output_is_published(self):
         graph = _graph()
