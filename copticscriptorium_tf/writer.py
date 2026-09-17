@@ -144,13 +144,16 @@ def _project(graph: Graph):
         for name in (
             "source_record_id", "source_ordinal", "value", "text", "label",
             "scholarly_id", "corpus", "dataset", "source_path", "source_sha256",
-            "packaging", "parent_node_id", "entity_class", "identity", "head_literal",
+            "packaging", "entity_class", "identity", "head_literal",
             "render_mode", "event_ordinal", "start_word_ordinal", "start_char",
             "start_after_word_ordinal", "end_word_ordinal", "end_char",
             "end_after_word_ordinal",
         ):
             feature_name = "own_text" if name == "text" else name
             put(feature_name, node.id, getattr(node, name))
+
+        if node.parent_node_id is not None:
+            add_unvalued_edge("parent", node.id, node.parent_node_id)
 
         if node.otype == "document":
             metadata = dict(node.metadata)
