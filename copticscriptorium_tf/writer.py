@@ -13,16 +13,17 @@ from tempfile import TemporaryDirectory
 from .graph import Graph, validate_graph
 
 
-_META_SAFE_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]*\Z")
+_META_SAFE_RE = re.compile(r"[a-z][a-z0-9_]*\Z")
 _META_OCCURRENCE_SUFFIX_RE = re.compile(r"__\d+\Z")
 
 
 def _metadata_feature_name(key: str) -> str:
-    """Return a deterministic, TF-safe and injective feature name for a metadata key.
+    """Return a deterministic, TF-safe and filesystem-safe feature name.
 
-    Ordinary Coptic Scriptorium keys remain readable. Keys unsafe for TF feature
-    names, and keys that could collide with the ``__N`` duplicate-occurrence
-    namespace, are represented by reversible UTF-8 hex.
+    Lowercase ASCII Coptic Scriptorium keys remain readable. Keys unsafe for TF
+    feature names, keys with case distinctions that could collide on common
+    case-insensitive filesystems, and keys that could collide with the ``__N``
+    duplicate-occurrence namespace are represented by reversible UTF-8 hex.
     """
     if not isinstance(key, str) or not key:
         raise ValueError("metadata keys must be non-empty strings")
