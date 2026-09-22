@@ -8,6 +8,7 @@ on:
       - 'pyproject.toml'
       - 'copticscriptorium_tf/**'
       - 'tests/test_issue17_agora_materializer.py'
+      - 'tests/test_issue17_license_reporting.py'
   workflow_dispatch:
 
 permissions:
@@ -98,6 +99,9 @@ jobs:
           assert summary['output_path'] == 'tf'
           assert summary['upstream_commit'] == 'unversioned-local'
           assert summary['source_records'] == 2
+          assert summary['missing_license_metadata_source_records'] == [
+              'alpha/alpha:a', 'beta/beta:b',
+          ]
           assert all((root / 'tf' / feature).is_file() for feature in ('otype.tf', 'oslots.tf', 'otext.tf'))
           api = Fabric(locations=[str(root / 'tf')], silent='deep').load(
               'norm lemma pos source_record_id', silent='deep',
