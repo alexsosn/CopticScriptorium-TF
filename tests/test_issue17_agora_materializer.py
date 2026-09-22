@@ -110,8 +110,8 @@ class AgoraAdapterTests(unittest.TestCase):
             )
             self.assertEqual(direct.source_records, 2)
             self.assertEqual(
-                {p.name: p.read_bytes() for p in (output / "tf").glob("*.tf")},
-                {p.name: p.read_bytes() for p in (root / "direct").glob("*.tf")},
+                {p.name: p.read_bytes() for p in (output / "tf").glob("*.tf") if p.is_file()},
+                {p.name: p.read_bytes() for p in (root / "direct").glob("*.tf") if p.is_file()},
             )
 
     def test_zip_only_local_source_without_git_revision_is_explicitly_unversioned(self) -> None:
