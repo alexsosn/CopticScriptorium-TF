@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 concurrency:
   group: issue3-research-${{ github.event.pull_request.number || github.ref }}
@@ -17,7 +18,7 @@ env:
   UPSTREAM_COMMIT: 3ac067f1709a0012daf39ea8da2fac79980176a5
 
 jobs:
-  graph-shape-audit:
+  graph-shape-unit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +33,23 @@ jobs:
           python-version: "3.12"
       - name: Run focused issue 3 tests
         run: python -m unittest discover -s tests -p 'test_issue3_*.py' -v
+
+  graph-shape-census:
+    if: github.event_name == 'workflow_dispatch'
+    needs: graph-shape-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Check out pinned TT sources
         uses: actions/checkout@v4
         with:
