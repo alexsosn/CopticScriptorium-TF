@@ -1,11 +1,10 @@
 """Serialize a validated, writer-independent graph into a local Text-Fabric dataset.
 
 No network access or source-data acquisition happens here. Write into an isolated
-staging directory and publish only after Fabric.save() reports success.
+staging directory and publish only after every Text-Fabric feature batch saves.
 """
 from __future__ import annotations
 
-from collections import defaultdict
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
@@ -16,15 +15,66 @@ from .graph import Graph, validate_graph
 _META_SAFE_RE = re.compile(r"[a-z][a-z0-9_]*\Z")
 _META_OCCURRENCE_SUFFIX_RE = re.compile(r"__\d+\Z")
 
+# (feature name, slot attribute, node attribute, TF value type)
+_SCALAR_FEATURES = (
+    ("source_record_id", "source_record_id", "source_record_id", "str"),
+    ("source_word_ordinal", "source_word_ordinal", None, "int"),
+    ("source_id", "source_id", None, "str"),
+    ("norm", "norm", None, "str"),
+    ("lemma", "lemma", None, "str"),
+    ("pos", "pos", None, "str"),
+    ("func", "func", None, "str"),
+    ("head_literal", "head_literal", "head_literal", "str"),
+    ("dependency_head_ordinal", "dependency_head_ordinal", None, "int"),
+    ("source_text", "source_text", None, "str"),
+    ("source_ordinal", None, "source_ordinal", "int"),
+    ("value", None, "value", "str"),
+    ("own_text", None, "text", "str"),
+    ("label", None, "label", "str"),
+    ("scholarly_id", None, "scholarly_id", "str"),
+    ("corpus", None, "corpus", "str"),
+    ("dataset", None, "dataset", "str"),
+    ("source_path", None, "source_path", "str"),
+    ("source_sha256", None, "source_sha256", "str"),
+    ("packaging", None, "packaging", "str"),
+    ("entity_class", None, "entity_class", "str"),
+    ("identity", None, "identity", "str"),
+    ("render_mode", None, "render_mode", "str"),
+    ("event_ordinal", None, "event_ordinal", "int"),
+    ("start_word_ordinal", None, "start_word_ordinal", "int"),
+    ("start_char", None, "start_char", "int"),
+    ("start_after_word_ordinal", None, "start_after_word_ordinal", "int"),
+    ("end_word_ordinal", None, "end_word_ordinal", "int"),
+    ("end_char", None, "end_char", "int"),
+    ("end_after_word_ordinal", None, "end_after_word_ordinal", "int"),
+)
+
+_EDGE_FEATURES = (
+    "parent",
+    "direct_word",
+    "dependency_head",
+    "entity_head",
+    "same_scholarly",
+    "same_scholarly_classification",
+    "documented_overlap",
+    "documented_overlap_classification",
+    "documented_overlap_family",
+    "witness",
+    "witness_literal",
+    "witness_target_scholarly_id",
+)
+
+_VALUED_EDGE_FEATURES = {
+    "same_scholarly_classification",
+    "documented_overlap_classification",
+    "documented_overlap_family",
+    "witness_literal",
+    "witness_target_scholarly_id",
+}
+
 
 def _metadata_feature_name(key: str) -> str:
-    """Return a deterministic, TF-safe and filesystem-safe feature name.
-
-    Lowercase ASCII Coptic Scriptorium keys remain readable. Keys unsafe for TF
-    feature names, keys with case distinctions that could collide on common
-    case-insensitive filesystems, and keys that could collide with the ``__N``
-    duplicate-occurrence namespace are represented by reversible UTF-8 hex.
-    """
+    """Return a deterministic, TF-safe and filesystem-safe feature name."""
     if not isinstance(key, str) or not key:
         raise ValueError("metadata keys must be non-empty strings")
     if _META_SAFE_RE.fullmatch(key) and not _META_OCCURRENCE_SUFFIX_RE.search(key):
@@ -37,15 +87,76 @@ def _slot_ids(ranges):
         yield from range(first, last + 1)
 
 
-def _diplomatic_features(graph: Graph, node_features: dict[str, dict[int, str | int]]) -> None:
-    """Project independently sourced diplomatic surfaces without extra slots.
+def _global_metadata(graph: Graph) -> dict[str, str]:
+    return {
+        "upstreamRepository": graph.upstream_repository,
+        "upstreamCommit": graph.upstream_commit,
+    }
 
-    Source original units override per-word fallback. Nested original-group
-    literals have final authority over child originals; direct words under a
-    norm-group retain their own source text. Only group-final words receive a
-    separator; group-internal words concatenate. Layout nodes separately own
-    their character-accurate, potentially word-internal source text.
-    """
+
+def _batch_metadata(
+    graph: Graph,
+    *features: tuple[str, str, bool],
+) -> dict[str, dict[str, str | bool]]:
+    """Metadata for exactly the feature maps present in one save batch."""
+    metadata: dict[str, dict[str, str | bool]] = {"": _global_metadata(graph)}
+    for name, value_type, edge_values in features:
+        feature_metadata: dict[str, str | bool] = {"valueType": value_type}
+        if edge_values:
+            feature_metadata["edgeValues"] = True
+        metadata[name] = feature_metadata
+    return metadata
+
+
+def _put_scalar(
+    data: dict[int, str | int],
+    feature_name: str,
+    node_id: int,
+    value: str | int | None,
+    value_type: str,
+) -> None:
+    if value is None:
+        return
+    expected = int if value_type == "int" else str
+    if isinstance(value, bool) or not isinstance(value, expected):
+        raise ValueError(
+            f"unsupported value type for {feature_name}: {type(value).__name__}; "
+            f"expected {value_type}"
+        )
+    data[node_id] = value
+
+
+def _scalar_feature_data(
+    graph: Graph,
+    feature_name: str,
+    slot_attribute: str | None,
+    node_attribute: str | None,
+    value_type: str,
+) -> dict[int, str | int]:
+    data: dict[int, str | int] = {}
+    if slot_attribute is not None:
+        for slot in graph.slots:
+            _put_scalar(
+                data,
+                feature_name,
+                slot.id,
+                getattr(slot, slot_attribute),
+                value_type,
+            )
+    if node_attribute is not None:
+        for node in graph.nodes:
+            _put_scalar(
+                data,
+                feature_name,
+                node.id,
+                getattr(node, node_attribute),
+                value_type,
+            )
+    return data
+
+
+def _diplomatic_feature_data(graph: Graph) -> dict[str, dict[int, str]]:
+    """Project independently sourced diplomatic surfaces without extra slots."""
     surfaces = {slot.id: slot.source_text for slot in graph.slots if slot.source_text}
     separators = {slot.id: " " for slot in graph.slots}
 
@@ -80,167 +191,172 @@ def _diplomatic_features(graph: Graph, node_features: dict[str, dict[int, str | 
             for slot_id in ids[1:]:
                 surfaces.pop(slot_id, None)
 
-    node_features["diplomatic_surface"] = surfaces
-    node_features["diplomatic_after"] = separators
-
-
-def _project(graph: Graph):
-    """Produce TF typed scalar features and directed edge maps without renumbering."""
-    node_features: dict[str, dict[int, str | int]] = defaultdict(dict)
-    edge_features: dict[str, dict[int, object]] = defaultdict(dict)
-    value_types: dict[str, str] = {}
-    valued_edge_features: set[str] = set()
-
-    node_features["otype"] = {slot.id: "word" for slot in graph.slots}
-    for node in graph.nodes:
-        node_features["otype"][node.id] = node.otype
-        if not node.slot_ranges:
-            raise ValueError(f"{node.otype} node {node.id} has no measured word locus; reopen schema gate")
-        edge_features["oslots"][node.id] = set(_slot_ids(node.slot_ranges))
-
-    def put(name: str, node_id: int, value: str | int | None) -> None:
-        if value is None:
-            return
-        if not isinstance(value, (str, int)) or isinstance(value, bool):
-            raise ValueError(f"unsupported value type for {name}: {type(value).__name__}")
-        kind = "int" if isinstance(value, int) else "str"
-        previous = value_types.setdefault(name, kind)
-        if previous != kind:
-            raise ValueError(f"mixed TF value types for {name}")
-        node_features[name][node_id] = value
-
-    def add_unvalued_edge(name: str, source: int, target: int) -> None:
-        targets = edge_features[name].setdefault(source, set())
-        if not isinstance(targets, set):
-            raise ValueError(f"edge feature {name} mixes valued and unvalued edges")
-        if target in targets:
-            raise ValueError(f"duplicate {name} edge for {source}->{target}")
-        targets.add(target)
-
-    def add_valued_edge(name: str, source: int, target: int, value: str | None) -> None:
-        if value is None:
-            return
-        if not isinstance(value, str):
-            raise ValueError(f"valued edge {name} requires a string value")
-        targets = edge_features[name].setdefault(source, {})
-        if not isinstance(targets, dict):
-            raise ValueError(f"edge feature {name} mixes valued and unvalued edges")
-        if target in targets:
-            raise ValueError(f"duplicate {name} edge value for {source}->{target}")
-        targets[target] = value
-        valued_edge_features.add(name)
-
-    for slot in graph.slots:
-        for name in (
-            "source_record_id", "source_word_ordinal", "source_id", "norm", "lemma",
-            "pos", "func", "head_literal", "dependency_head_ordinal", "source_text",
-        ):
-            put(name, slot.id, getattr(slot, name))
-
-    _diplomatic_features(graph, node_features)
-    value_types["diplomatic_surface"] = "str"
-    value_types["diplomatic_after"] = "str"
-
-    for node in graph.nodes:
-        for name in (
-            "source_record_id", "source_ordinal", "value", "text", "label",
-            "scholarly_id", "corpus", "dataset", "source_path", "source_sha256",
-            "packaging", "entity_class", "identity", "head_literal",
-            "render_mode", "event_ordinal", "start_word_ordinal", "start_char",
-            "start_after_word_ordinal", "end_word_ordinal", "end_char",
-            "end_after_word_ordinal",
-        ):
-            feature_name = "own_text" if name == "text" else name
-            put(feature_name, node.id, getattr(node, name))
-
-        if node.parent_node_id is not None:
-            add_unvalued_edge("parent", node.id, node.parent_node_id)
-
-        if node.otype == "document":
-            metadata = dict(node.metadata)
-            for key, value in node.metadata:
-                put(_metadata_feature_name(key), node.id, value)
-            for key, values in node.metadata_duplicates:
-                if key not in metadata:
-                    raise ValueError(f"duplicate metadata key {key!r} has no primary value")
-                if not values or values[0] != metadata[key]:
-                    raise ValueError(
-                        f"duplicate metadata evidence for {key!r} does not preserve the primary source value"
-                    )
-                for occurrence, value in enumerate(values[1:], start=2):
-                    put(f"{_metadata_feature_name(key)}__{occurrence}", node.id, value)
-
-        if node.direct_word_slots:
-            for slot_id in node.direct_word_slots:
-                add_unvalued_edge("direct_word", node.id, slot_id)
-
-    for edge in graph.edges:
-        if edge.kind in {"dependency_head", "entity_head"}:
-            add_unvalued_edge(edge.kind, edge.source, edge.target)
-        elif edge.kind == "same_scholarly":
-            add_unvalued_edge("same_scholarly", edge.source, edge.target)
-            add_valued_edge(
-                "same_scholarly_classification",
-                edge.source,
-                edge.target,
-                edge.classification,
-            )
-        elif edge.kind == "documented_overlap":
-            add_unvalued_edge("documented_overlap", edge.source, edge.target)
-            add_valued_edge(
-                "documented_overlap_classification",
-                edge.source,
-                edge.target,
-                edge.classification,
-            )
-            add_valued_edge(
-                "documented_overlap_family",
-                edge.source,
-                edge.target,
-                edge.family,
-            )
-        elif edge.kind == "witness":
-            add_unvalued_edge("witness", edge.source, edge.target)
-            add_valued_edge(
-                "witness_literal",
-                edge.source,
-                edge.target,
-                edge.witness_literal,
-            )
-            add_valued_edge(
-                "witness_target_scholarly_id",
-                edge.source,
-                edge.target,
-                edge.target_scholarly_id,
-            )
-        else:
-            raise ValueError(f"unknown graph edge kind {edge.kind!r}")
-
-    metadata: dict[str, dict[str, str | bool]] = {
-        name: {"valueType": value_type}
-        for name, value_type in value_types.items()
+    return {
+        "diplomatic_surface": surfaces,
+        "diplomatic_after": separators,
     }
-    metadata["otype"] = {"valueType": "str"}
-    for name in edge_features:
-        metadata[name] = {"valueType": "str"}
-        if name in valued_edge_features:
-            metadata[name]["edgeValues"] = True
 
+
+def _metadata_descriptors(graph: Graph) -> tuple[tuple[str, str, int], ...]:
+    """Return collision-checked (feature, source key, occurrence) descriptors."""
+    descriptors: dict[str, tuple[str, int]] = {}
+    for node in graph.nodes:
+        if node.otype != "document":
+            continue
+        metadata = dict(node.metadata)
+        for key, value in node.metadata:
+            if not isinstance(value, str):
+                raise ValueError(f"metadata value for {key!r} must be a string")
+            feature_name = _metadata_feature_name(key)
+            descriptor = (key, 1)
+            previous = descriptors.setdefault(feature_name, descriptor)
+            if previous != descriptor:
+                raise ValueError(f"metadata feature-name collision for {feature_name!r}")
+        for key, values in node.metadata_duplicates:
+            if key not in metadata:
+                raise ValueError(f"duplicate metadata key {key!r} has no primary value")
+            if not values or values[0] != metadata[key]:
+                raise ValueError(
+                    f"duplicate metadata evidence for {key!r} does not preserve the primary source value"
+                )
+            for occurrence, value in enumerate(values[1:], start=2):
+                if not isinstance(value, str):
+                    raise ValueError(f"metadata value for {key!r} must be a string")
+                feature_name = f"{_metadata_feature_name(key)}__{occurrence}"
+                descriptor = (key, occurrence)
+                previous = descriptors.setdefault(feature_name, descriptor)
+                if previous != descriptor:
+                    raise ValueError(f"metadata feature-name collision for {feature_name!r}")
+    return tuple(
+        (feature_name, key, occurrence)
+        for feature_name, (key, occurrence) in sorted(descriptors.items())
+    )
+
+
+def _metadata_feature_data(
+    graph: Graph,
+    key: str,
+    occurrence: int,
+) -> dict[int, str]:
+    data: dict[int, str] = {}
+    for node in graph.nodes:
+        if node.otype != "document":
+            continue
+        if occurrence == 1:
+            value = dict(node.metadata).get(key)
+        else:
+            values = dict(node.metadata_duplicates).get(key, ())
+            value = values[occurrence - 1] if len(values) >= occurrence else None
+        if value is not None:
+            if not isinstance(value, str):
+                raise ValueError(f"metadata value for {key!r} must be a string")
+            data[node.id] = value
+    return data
+
+
+def _add_unvalued_edge(
+    data: dict[int, set[int]],
+    feature_name: str,
+    source: int,
+    target: int,
+) -> None:
+    targets = data.setdefault(source, set())
+    if target in targets:
+        raise ValueError(f"duplicate {feature_name} edge for {source}->{target}")
+    targets.add(target)
+
+
+def _add_valued_edge(
+    data: dict[int, dict[int, str]],
+    feature_name: str,
+    source: int,
+    target: int,
+    value: str | None,
+) -> None:
+    if value is None:
+        return
+    if not isinstance(value, str):
+        raise ValueError(f"valued edge {feature_name} requires a string value")
+    targets = data.setdefault(source, {})
+    if target in targets:
+        raise ValueError(f"duplicate {feature_name} edge value for {source}->{target}")
+    targets[target] = value
+
+
+def _edge_feature_data(graph: Graph, feature_name: str) -> dict[int, object]:
+    if feature_name == "parent":
+        data: dict[int, set[int]] = {}
+        for node in graph.nodes:
+            if node.parent_node_id is not None:
+                _add_unvalued_edge(data, feature_name, node.id, node.parent_node_id)
+        return data
+
+    if feature_name == "direct_word":
+        data = {}
+        for node in graph.nodes:
+            for slot_id in node.direct_word_slots:
+                _add_unvalued_edge(data, feature_name, node.id, slot_id)
+        return data
+
+    unvalued_kind = {
+        "dependency_head": "dependency_head",
+        "entity_head": "entity_head",
+        "same_scholarly": "same_scholarly",
+        "documented_overlap": "documented_overlap",
+        "witness": "witness",
+    }.get(feature_name)
+    if unvalued_kind is not None:
+        data = {}
+        for edge in graph.edges:
+            if edge.kind == unvalued_kind:
+                _add_unvalued_edge(data, feature_name, edge.source, edge.target)
+        return data
+
+    valued_source = {
+        "same_scholarly_classification": ("same_scholarly", "classification"),
+        "documented_overlap_classification": ("documented_overlap", "classification"),
+        "documented_overlap_family": ("documented_overlap", "family"),
+        "witness_literal": ("witness", "witness_literal"),
+        "witness_target_scholarly_id": ("witness", "target_scholarly_id"),
+    }.get(feature_name)
+    if valued_source is None:
+        raise ValueError(f"unknown TF edge feature {feature_name!r}")
+    kind, attribute = valued_source
+    valued: dict[int, dict[int, str]] = {}
+    for edge in graph.edges:
+        if edge.kind == kind:
+            _add_valued_edge(
+                valued,
+                feature_name,
+                edge.source,
+                edge.target,
+                getattr(edge, attribute),
+            )
+    return valued
+
+
+def _otext_metadata(graph: Graph) -> dict[str, str]:
     otext: dict[str, str] = {
         "sectionTypes": "document",
         "sectionFeatures": "source_record_id",
     }
-    if node_features.get("norm"):
+    if any(slot.norm is not None for slot in graph.slots):
         otext["fmt:text-orig-full"] = "{norm} "
-    if node_features.get("diplomatic_surface") and node_features.get("diplomatic_after"):
+
+    has_diplomatic_surface = any(slot.source_text for slot in graph.slots) or any(
+        node.otype in {"orig", "orig_group"} and node.value is not None
+        for node in graph.nodes
+    )
+    if graph.slots and has_diplomatic_surface:
         otext["fmt:text-diplomatic-full"] = "{diplomatic_surface}{diplomatic_after}"
-    if node_features.get("value"):
+
+    if any(node.value is not None for node in graph.nodes):
         otext.update({
             "fmt:orig-default": "orig#{value}",
             "fmt:norm_group-default": "norm_group#{value}",
             "fmt:orig_group-default": "orig_group#{value}",
         })
-    if node_features.get("own_text"):
+    if any(node.text is not None for node in graph.nodes):
         otext.update({
             "fmt:translation-default": "translation#{own_text}",
             "fmt:arabic_translation-default": "arabic_translation#{own_text}",
@@ -248,12 +364,140 @@ def _project(graph: Graph):
             "fmt:column-default": "column#{own_text}",
             "fmt:line-default": "line#{own_text}",
         })
-    metadata["otext"] = otext
-    metadata[""] = {
-        "upstreamRepository": graph.upstream_repository,
-        "upstreamCommit": graph.upstream_commit,
-    }
-    return dict(node_features), dict(edge_features), metadata
+    return otext
+
+
+def _projection_specs(graph: Graph):
+    """Yield small descriptors; no descriptor retains projected feature data."""
+    yield ("warp", None)
+    for spec in _SCALAR_FEATURES:
+        yield ("scalar", spec)
+    yield ("diplomatic", None)
+    for descriptor in _metadata_descriptors(graph):
+        yield ("metadata", descriptor)
+    for feature_name in _EDGE_FEATURES:
+        yield ("edge", feature_name)
+    yield ("otext", None)
+
+
+def _project_batch(graph: Graph, spec):
+    """Materialize at most one ordinary feature, or the two-feature warp/text batch."""
+    kind, detail = spec
+
+    if kind == "warp":
+        otype = {slot.id: "word" for slot in graph.slots}
+        oslots: dict[int, set[int]] = {}
+        for node in graph.nodes:
+            otype[node.id] = node.otype
+            if not node.slot_ranges:
+                raise ValueError(
+                    f"{node.otype} node {node.id} has no measured word locus; reopen schema gate"
+                )
+            oslots[node.id] = set(_slot_ids(node.slot_ranges))
+        return (
+            {"otype": otype},
+            {"oslots": oslots},
+            _batch_metadata(
+                graph,
+                ("otype", "str", False),
+                ("oslots", "str", False),
+            ),
+        )
+
+    if kind == "scalar":
+        feature_name, slot_attribute, node_attribute, value_type = detail
+        data = _scalar_feature_data(
+            graph,
+            feature_name,
+            slot_attribute,
+            node_attribute,
+            value_type,
+        )
+        if not data:
+            return {}, {}, {"": _global_metadata(graph)}
+        return (
+            {feature_name: data},
+            {},
+            _batch_metadata(graph, (feature_name, value_type, False)),
+        )
+
+    if kind == "diplomatic":
+        data = _diplomatic_feature_data(graph)
+        return (
+            data,
+            {},
+            _batch_metadata(
+                graph,
+                ("diplomatic_surface", "str", False),
+                ("diplomatic_after", "str", False),
+            ),
+        )
+
+    if kind == "metadata":
+        feature_name, key, occurrence = detail
+        data = _metadata_feature_data(graph, key, occurrence)
+        if not data:
+            return {}, {}, {"": _global_metadata(graph)}
+        return (
+            {feature_name: data},
+            {},
+            _batch_metadata(graph, (feature_name, "str", False)),
+        )
+
+    if kind == "edge":
+        feature_name = detail
+        data = _edge_feature_data(graph, feature_name)
+        if not data:
+            return {}, {}, {"": _global_metadata(graph)}
+        return (
+            {},
+            {feature_name: data},
+            _batch_metadata(
+                graph,
+                (feature_name, "str", feature_name in _VALUED_EDGE_FEATURES),
+            ),
+        )
+
+    if kind == "otext":
+        return (
+            {},
+            {},
+            {
+                "": _global_metadata(graph),
+                "otext": _otext_metadata(graph),
+            },
+        )
+
+    raise ValueError(f"unknown projection batch kind {kind!r}")
+
+
+def _project(graph: Graph):
+    """Compatibility/debug helper that aggregates the incremental projection.
+
+    Production writing deliberately does not call this function because doing so
+    retains every projected feature map simultaneously.
+    """
+    node_features: dict[str, dict[int, str | int]] = {}
+    edge_features: dict[str, dict[int, object]] = {}
+    metadata: dict[str, dict[str, str | bool]] = {}
+    for spec in _projection_specs(graph):
+        batch_nodes, batch_edges, batch_metadata = _project_batch(graph, spec)
+        overlap = set(node_features).intersection(batch_nodes)
+        if overlap:
+            raise ValueError(f"duplicate projected node features: {sorted(overlap)}")
+        overlap = set(edge_features).intersection(batch_edges)
+        if overlap:
+            raise ValueError(f"duplicate projected edge features: {sorted(overlap)}")
+        node_features.update(batch_nodes)
+        edge_features.update(batch_edges)
+        for name, values in batch_metadata.items():
+            if name == "":
+                metadata.setdefault("", {}).update(values)
+            elif name in metadata and metadata[name] != values:
+                raise ValueError(f"conflicting projected metadata for {name}")
+            else:
+                metadata[name] = dict(values)
+    return node_features, edge_features, metadata
 
 
 def _remove_volatile_tf_write_metadata(directory: Path) -> None:
@@ -279,21 +523,36 @@ def write_graph(graph: Graph, destination: Path | str) -> Path:
     target = Path(destination)
     if target.exists():
         raise FileExistsError(f"refusing to overwrite existing TF dataset: {target}")
-    node_features, edge_features, metadata = _project(graph)
     from tf.fabric import Fabric
 
     target.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix=".tf-staging-", dir=target.parent) as temporary:
         staging = Path(temporary)
         fabric = Fabric(locations=[str(staging)], silent="deep")
-        success = fabric.save(
-            nodeFeatures=node_features,
-            edgeFeatures=edge_features,
-            metaData=metadata,
-            silent="deep",
-        )
-        if not success:
-            raise ValueError("Text-Fabric save failed; no dataset published")
+        specs = iter(_projection_specs(graph))
+        while True:
+            try:
+                spec = next(specs)
+            except StopIteration:
+                break
+            node_features, edge_features, metadata = _project_batch(graph, spec)
+            if not node_features and not edge_features and set(metadata) == {""}:
+                del node_features, edge_features, metadata
+                continue
+            success = fabric.save(
+                nodeFeatures=node_features,
+                edgeFeatures=edge_features,
+                metaData=metadata,
+                silent="deep",
+            )
+            batch_label = ",".join(
+                sorted((*node_features.keys(), *edge_features.keys(), *(k for k in metadata if k)))
+            )
+            del node_features, edge_features, metadata
+            if not success:
+                raise ValueError(
+                    f"Text-Fabric save failed for batch {batch_label}; no dataset published"
+                )
         required = ("otype.tf", "oslots.tf", "otext.tf")
         if any(not (staging / name).is_file() for name in required):
             raise ValueError("Text-Fabric omitted mandatory warp/otext files")
