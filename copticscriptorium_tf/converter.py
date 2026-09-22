@@ -39,10 +39,14 @@ class ConversionResult:
     graph_seconds: float
     write_seconds: float
     peak_rss_mb: float
+    missing_license_metadata_source_records: tuple[str, ...]
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["output_path"] = str(self.output_path)
+        data["missing_license_metadata_source_records"] = list(
+            self.missing_license_metadata_source_records
+        )
         return data
 
 
@@ -84,6 +88,16 @@ def convert_source_tree(
     if not documents:
         raise ValueError(f"no supported TT source records found under {Path(source_root)}")
 
+    # Preserve literal per-document license metadata as TF features. Surface only
+    # absence/blank values in the operational report, without assigning an
+    # aggregate license or attempting to judge upstream license eligibility.
+    # The parser already has the document models: do not reread the source tree.
+    missing_license_metadata_source_records = tuple(
+        document.source_record_id
+        for document in documents
+        if not document.metadata.get("license", "").strip()
+    )
+
     graph_started = monotonic()
     graph = build_graph(documents)
     graph_seconds = monotonic() - graph_started
@@ -113,6 +127,7 @@ def convert_source_tree(
         graph_seconds=graph_seconds,
         write_seconds=write_seconds,
         peak_rss_mb=_peak_rss_mb(),
+        missing_license_metadata_source_records=missing_license_metadata_source_records,
     )
 
 

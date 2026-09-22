@@ -1,0 +1,112 @@
+name: issue17-agora
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue17-agora.yml'
+      - 'agora.materializer.json'
+      - 'pyproject.toml'
+      - 'copticscriptorium_tf/**'
+      - 'tests/test_issue17_agora_materializer.py'
+      - 'tests/test_issue17_license_reporting.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-agora-host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact converter head
+        uses: actions/checkout@v4
+
+      - name: Check out immutable Agora reference
+        uses: actions/checkout@v4
+        with:
+          repository: alexsosn/Agora
+          ref: 626dd3b34bced339ef4b07d179dae4cf61f114e0
+          path: .reference/agora
+          persist-credentials: false
+
+      - name: Verify exact Agora reference
+        run: test "$(git -C .reference/agora rev-parse HEAD)" = 626dd3b34bced339ef4b07d179dae4cf61f114e0
+
+      - name: Install Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install wheel and Agora validation dependencies
+        run: python -m pip install . 'jsonschema>=4,<5'
+
+      - name: Validate manifest using actual Agora schema and loader
+        run: |
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path('.reference/agora').resolve()))
+          from scripts.agora_materialize import load_manifest, select_materializer
+          manifest = load_manifest(Path('agora.materializer.json'))
+          item = select_materializer(manifest, 'copticscriptorium-text-fabric')
+          assert item['execution']['network'] == 'deny'
+          print('Agora manifest schema and semantics: valid')
+          PY
+
+      - name: Install bubblewrap and enable user namespaces
+        run: |
+          sudo apt-get update && sudo apt-get install -y bubblewrap
+          if [[ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          bwrap --unshare-all --ro-bind / / /bin/true
+
+      - name: Prepare mixed direct and ZIP TT source fixture
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, 'tests')
+          from test_issue17_agora_materializer import _sources
+          _sources(Path(os.environ['RUNNER_TEMP']) / 'coptic-source', direct=True, archive=True)
+          PY
+
+      - name: Materialize via real Agora network-denied sandbox
+        run: |
+          python .reference/agora/scripts/agora_materialize.py \
+            --manifest agora.materializer.json \
+            --materializer copticscriptorium-text-fabric \
+            --source "$RUNNER_TEMP/coptic-source" \
+            --output "$RUNNER_TEMP/coptic-output"
+
+      - name: Verify host provenance, native TF and clean load
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from tf.fabric import Fabric
+          root = Path(os.environ['RUNNER_TEMP']) / 'coptic-output'
+          provenance = json.loads((root / 'agora-materialization.json').read_text(encoding='utf-8'))
+          summary = json.loads((root / 'conversion-summary.json').read_text(encoding='utf-8'))
+          assert provenance['plugin']['id'] == 'copticscriptorium-tf'
+          assert provenance['materializer'] == 'copticscriptorium-text-fabric'
+          assert provenance['source']['type'] == 'user-local'
+          assert len(provenance['source']['tree_sha256']) == 64
+          assert provenance['sandbox'] == 'bubblewrap'
+          assert summary['output_path'] == 'tf'
+          assert summary['upstream_commit'] == 'unversioned-local'
+          assert summary['source_records'] == 2
+          assert summary['missing_license_metadata_source_records'] == [
+              'alpha/alpha:a', 'beta/beta:b',
+          ]
+          assert all((root / 'tf' / feature).is_file() for feature in ('otype.tf', 'oslots.tf', 'otext.tf'))
+          api = Fabric(locations=[str(root / 'tf')], silent='deep').load(
+              'norm lemma pos source_record_id', silent='deep',
+          )
+          assert api and api.F.otype.maxSlot == 2
+          assert {api.F.norm.v(i) for i in (1, 2)} == {'a', 'b'}
+          print('Agora real-sandbox local materialization: valid')
+          PY

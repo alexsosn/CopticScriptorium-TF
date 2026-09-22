@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "plugin": {
+    "id": "copticscriptorium-tf",
+    "name": "CopticScriptorium-TF",
+    "version": "0.1.0",
+    "repository": "alexsosn/CopticScriptorium-TF"
+  },
+  "materializers": [
+    {
+      "id": "copticscriptorium-text-fabric",
+      "description": "Convert Coptic Scriptorium TT source trees into one native local Text-Fabric corpus.",
+      "acquisition": [
+        {
+          "type": "git",
+          "url": "https://github.com/CopticScriptorium/corpora.git",
+          "ref": "3ac067f1709a0012daf39ea8da2fac79980176a5",
+          "subpath": "."
+        },
+        {
+          "type": "user-local",
+          "path_type": "directory",
+          "prompt": "Select the root of a Coptic Scriptorium source tree (containing corpus/dataset_TT or corpus/dataset_TT.zip)"
+        }
+      ],
+      "input": {
+        "type": "directory",
+        "required_globs": ["*/*_TT*"],
+        "allow_symlinks": false
+      },
+      "execution": {
+        "type": "python-module",
+        "module": "copticscriptorium_tf.agora",
+        "args": ["{source}", "{output}", "--source-revision", "{source_revision}"],
+        "network": "deny"
+      },
+      "output": {
+        "format": "text-fabric",
+        "required_paths": [
+          "tf/otype.tf",
+          "tf/oslots.tf",
+          "tf/otext.tf",
+          "conversion-summary.json"
+        ]
+      }
+    }
+  ]
+}
