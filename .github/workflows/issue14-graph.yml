@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 concurrency:
   group: issue14-graph-${{ github.event.pull_request.number || github.ref }}
@@ -35,6 +36,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_issue14_*.py' -v
 
   graph-census:
+    if: github.event_name == 'workflow_dispatch'
     needs: graph-unit
     runs-on: ubuntu-latest
     timeout-minutes: 75

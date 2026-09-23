@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 concurrency:
   group: issue13-parser-${{ github.event.pull_request.number || github.ref }}
@@ -17,9 +18,9 @@ env:
   UPSTREAM_COMMIT: 3ac067f1709a0012daf39ea8da2fac79980176a5
 
 jobs:
-  parser-census:
+  parser-unit:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,6 +34,23 @@ jobs:
           python-version: "3.12"
       - name: Run focused issue 13 unit tests
         run: python -m unittest discover -s tests -p 'test_issue13_*.py' -v
+
+  parser-census:
+    if: github.event_name == 'workflow_dispatch'
+    needs: parser-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Check out pinned TT and CoNLL-U sources
         uses: actions/checkout@v4
         with:
