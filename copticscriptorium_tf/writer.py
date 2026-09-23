@@ -521,7 +521,7 @@ def write_graph(graph: Graph, destination: Path | str) -> Path:
     if errors:
         raise ValueError("graph validation failed: " + "; ".join(errors[:8]))
     target = Path(destination)
-    if target.exists():
+    if target.exists() or target.is_symlink():
         raise FileExistsError(f"refusing to overwrite existing TF dataset: {target}")
     from tf.fabric import Fabric
 
