@@ -74,7 +74,7 @@ def convert_source_tree(
     orchestration, phase timings, and object lifetime between phases.
     """
     target = Path(destination)
-    if target.exists():
+    if target.exists() or target.is_symlink():
         raise FileExistsError(f"refusing to overwrite existing TF dataset: {target}")
 
     parse_started = monotonic()
