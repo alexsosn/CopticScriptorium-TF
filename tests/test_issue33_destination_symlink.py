@@ -24,7 +24,10 @@ class DanglingDestinationTests(unittest.TestCase):
     def _dangling_link(self, root: Path) -> tuple[Path, str]:
         target = root / "missing-target"
         link = root / "output-tf"
-        link.symlink_to(target)
+        try:
+            link.symlink_to(target)
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f"symlink creation unavailable: {error}")
         self.assertTrue(link.is_symlink())
         self.assertFalse(link.exists())
         return link, os.readlink(link)
