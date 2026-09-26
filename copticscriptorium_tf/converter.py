@@ -131,6 +131,13 @@ def convert_source_tree(
     )
 
 
+def _summary_is_within_destination(summary: Path, destination: Path) -> bool:
+    """Return whether operational metadata would land in the TF dataset."""
+    resolved_summary = summary.resolve(strict=False)
+    resolved_destination = destination.resolve(strict=False)
+    return resolved_summary == resolved_destination or resolved_destination in resolved_summary.parents
+
+
 def _write_summary(path: Path, result: ConversionResult) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -151,6 +158,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if args.summary is not None and _summary_is_within_destination(
+            args.summary, args.destination
+        ):
+            raise ValueError("summary path must be outside the TF destination")
         result = convert_source_tree(
             args.source_root,
             args.destination,
