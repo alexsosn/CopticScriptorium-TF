@@ -27,7 +27,7 @@ python -m copticscriptorium_tf.converter \
 
 Supported input discovery includes both direct `<corpus>/<dataset>_TT/*.tt` datasets and `<corpus>/<dataset>_TT.zip` packages. The destination must not already exist. The repository/commit arguments record provenance for the local tree; conversion does not fetch data from the network.
 
-The JSON summary contains operational counts, phase timings, output size, peak process RSS where available, and source records missing a literal license metadata field. It does not assign an aggregate license verdict and does not certify the corpus.
+The JSON summary contains operational counts, phase timings, output size, peak process RSS where available, and source records missing a literal license metadata field. It is operational metadata and must be written outside the TF destination; the converter rejects summary paths equal to or nested under that destination before conversion starts. It does not assign an aggregate license verdict and does not certify the corpus.
 
 ## Load and query
 
