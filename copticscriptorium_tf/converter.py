@@ -138,12 +138,21 @@ def _summary_is_within_destination(summary: Path, destination: Path) -> bool:
     return resolved_summary == resolved_destination or resolved_destination in resolved_summary.parents
 
 
+def _validate_summary_path(summary: Path, destination: Path) -> None:
+    """Require fresh operational metadata outside the native TF dataset."""
+    if _summary_is_within_destination(summary, destination):
+        raise ValueError("summary path must be outside the TF destination")
+    if summary.exists() or summary.is_symlink():
+        raise FileExistsError(f"refusing to overwrite existing conversion summary: {summary}")
+
+
 def _write_summary(path: Path, result: ConversionResult) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(result.to_dict(), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    payload = json.dumps(result.to_dict(), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    # Exclusive creation preserves the freshness contract if another process creates
+    # the path after CLI preflight but before conversion finishes.
+    with path.open("x", encoding="utf-8") as handle:
+        handle.write(payload)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -158,10 +167,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        if args.summary is not None and _summary_is_within_destination(
-            args.summary, args.destination
-        ):
-            raise ValueError("summary path must be outside the TF destination")
+        if args.summary is not None:
+            _validate_summary_path(args.summary, args.destination)
         result = convert_source_tree(
             args.source_root,
             args.destination,

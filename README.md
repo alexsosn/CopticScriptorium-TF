@@ -27,7 +27,7 @@ python -m copticscriptorium_tf.converter \
 
 Supported input discovery includes both direct `<corpus>/<dataset>_TT/*.tt` datasets and `<corpus>/<dataset>_TT.zip` packages. The destination must not already exist. The repository/commit arguments record provenance for the local tree; conversion does not fetch data from the network.
 
-The JSON summary contains operational counts, phase timings, output size, peak process RSS where available, and source records missing a literal license metadata field. It is operational metadata and must be written outside the TF destination; the converter rejects summary paths equal to or nested under that destination before conversion starts. It does not assign an aggregate license verdict and does not certify the corpus.
+The JSON summary contains operational counts, phase timings, output size, peak process RSS where available, and source records missing a literal license metadata field. It is operational metadata and must use a fresh path outside the TF destination; the converter rejects summary paths that already exist (including symlinks) or are equal to/nested under the TF destination before conversion starts. It does not assign an aggregate license verdict and does not certify the corpus.
 
 ## Load and query
 
@@ -144,7 +144,7 @@ CopticScriptorium-TF is **not yet canonically registered** in Agora, and automat
 
 If conversion reports `no supported TT source records`, check that the selected root contains direct `<corpus>/<dataset>_TT/*.tt` data or `<corpus>/<dataset>_TT.zip` archives. Unsupported nested layouts fail explicitly rather than being guessed.
 
-If the destination already exists, choose a fresh output path. The direct converter refuses to overwrite an existing TF directory, and the Agora adapter requires the host-created staging directory to be empty before it creates its `tf/` child.
+If the destination already exists, choose a fresh output path. The direct converter refuses to overwrite an existing TF directory, and the Agora adapter requires the host-created staging directory to be empty before it creates its `tf/` child. Likewise, `--summary` must name a fresh non-symlink path outside the TF destination; existing summary files/directories are never overwritten.
 
 For load failures, use the package-pinned `text-fabric==13.1.0` environment and load the generated directory itself. Feature names are ordinary `*.tf` filenames and can be inspected before deciding which subset to load.
 
