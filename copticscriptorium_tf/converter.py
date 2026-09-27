@@ -156,11 +156,22 @@ def _summary_is_within_destination(summary: Path, destination: Path) -> bool:
 
 
 def _validate_summary_path(summary: Path, destination: Path) -> None:
-    """Require fresh operational metadata outside the native TF dataset."""
+    """Require fresh, creatable operational metadata outside the native TF dataset."""
     if _summary_is_within_destination(summary, destination):
         raise ValueError("summary path must be outside the TF destination")
     if summary.exists() or summary.is_symlink():
         raise FileExistsError(f"refusing to overwrite existing conversion summary: {summary}")
+
+    ancestor = summary.parent
+    while not ancestor.exists() and not ancestor.is_symlink():
+        parent = ancestor.parent
+        if parent == ancestor:
+            break
+        ancestor = parent
+    if not ancestor.is_dir():
+        raise NotADirectoryError(
+            f"summary parent path has non-directory ancestor: {ancestor}"
+        )
 
 
 def _write_summary(path: Path, result: ConversionResult) -> None:
