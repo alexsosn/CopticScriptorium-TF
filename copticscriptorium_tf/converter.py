@@ -20,7 +20,7 @@ from .parser import parse_source_tree
 from .writer import write_graph
 
 _LOCAL_UNVERSIONED = "unversioned-local"
-_IMMUTABLE_COMMIT_RE = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\\Z")
+_IMMUTABLE_COMMIT_RE = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
 
 
 def validate_upstream_commit(value: str) -> str:
