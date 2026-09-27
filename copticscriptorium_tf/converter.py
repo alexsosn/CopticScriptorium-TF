@@ -19,17 +19,17 @@ from .graph import build_graph
 from .parser import parse_source_tree
 from .writer import write_graph
 
-_LOCAL_UNVERSIONED = "unversioned-local"
+UNVERSIONED_LOCAL = "unversioned-local"
 _IMMUTABLE_COMMIT_RE = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
 
 
 def validate_upstream_commit(value: str) -> str:
     """Validate immutable source provenance without performing network lookup."""
-    if value == _LOCAL_UNVERSIONED or _IMMUTABLE_COMMIT_RE.fullmatch(value):
+    if value == UNVERSIONED_LOCAL or _IMMUTABLE_COMMIT_RE.fullmatch(value):
         return value
     raise ValueError(
         "upstream commit must be a full 40/64-hex Git commit hash "
-        f"or {_LOCAL_UNVERSIONED!r}"
+        f"or {UNVERSIONED_LOCAL!r}"
     )
 
 
