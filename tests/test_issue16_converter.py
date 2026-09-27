@@ -27,6 +27,7 @@ DIRECT_TT = """<meta corpus="alpha" document_cts_urn="urn:cts:copticLit:fixture.
 ARCHIVE_TT = """<meta corpus="beta" document_cts_urn="urn:cts:copticLit:fixture.b" title="Beta">
 <norm_group norm_group="c"><norm xml:id="u1" new_sent="true" func="root" pos="N" lemma="c" norm="c">c</norm></norm_group>
 """
+REVISION = "d" * 40
 
 
 def _source_tree(root: Path) -> None:
@@ -65,7 +66,7 @@ class ConverterContractTests(unittest.TestCase):
                 root,
                 destination,
                 upstream_repository="fixture/repo",
-                upstream_commit="deadbeef",
+                upstream_commit=REVISION,
             )
 
             self.assertEqual(result.source_records, 2)
@@ -111,7 +112,7 @@ class ConverterContractTests(unittest.TestCase):
                     empty_root,
                     empty_destination,
                     upstream_repository="fixture/repo",
-                    upstream_commit="deadbeef",
+                    upstream_commit=REVISION,
                 )
             self.assertFalse(empty_destination.exists())
 
@@ -125,7 +126,7 @@ class ConverterContractTests(unittest.TestCase):
                     invalid_root,
                     destination,
                     upstream_repository="fixture/repo",
-                    upstream_commit="deadbeef",
+                    upstream_commit=REVISION,
                 )
             self.assertFalse(destination.exists())
 
@@ -141,7 +142,7 @@ class ConverterContractTests(unittest.TestCase):
                     valid_root,
                     existing,
                     upstream_repository="fixture/repo",
-                    upstream_commit="deadbeef",
+                    upstream_commit=REVISION,
                 )
             self.assertEqual(sentinel.read_text(encoding="utf-8"), "do not overwrite")
             self.assertEqual(sorted(path.name for path in existing.iterdir()), ["keep.txt"])
@@ -164,7 +165,7 @@ class ConverterContractTests(unittest.TestCase):
                     "--upstream-repository",
                     "fixture/repo",
                     "--upstream-commit",
-                    "deadbeef",
+                    REVISION,
                     "--summary",
                     str(summary),
                 ],

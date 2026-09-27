@@ -10,14 +10,11 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-import re
 import sys
 
-from .converter import convert_source_tree
+from .converter import UNVERSIONED_LOCAL, convert_source_tree, validate_upstream_commit
 
 _UPSTREAM_REPOSITORY = "CopticScriptorium/corpora"
-_LOCAL_UNVERSIONED = "unversioned-local"
-_GIT_REVISION_RE = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
 
 
 def materialize(source: Path, output: Path, *, source_revision: str) -> Path:
@@ -31,10 +28,8 @@ def materialize(source: Path, output: Path, *, source_revision: str) -> Path:
         raise ValueError("Agora output must be an existing, non-symlink directory")
     if any(output.iterdir()):
         raise ValueError("Agora output directory must be empty before conversion")
-    if source_revision and _GIT_REVISION_RE.fullmatch(source_revision) is None:
-        raise ValueError("Agora source revision must be a full Git commit hash or empty")
-
-    revision = source_revision or _LOCAL_UNVERSIONED
+    revision = source_revision or UNVERSIONED_LOCAL
+    validate_upstream_commit(revision)
     result = convert_source_tree(
         source,
         output / "tf",

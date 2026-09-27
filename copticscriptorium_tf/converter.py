@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass
 import gc
 import json
 from pathlib import Path
+import re
 import sys
 from time import monotonic
 from typing import Any
@@ -17,6 +18,20 @@ from typing import Any
 from .graph import build_graph
 from .parser import parse_source_tree
 from .writer import write_graph
+
+UNVERSIONED_LOCAL = "unversioned-local"
+_IMMUTABLE_COMMIT_RE = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
+
+
+def validate_upstream_commit(value: str) -> str:
+    """Validate immutable source provenance without performing network lookup."""
+    if value == UNVERSIONED_LOCAL or _IMMUTABLE_COMMIT_RE.fullmatch(value):
+        return value
+    raise ValueError(
+        "upstream commit must be a full 40/64-hex Git commit hash "
+        f"or {UNVERSIONED_LOCAL!r}"
+    )
+
 
 try:  # Unix reports process high-water RSS; Windows has no stdlib equivalent.
     import resource
@@ -73,6 +88,8 @@ def convert_source_tree(
     writing are delegated to their reviewed components; this function only owns
     orchestration, phase timings, and object lifetime between phases.
     """
+    validate_upstream_commit(upstream_commit)
+
     target = Path(destination)
     if target.exists() or target.is_symlink():
         raise FileExistsError(f"refusing to overwrite existing TF dataset: {target}")
