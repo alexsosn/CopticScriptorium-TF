@@ -144,7 +144,7 @@ CopticScriptorium-TF is **not yet canonically registered** in Agora, and automat
 
 If conversion reports `no supported TT source records`, check that the selected root contains direct `<corpus>/<dataset>_TT/*.tt` data or `<corpus>/<dataset>_TT.zip` archives. Unsupported nested layouts fail explicitly rather than being guessed.
 
-If the destination already exists, choose a fresh output path. The direct converter refuses to overwrite an existing TF directory, and the Agora adapter requires the host-created staging directory to be empty before it creates its `tf/` child. Likewise, `--summary` must name a fresh path outside the TF destination; existing files, directories, and symlinks are preserved and rejected. Likewise, `--summary` must name a fresh non-symlink path outside the TF destination; existing summary files/directories are never overwritten.
+If the destination already exists, choose a fresh output path. The direct converter refuses to overwrite an existing TF directory, and the Agora adapter requires the host-created staging directory to be empty before it creates its `tf/` child. Likewise, `--summary` must name a fresh path outside the TF destination; existing files, directories, and symlinks are preserved and rejected.
 
 For load failures, use the package-pinned `text-fabric==13.1.0` environment and load the generated directory itself. Feature names are ordinary `*.tf` filenames and can be inspected before deciding which subset to load.
 
