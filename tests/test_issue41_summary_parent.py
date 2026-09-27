@@ -76,6 +76,45 @@ class SummaryParentPreflightTests(unittest.TestCase):
             self.assertFalse(missing.exists())
             self.assertFalse(destination.exists())
 
+    def test_symlink_to_directory_parent_remains_valid(self):
+        from copticscriptorium_tf.converter import ConversionResult, main
+
+        with TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            source = base / "source"
+            source.mkdir()
+            actual_parent = base / "actual-reports"
+            actual_parent.mkdir()
+            linked_parent = base / "reports-link"
+            try:
+                linked_parent.symlink_to(actual_parent, target_is_directory=True)
+            except (OSError, NotImplementedError) as error:
+                self.skipTest(f"symlinks unavailable: {error}")
+
+            destination = base / "tf"
+            summary = linked_parent / "nested" / "summary.json"
+            result = ConversionResult(
+                source_records=0, slots=0, nodes=0, edges=0,
+                output_path=destination, tf_files=0, tf_bytes=0,
+                parse_seconds=0.0, graph_seconds=0.0, write_seconds=0.0,
+                peak_rss_mb=0.0, missing_license_metadata_source_records=(),
+            )
+
+            with patch(
+                "copticscriptorium_tf.converter.convert_source_tree",
+                return_value=result,
+            ):
+                code = main([
+                    str(source), str(destination),
+                    "--upstream-repository", "fixture/repo",
+                    "--upstream-commit", REVISION,
+                    "--summary", str(summary),
+                ])
+
+            self.assertEqual(code, 0)
+            self.assertTrue(linked_parent.is_symlink())
+            self.assertTrue((actual_parent / "nested" / "summary.json").is_file())
+
     def test_missing_nested_parent_under_directory_remains_valid(self):
         from copticscriptorium_tf.converter import ConversionResult, main
 
