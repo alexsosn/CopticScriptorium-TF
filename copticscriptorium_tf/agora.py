@@ -12,10 +12,9 @@ import json
 from pathlib import Path
 import sys
 
-from .converter import convert_source_tree, validate_upstream_commit
+from .converter import UNVERSIONED_LOCAL, convert_source_tree, validate_upstream_commit
 
 _UPSTREAM_REPOSITORY = "CopticScriptorium/corpora"
-_LOCAL_UNVERSIONED = "unversioned-local"
 
 
 def materialize(source: Path, output: Path, *, source_revision: str) -> Path:
@@ -29,7 +28,7 @@ def materialize(source: Path, output: Path, *, source_revision: str) -> Path:
         raise ValueError("Agora output must be an existing, non-symlink directory")
     if any(output.iterdir()):
         raise ValueError("Agora output directory must be empty before conversion")
-    revision = source_revision or _LOCAL_UNVERSIONED
+    revision = source_revision or UNVERSIONED_LOCAL
     validate_upstream_commit(revision)
     result = convert_source_tree(
         source,
