@@ -25,7 +25,7 @@ python -m copticscriptorium_tf.converter \
   --summary /path/to/conversion-summary.json
 ```
 
-Supported input discovery includes both direct `<corpus>/<dataset>_TT/*.tt` datasets and `<corpus>/<dataset>_TT.zip` packages. The destination must not already exist. The repository/commit arguments record provenance for the local tree; conversion does not fetch data from the network.
+The installed `copticscriptorium-tf` command delegates to the same reviewed CLI as `python -m copticscriptorium_tf.converter`; the module form remains supported as an equivalent fallback. Supported input discovery includes both direct `<corpus>/<dataset>_TT/*.tt` datasets and `<corpus>/<dataset>_TT.zip` packages. The destination must not already exist. The repository/commit arguments record provenance for the local tree; conversion does not fetch data from the network.
 
 `--upstream-commit` must be a full 40-hex SHA-1 or 64-hex SHA-256 commit ID. Symbolic refs and abbreviated hashes are rejected before source parsing; for an intentionally unversioned local tree, use the explicit `unversioned-local` sentinel. The converter validates identifier form locally and does not contact the repository to prove membership.
 
