@@ -17,7 +17,7 @@ python -m pip install .
 Convert a local Coptic Scriptorium source checkout:
 
 ```bash
-python -m copticscriptorium_tf.converter \
+copticscriptorium-tf \
   /path/to/CopticScriptorium-corpora \
   /path/to/output-tf \
   --upstream-repository CopticScriptorium/corpora \
