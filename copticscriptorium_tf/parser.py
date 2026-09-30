@@ -458,10 +458,18 @@ def parse_source_tree(
     root_path = Path(root)
     pending: list[tuple[str, str, bytes, str]] = []
 
-    for directory in sorted(
-        (path for path in root_path.rglob("*_TT") if path.is_dir()),
+    directory_candidates = sorted(
+        root_path.rglob("*_TT"),
         key=lambda path: path.as_posix(),
-    ):
+    )
+    for directory in directory_candidates:
+        if directory.is_symlink():
+            raise ValueError(
+                f"symlinked TT dataset directory is unsupported: "
+                f"{directory.relative_to(root_path).as_posix()!r}"
+            )
+        if not directory.is_dir():
+            continue
         relative = directory.relative_to(root_path)
         if len(relative.parts) != 2 or not relative.parts[1].endswith("_TT"):
             raise ValueError(f"unsupported TT dataset layout: {relative.as_posix()!r}")
