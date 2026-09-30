@@ -11,18 +11,21 @@ A dangling `.tt` symlink is currently ignored because `is_file()` is false, whic
 is also undesirable: the supported source shape silently changes depending on target
 availability. ZIP members do not have this filesystem escape.
 
-The narrow contract is to reject TT symlink members themselves. This does not need
-`resolve()` or target inspection and therefore does not read/follow the target.
-Physical regular files retain existing behavior.
+The same boundary applies to a symlinked `*_TT` dataset directory: accepting it can
+move the entire discovered dataset outside the handed-off tree. The narrow contract
+is therefore to reject both TT dataset-directory symlinks and TT record symlinks.
+This does not need `resolve()` or target inspection and therefore does not read/follow
+the target. Physical directories/files retain existing behavior.
 
 ## Plan
 
 1. RED: create live and dangling `.tt` symlinks under a valid `*_TT` directory;
    require both to raise before parsing, and prove an external live target is not
-   accepted as an in-tree record.
+   accepted as an in-tree record. Also cover a `*_TT` directory symlink to an
+   external dataset.
 2. Keep ordinary physical-file parsing covered as a control.
-3. Implement a deterministic directory-member scan that identifies TT candidates by
-   lexical suffix, rejects `is_symlink()`, then accepts physical files.
+3. Implement deterministic dataset/member scans that reject relevant symlinks before
+   accepting physical directories/files.
 4. Document the physical-file source boundary.
 5. Run exact-head unit/parser/Agora regressions and all triggered CI.
 6. Freeze the head and independently review symlink-to-file, dangling symlink,
