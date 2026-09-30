@@ -39,6 +39,23 @@ class SourceSymlinkBoundaryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "symlinked TT source record"):
                 self._parse(root)
 
+    def test_symlinked_tt_dataset_directory_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root = base / "source"
+            (root / "alpha").mkdir(parents=True)
+            outside = base / "alpha_TT"
+            outside.mkdir()
+            (outside / "escape.tt").write_bytes(TT)
+            link = root / "alpha" / "alpha_TT"
+            try:
+                link.symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError) as error:
+                self.skipTest(f"symlinks unavailable: {error}")
+
+            with self.assertRaisesRegex(ValueError, "symlinked TT dataset directory"):
+                self._parse(root)
+
     def test_dangling_tt_symlink_is_rejected_instead_of_silently_ignored(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
