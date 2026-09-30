@@ -1,0 +1,51 @@
+name: issue43-console-command
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue43-console-command.yml'
+      - 'pyproject.toml'
+      - 'copticscriptorium_tf/**'
+      - 'tests/test_issue43_console_command.py'
+      - 'README.md'
+
+permissions:
+  contents: read
+
+jobs:
+  clean-wheel-command:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build wheel
+        run: |
+          python -m pip install build
+          python -m build --wheel
+      - name: Install wheel into clean venv
+        run: |
+          python -m venv "$RUNNER_TEMP/clean"
+          "$RUNNER_TEMP/clean/bin/python" -m pip install dist/*.whl
+      - name: Invoke installed command
+        run: |
+          "$RUNNER_TEMP/clean/bin/copticscriptorium-tf" --help
+          set +e
+          "$RUNNER_TEMP/clean/bin/copticscriptorium-tf" \
+            "$RUNNER_TEMP/missing-source" "$RUNNER_TEMP/output" \
+            --upstream-repository fixture/repo \
+            --upstream-commit unversioned-local \
+            >"$RUNNER_TEMP/stdout" 2>"$RUNNER_TEMP/stderr"
+          status=$?
+          set -e
+          test "$status" -eq 1
+          grep -q "conversion failed:" "$RUNNER_TEMP/stderr"
+          test ! -e "$RUNNER_TEMP/output"

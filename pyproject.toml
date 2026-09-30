@@ -11,5 +11,8 @@ requires-python = ">=3.12"
 license = {text = "MIT"}
 dependencies = ["text-fabric==13.1.0"]
 
+[project.scripts]
+copticscriptorium-tf = "copticscriptorium_tf.converter:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["copticscriptorium_tf"]
