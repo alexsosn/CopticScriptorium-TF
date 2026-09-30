@@ -467,10 +467,18 @@ def parse_source_tree(
             raise ValueError(f"unsupported TT dataset layout: {relative.as_posix()!r}")
         corpus = relative.parts[0]
         dataset = relative.parts[1][:-3]
-        for path in sorted(
-            (item for item in directory.rglob("*") if item.is_file() and item.suffix.casefold() == ".tt"),
+        tt_candidates = sorted(
+            (item for item in directory.rglob("*") if item.suffix.casefold() == ".tt"),
             key=lambda item: item.as_posix(),
-        ):
+        )
+        for path in tt_candidates:
+            if path.is_symlink():
+                raise ValueError(
+                    f"symlinked TT source record is unsupported: "
+                    f"{path.relative_to(root_path).as_posix()!r}"
+                )
+            if not path.is_file():
+                continue
             logical_path = path.relative_to(directory)
             if len(logical_path.parts) != 1:
                 raise ValueError(
