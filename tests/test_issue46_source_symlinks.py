@@ -8,7 +8,7 @@ import unittest
 from copticscriptorium_tf.parser import parse_source_tree
 
 
-TT = b'<meta corpus="fixture"/><norm_group norm_group="a"><norm xml:id="w1" norm="a" new_sent="true">a</norm></norm_group>'
+TT = b'<meta corpus="fixture"><norm_group norm_group="a"><norm xml:id="w1" norm="a" new_sent="true">a</norm></norm_group>'
 
 
 class SourceSymlinkBoundaryTests(unittest.TestCase):
