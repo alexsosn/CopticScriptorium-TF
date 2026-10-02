@@ -28,10 +28,11 @@ Authoritative references:
 ## Plan
 
 1. RED: exercise publication on the real Linux CI filesystem with a staging
-   directory and a destination directory created after preflight; require the
-   destination sentinel to survive and staging to remain unpublished.
+   directory and competing empty-directory, file, and symlink destinations created
+   after preflight; require each competing object to remain untouched.
 2. RED integration: force a competing destination to appear immediately before
    writer publication and require `write_graph()` to fail without replacing it.
+   Also require Windows non-replacing dispatch and fail-closed unknown-platform behavior.
 3. Implement a private atomic no-clobber directory publisher:
    Linux `renameat2(RENAME_NOREPLACE)`; macOS `renamex_np(RENAME_EXCL)`;
    Windows `os.rename()`; all unsupported cases fail closed.
