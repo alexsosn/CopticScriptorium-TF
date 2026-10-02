@@ -12,9 +12,11 @@ import json
 from pathlib import Path
 import re
 import sys
+from tempfile import NamedTemporaryFile
 from time import monotonic
 from typing import Any
 
+from ._atomic import publish_path_no_clobber as _publish_summary_no_clobber
 from .graph import build_graph
 from .parser import parse_source_tree
 from .writer import write_graph
@@ -174,13 +176,41 @@ def _validate_summary_path(summary: Path, destination: Path) -> None:
         )
 
 
-def _write_summary(path: Path, result: ConversionResult) -> None:
+def _stage_summary_payload(path: Path, payload: str) -> Path:
+    """Write complete summary bytes to a same-directory private staging file."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    staged: Path | None = None
+    try:
+        with NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            staged = Path(handle.name)
+            handle.write(payload)
+        return staged
+    except Exception:
+        if staged is not None:
+            try:
+                staged.unlink()
+            except FileNotFoundError:
+                pass
+        raise
+
+
+def _write_summary(path: Path, result: ConversionResult) -> None:
     payload = json.dumps(result.to_dict(), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-    # Exclusive creation preserves the freshness contract if another process creates
-    # the path after CLI preflight but before conversion finishes.
-    with path.open("x", encoding="utf-8") as handle:
-        handle.write(payload)
+    staged = _stage_summary_payload(path, payload)
+    try:
+        _publish_summary_no_clobber(staged, path)
+    finally:
+        try:
+            staged.unlink()
+        except FileNotFoundError:
+            pass
 
 
 def main(argv: list[str] | None = None) -> int:
