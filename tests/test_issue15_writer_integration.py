@@ -14,6 +14,7 @@ from copticscriptorium_tf.graph import build_graph
 from copticscriptorium_tf.model import (
     DocumentModel, Entity, LayoutEvent, NormGroup, Orig, Sentence, Translation, Word,
 )
+from copticscriptorium_tf import writer
 from copticscriptorium_tf.writer import write_graph
 
 
@@ -174,6 +175,115 @@ class WriterIntegrationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "(translation|locus|validation)"):
                 write_graph(damaged, destination)
             self.assertFalse(destination.exists())
+
+
+class AtomicPublicationTests(unittest.TestCase):
+    def test_atomic_publisher_refuses_competing_empty_directory_without_replacing_it(self):
+        publisher = getattr(writer, "_publish_directory_no_clobber", None)
+        self.assertIsNotNone(
+            publisher,
+            "writer must expose a private atomic no-clobber publication primitive",
+        )
+        with TemporaryDirectory() as temporary:
+            parent = Path(temporary)
+            staging = parent / "staging"
+            staging.mkdir()
+            (staging / "payload.tf").write_text("payload", encoding="utf-8")
+            destination = parent / "corpus"
+            destination.mkdir()
+            before = destination.stat()
+
+            with self.assertRaises(FileExistsError):
+                publisher(staging, destination)
+
+            after = destination.stat()
+            self.assertEqual((before.st_dev, before.st_ino), (after.st_dev, after.st_ino))
+            self.assertTrue(staging.is_dir())
+            self.assertEqual((staging / "payload.tf").read_text(encoding="utf-8"), "payload")
+
+    def test_atomic_publisher_refuses_competing_file_without_touching_it(self):
+        publisher = getattr(writer, "_publish_directory_no_clobber", None)
+        self.assertIsNotNone(publisher)
+        with TemporaryDirectory() as temporary:
+            parent = Path(temporary)
+            staging = parent / "staging"
+            staging.mkdir()
+            destination = parent / "corpus"
+            destination.write_text("competitor", encoding="utf-8")
+
+            with self.assertRaises(FileExistsError):
+                publisher(staging, destination)
+
+            self.assertEqual(destination.read_text(encoding="utf-8"), "competitor")
+            self.assertTrue(staging.is_dir())
+
+    def test_atomic_publisher_refuses_competing_symlink_without_touching_target(self):
+        publisher = getattr(writer, "_publish_directory_no_clobber", None)
+        self.assertIsNotNone(publisher)
+        with TemporaryDirectory() as temporary:
+            parent = Path(temporary)
+            staging = parent / "staging"
+            staging.mkdir()
+            real_target = parent / "real-target"
+            real_target.mkdir()
+            destination = parent / "corpus"
+            try:
+                destination.symlink_to(real_target, target_is_directory=True)
+            except (OSError, NotImplementedError) as error:
+                self.skipTest(f"symlinks unavailable: {error}")
+
+            with self.assertRaises(FileExistsError):
+                publisher(staging, destination)
+
+            self.assertTrue(destination.is_symlink())
+            self.assertEqual(destination.resolve(), real_target.resolve())
+            self.assertTrue(staging.is_dir())
+
+    def test_atomic_publisher_uses_windows_non_replacing_rename_semantics(self):
+        publisher = getattr(writer, "_publish_directory_no_clobber", None)
+        self.assertIsNotNone(publisher)
+        source = Path("source")
+        destination = Path("destination")
+        with patch.object(writer.sys, "platform", "win32"), patch.object(
+            writer.os,
+            "rename",
+            side_effect=FileExistsError(17, "exists", str(destination)),
+        ) as rename:
+            with self.assertRaises(FileExistsError):
+                publisher(source, destination)
+        rename.assert_called_once_with(source, destination)
+
+    def test_atomic_publisher_fails_closed_on_unknown_platform(self):
+        publisher = getattr(writer, "_publish_directory_no_clobber", None)
+        self.assertIsNotNone(publisher)
+        with patch.object(writer.sys, "platform", "unsupported-test-platform"):
+            with self.assertRaisesRegex(OSError, "atomic no-clobber.*unsupported"):
+                publisher(Path("source"), Path("destination"))
+
+    def test_write_graph_fails_closed_when_destination_appears_at_publish_time(self):
+        original = getattr(writer, "_publish_directory_no_clobber", None)
+
+        def competing_publish(staging: Path, destination: Path):
+            destination.mkdir()
+            if original is None:
+                raise AssertionError("atomic publisher missing")
+            return original(staging, destination)
+
+        with TemporaryDirectory() as temporary:
+            parent = Path(temporary)
+            destination = parent / "corpus"
+            with patch.object(
+                writer,
+                "_publish_directory_no_clobber",
+                side_effect=competing_publish,
+                create=True,
+            ):
+                with self.assertRaises(FileExistsError):
+                    write_graph(_graph(), destination)
+
+            self.assertTrue(destination.is_dir())
+            self.assertEqual(tuple(destination.iterdir()), ())
+            self.assertEqual(list(parent.glob(".tf-staging-*")), [])
 
 
 if __name__ == "__main__":
