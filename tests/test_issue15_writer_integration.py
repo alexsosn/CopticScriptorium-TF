@@ -201,6 +201,44 @@ class AtomicPublicationTests(unittest.TestCase):
             self.assertTrue(staging.is_dir())
             self.assertEqual((staging / "payload.tf").read_text(encoding="utf-8"), "payload")
 
+    def test_atomic_publisher_refuses_competing_file_without_touching_it(self):
+        publisher = getattr(writer, "_publish_directory_no_clobber", None)
+        self.assertIsNotNone(publisher)
+        with TemporaryDirectory() as temporary:
+            parent = Path(temporary)
+            staging = parent / "staging"
+            staging.mkdir()
+            destination = parent / "corpus"
+            destination.write_text("competitor", encoding="utf-8")
+
+            with self.assertRaises(FileExistsError):
+                publisher(staging, destination)
+
+            self.assertEqual(destination.read_text(encoding="utf-8"), "competitor")
+            self.assertTrue(staging.is_dir())
+
+    def test_atomic_publisher_refuses_competing_symlink_without_touching_target(self):
+        publisher = getattr(writer, "_publish_directory_no_clobber", None)
+        self.assertIsNotNone(publisher)
+        with TemporaryDirectory() as temporary:
+            parent = Path(temporary)
+            staging = parent / "staging"
+            staging.mkdir()
+            real_target = parent / "real-target"
+            real_target.mkdir()
+            destination = parent / "corpus"
+            try:
+                destination.symlink_to(real_target, target_is_directory=True)
+            except (OSError, NotImplementedError) as error:
+                self.skipTest(f"symlinks unavailable: {error}")
+
+            with self.assertRaises(FileExistsError):
+                publisher(staging, destination)
+
+            self.assertTrue(destination.is_symlink())
+            self.assertEqual(destination.resolve(), real_target.resolve())
+            self.assertTrue(staging.is_dir())
+
     def test_write_graph_fails_closed_when_destination_appears_at_publish_time(self):
         original = getattr(writer, "_publish_directory_no_clobber", None)
 
