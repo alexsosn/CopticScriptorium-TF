@@ -14,6 +14,7 @@ from copticscriptorium_tf.graph import build_graph
 from copticscriptorium_tf.model import (
     DocumentModel, Entity, LayoutEvent, NormGroup, Orig, Sentence, Translation, Word,
 )
+from copticscriptorium_tf import _atomic as atomic
 from copticscriptorium_tf import writer
 from copticscriptorium_tf.writer import write_graph
 
@@ -244,8 +245,8 @@ class AtomicPublicationTests(unittest.TestCase):
         self.assertIsNotNone(publisher)
         source = Path("source")
         destination = Path("destination")
-        with patch.object(writer.sys, "platform", "win32"), patch.object(
-            writer.os,
+        with patch.object(atomic.sys, "platform", "win32"), patch.object(
+            atomic.os,
             "rename",
             side_effect=FileExistsError(17, "exists", str(destination)),
         ) as rename:
@@ -256,7 +257,7 @@ class AtomicPublicationTests(unittest.TestCase):
     def test_atomic_publisher_fails_closed_on_unknown_platform(self):
         publisher = getattr(writer, "_publish_directory_no_clobber", None)
         self.assertIsNotNone(publisher)
-        with patch.object(writer.sys, "platform", "unsupported-test-platform"):
+        with patch.object(atomic.sys, "platform", "unsupported-test-platform"):
             with self.assertRaisesRegex(OSError, "atomic no-clobber.*unsupported"):
                 publisher(Path("source"), Path("destination"))
 
