@@ -239,6 +239,27 @@ class AtomicPublicationTests(unittest.TestCase):
             self.assertEqual(destination.resolve(), real_target.resolve())
             self.assertTrue(staging.is_dir())
 
+    def test_atomic_publisher_uses_windows_non_replacing_rename_semantics(self):
+        publisher = getattr(writer, "_publish_directory_no_clobber", None)
+        self.assertIsNotNone(publisher)
+        source = Path("source")
+        destination = Path("destination")
+        with patch.object(writer.sys, "platform", "win32"), patch.object(
+            writer.os,
+            "rename",
+            side_effect=FileExistsError(17, "exists", str(destination)),
+        ) as rename:
+            with self.assertRaises(FileExistsError):
+                publisher(source, destination)
+        rename.assert_called_once_with(source, destination)
+
+    def test_atomic_publisher_fails_closed_on_unknown_platform(self):
+        publisher = getattr(writer, "_publish_directory_no_clobber", None)
+        self.assertIsNotNone(publisher)
+        with patch.object(writer.sys, "platform", "unsupported-test-platform"):
+            with self.assertRaisesRegex(OSError, "atomic no-clobber.*unsupported"):
+                publisher(Path("source"), Path("destination"))
+
     def test_write_graph_fails_closed_when_destination_appears_at_publish_time(self):
         original = getattr(writer, "_publish_directory_no_clobber", None)
 
