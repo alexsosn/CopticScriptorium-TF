@@ -14,6 +14,7 @@ from copticscriptorium_tf.graph import build_graph
 from copticscriptorium_tf.model import (
     DocumentModel, Entity, LayoutEvent, NormGroup, Orig, Sentence, Translation, Word,
 )
+from copticscriptorium_tf import writer
 from copticscriptorium_tf.writer import write_graph
 
 
@@ -174,6 +175,56 @@ class WriterIntegrationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "(translation|locus|validation)"):
                 write_graph(damaged, destination)
             self.assertFalse(destination.exists())
+
+
+class AtomicPublicationTests(unittest.TestCase):
+    def test_atomic_publisher_refuses_competing_empty_directory_without_replacing_it(self):
+        publisher = getattr(writer, "_publish_directory_no_clobber", None)
+        self.assertIsNotNone(
+            publisher,
+            "writer must expose a private atomic no-clobber publication primitive",
+        )
+        with TemporaryDirectory() as temporary:
+            parent = Path(temporary)
+            staging = parent / "staging"
+            staging.mkdir()
+            (staging / "payload.tf").write_text("payload", encoding="utf-8")
+            destination = parent / "corpus"
+            destination.mkdir()
+            before = destination.stat()
+
+            with self.assertRaises(FileExistsError):
+                publisher(staging, destination)
+
+            after = destination.stat()
+            self.assertEqual((before.st_dev, before.st_ino), (after.st_dev, after.st_ino))
+            self.assertTrue(staging.is_dir())
+            self.assertEqual((staging / "payload.tf").read_text(encoding="utf-8"), "payload")
+
+    def test_write_graph_fails_closed_when_destination_appears_at_publish_time(self):
+        original = getattr(writer, "_publish_directory_no_clobber", None)
+
+        def competing_publish(staging: Path, destination: Path):
+            destination.mkdir()
+            if original is None:
+                raise AssertionError("atomic publisher missing")
+            return original(staging, destination)
+
+        with TemporaryDirectory() as temporary:
+            parent = Path(temporary)
+            destination = parent / "corpus"
+            with patch.object(
+                writer,
+                "_publish_directory_no_clobber",
+                side_effect=competing_publish,
+                create=True,
+            ):
+                with self.assertRaises(FileExistsError):
+                    write_graph(_graph(), destination)
+
+            self.assertTrue(destination.is_dir())
+            self.assertEqual(tuple(destination.iterdir()), ())
+            self.assertEqual(list(parent.glob(".tf-staging-*")), [])
 
 
 if __name__ == "__main__":
