@@ -585,7 +585,7 @@ def _publish_directory_no_clobber(source: Path, destination: Path) -> None:
             return
         _raise_atomic_publish_error(ctypes.get_errno(), destination)
 
-    if os.name == "nt":
+    if sys.platform == "win32":
         os.rename(source, destination)
         return
 
