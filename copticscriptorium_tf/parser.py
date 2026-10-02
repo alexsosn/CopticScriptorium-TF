@@ -499,6 +499,11 @@ def parse_source_tree(
             pending.append((source_id, path.relative_to(root_path).as_posix(), path.read_bytes(), "directory"))
 
     for archive_path in sorted(root_path.rglob("*_TT.zip"), key=lambda path: path.as_posix()):
+        if archive_path.is_symlink():
+            raise ValueError(
+                f"symlinked TT archive package is unsupported: "
+                f"{archive_path.relative_to(root_path).as_posix()!r}"
+            )
         relative = archive_path.relative_to(root_path)
         if len(relative.parts) != 2 or not relative.parts[1].endswith("_TT.zip"):
             raise ValueError(f"unsupported TT dataset layout: {relative.as_posix()!r}")
