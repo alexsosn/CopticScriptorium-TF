@@ -20,6 +20,7 @@ from copticscriptorium_tf.graph import build_graph
 from copticscriptorium_tf.parser import parse_tt_record
 from copticscriptorium_tf.writer import write_graph
 from tf.app import use
+from tf.browser.web import setup as setup_browser
 from tf.fabric import Fabric
 
 
@@ -113,6 +114,22 @@ def run(root: Path, app_dir: Path) -> dict[str, object]:
             # this pinned fixture; detect accidental feature-loading regressions.
             raise AssertionError("representative real search did not expose lemmas")
 
+        browser = setup_browser(
+            False,
+            f"app:{app_dir}",
+            f"--locations={location}",
+            "--modules=.",
+        )
+        if browser is None:
+            raise AssertionError("real generated TF did not construct the browser app")
+        if "/query" not in {rule.rule for rule in browser.url_map.iter_rules()}:
+            raise AssertionError("real generated TF browser lacks /query route")
+        query_response = browser.test_client().get("/query")
+        if query_response.status_code != 200:
+            raise AssertionError(
+                f"real generated TF /query returned {query_response.status_code}"
+            )
+
         vanilla = Fabric(locations=[str(location)], silent="deep").load(
             "source_record_id lemma pos dependency_head",
             silent="deep",
@@ -129,6 +146,7 @@ def run(root: Path, app_dir: Path) -> dict[str, object]:
             "normalized_chars": len(normalized),
             "diplomatic_chars": len(diplomatic),
             "representative_search_results": len(results),
+            "browser_query_status": query_response.status_code,
             "app_path": str(app_dir),
             "relations_policy": (
                 "omitted from bounded slice because external witness targets are absent"
