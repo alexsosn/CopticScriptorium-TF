@@ -107,12 +107,24 @@ documented syntax is executable rather than illustrative prose only.
 7. Add README links to the guide/cookbook and link the guide to
    `docs/web-app.md`; the web-app file may arrive through the independently
    tracked #58 PR.
-8. Run the full exact-head suite and a focused issue #59 workflow.
-9. Freeze the head and perform a logically independent adversarial review
-   against the generated feature inventory and real writer semantics.
+8. Run the focused synthetic contract plus a bounded pinned-real-source smoke
+   that chooses actual lexical/morphological values from the source slice and
+   verifies cookbook search, dependency, rendering, and provenance behavior.
+9. Run the full exact-head suite.
+10. Freeze the head and perform a logically independent adversarial review
+    against the generated feature inventory and real writer semantics.
 
 ## Non-goals
 
 No general Text-Fabric tutorial, no replacement browser, no notebook-only opaque
 state, no prebuilt corpus distribution, no upstream annotation certification,
 and no Agora/Context-Fabric integration work.
+
+## Adversarial refinement
+
+The pre-final review tightened the document-relation regression so it checks
+directed physical source -> target identities and every valued evidence edge,
+not merely the presence of the three relation feature names. A separate pinned
+real-source smoke was also added so the cookbook is exercised on actual TT
+directory/archive data while the synthetic fixture remains responsible for
+complete relation/entity/layout semantics.
