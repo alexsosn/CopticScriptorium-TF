@@ -1,0 +1,42 @@
+apiVersion: 3
+
+dataDisplay:
+  browseNavLevel: 0
+  browseContentPretty: true
+  exampleSection: sahidica.nt/sahidica.nt:41_Mark_01
+  exampleSectionHtml: <code>sahidica.nt/sahidica.nt:41_Mark_01</code>
+  textFormat: text-orig-full
+  noneValues:
+    - none
+    - unknown
+    - null
+    - NA
+
+interfaceDefaults:
+  withNodes: true
+  withTypes: true
+  standardFeatures: true
+  queryFeatures: true
+  multiFeatures: false
+
+provenanceSpec:
+  corpus: Coptic Scriptorium — locally generated Text-Fabric
+  org: null
+  repo: null
+  relative: .
+  branch: main
+
+docs:
+  docRoot: https://github.com
+  docBase: https://github.com/alexsosn/CopticScriptorium-TF/blob/main/docs
+  docPage: web-app
+  docExt: .md
+  featureBase: https://github.com/alexsosn/CopticScriptorium-TF/blob/main/README.md#native-tf-model
+  featurePage: ""
+
+typeDisplay:
+  document:
+    label: "{source_record_id}"
+    features: source_record_id corpus dataset source_path source_sha256 packaging
+  word:
+    features: source_record_id source_word_ordinal
