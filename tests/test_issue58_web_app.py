@@ -25,6 +25,7 @@ from copticscriptorium_tf.writer import write_graph
 ROOT = Path(__file__).resolve().parents[1]
 APP_DIR = ROOT / "app"
 APP_CONFIG = APP_DIR / "config.yaml"
+WEB_APP_DOC = ROOT / "docs" / "web-app.md"
 
 
 def _document(record: str, *, expanded: bool) -> DocumentModel:
@@ -117,6 +118,12 @@ class WebAppContractTests(unittest.TestCase):
             "packaging",
         ):
             self.assertIn(feature, document_display["features"].split())
+
+        self.assertTrue(WEB_APP_DOC.is_file(), "issue #58 requires launch documentation")
+        docs = WEB_APP_DOC.read_text(encoding="utf-8")
+        self.assertIn('tf "app:$(pwd)/app" --locations=/path/to/output-tf --modules=.', docs)
+        self.assertIn("text-orig-full", docs)
+        self.assertIn("text-diplomatic-full", docs)
 
     def test_generated_tf_loads_through_app_searches_and_renders_both_text_modes(self):
         graph = _graph()
