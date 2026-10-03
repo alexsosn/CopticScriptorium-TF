@@ -106,6 +106,14 @@ witness_targets = tuple(api.E.witness.f(document))
 
 The relation evidence is available in separate valued edge features such as `same_scholarly_classification`, `documented_overlap_classification`, `documented_overlap_family`, `witness_literal`, and `witness_target_scholarly_id`.
 
+## Researcher guide and query cookbook
+
+For the full corpus model, annotation semantics, provenance/citation guidance, missing-value rules, and reproducible research recipes, see [the researcher guide](docs/researcher-guide.md).
+
+The importable [query cookbook](examples/query_cookbook.py) runs directly against generated native TF and includes Text-Fabric Search examples for lexical/morphological filtering, dependencies, entities, document identity/relations, translations, rendering, and provenance tracing.
+
+For interactive exploration of the same generated artifact, see the [Text-Fabric web-app guide](docs/web-app.md).
+
 ## Native TF model
 
 The sole slot type is `word`. Non-slot node types are:
