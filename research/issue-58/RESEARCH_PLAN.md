@@ -43,10 +43,12 @@ Text-Fabric does not try to acquire corpus data from GitHub. Explicit
   `text-diplomatic-full` alternative;
 - configure one-level physical-document navigation and a realistic
   `source_record_id` example;
-- expose compact type-specific researcher features for documents, words,
-  entities, translations, layout nodes, and grouping nodes;
+- expose compact static defaults only for guaranteed `document` and `word`
+  features; optional node types/features must remain usable through search
+  without making sparse valid corpora fail app validation;
 - default the browser to showing node IDs, node types, standard features, and
-  query features so graph inspection is practical;
+  query features so graph inspection is practical without enabling the noisy
+  all-feature display;
 - keep all dependency/entity/document relation edge features loaded and
   queryable instead of duplicating them into display-only scalar features.
 
@@ -72,7 +74,8 @@ The same generated directory must remain independently loadable through
    to satisfy that contract.
 4. Add a bounded pinned-real-source smoke derived from the existing issue #15
    directory/ZIP regression fixture; load the freshly written native TF through
-   the app and execute a representative search.
+   the app, construct the standard Flask browser, serve `/query`, and execute a
+   representative search.
 5. Run the full repository suite plus the focused exact-head browser workflow.
 6. Freeze the final head and perform a logically independent adversarial review
    grounded in the pinned Text-Fabric 13.1.0 implementation, generated TF files,
@@ -83,3 +86,14 @@ The same generated directory must remain independently loadable through
 No bespoke web framework, hosted public corpus, prebuilt TF publication, Agora
 artifact discovery, Context-Fabric handoff, schema changes, semantic JSON/XML
 sidecars, custom Python app hooks, or upstream scholarly certification.
+
+## Review refinement
+
+The first GREEN pass showed that hard-coding optional entity/translation/layout
+types in `typeDisplay` would make the app configuration depend on those types
+being present in every converted subset. The final design therefore keeps
+static type defaults to guaranteed `document` and `word` features, while the
+advanced app still loads the generated optional node/edge feature inventory and
+the browser exposes features used by searches. The adversarial review also
+strengthened the pinned-real-source gate to construct and exercise the standard
+Flask `/query` route, and requires the README to link the browser entry point.
