@@ -99,7 +99,7 @@ class WebAppContractTests(unittest.TestCase):
         self.assertTrue(config["interfaceDefaults"]["withTypes"])
         self.assertTrue(config["interfaceDefaults"]["standardFeatures"])
         self.assertTrue(config["interfaceDefaults"]["queryFeatures"])
-        self.assertTrue(config["interfaceDefaults"]["multiFeatures"])
+        self.assertFalse(config["interfaceDefaults"].get("multiFeatures", False))
 
         # Optional node types and optional annotation features must not be named in
         # static app configuration: small valid corpora may not contain them.
