@@ -9,7 +9,7 @@ import yaml
 from tf.app import use
 from tf.browser.web import setup as setup_browser
 
-from copticscriptorium_tf.graph import build_graph
+from copticscriptorium_tf.graph import DocumentRelation, build_graph
 from copticscriptorium_tf.model import (
     DocumentModel,
     Entity,
@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP_DIR = ROOT / "app"
 APP_CONFIG = APP_DIR / "config.yaml"
 WEB_APP_DOC = ROOT / "docs" / "web-app.md"
+README = ROOT / "README.md"
 
 
 def _document(record: str, *, expanded: bool) -> DocumentModel:
@@ -75,11 +76,33 @@ def _document(record: str, *, expanded: bool) -> DocumentModel:
 
 
 def _graph():
+    source = _document("alpha:a", expanded=True)
+    target = _document("beta:b", expanded=False)
+    scholarly = source.scholarly_id
     return build_graph(
-        (
-            _document("beta:b", expanded=False),
-            _document("alpha:a", expanded=True),
-        )
+        (target, source),
+        document_relations=(
+            DocumentRelation(
+                "same_scholarly",
+                source.source_record_id,
+                target.source_record_id,
+                classification="textual_divergence",
+            ),
+            DocumentRelation(
+                "documented_overlap",
+                source.source_record_id,
+                target.source_record_id,
+                classification="textual_divergence",
+                family="fixture-family",
+            ),
+            DocumentRelation(
+                "witness",
+                source.source_record_id,
+                target.source_record_id,
+                witness_literal=f"cf. {scholarly}",
+                target_scholarly_id=scholarly,
+            ),
+        ),
     )
 
 
@@ -124,6 +147,9 @@ class WebAppContractTests(unittest.TestCase):
         self.assertIn('tf "app:$(pwd)/app" --locations=/path/to/output-tf --modules=.', docs)
         self.assertIn("text-orig-full", docs)
         self.assertIn("text-diplomatic-full", docs)
+        readme = README.read_text(encoding="utf-8")
+        self.assertIn("docs/web-app.md", readme)
+        self.assertIn('tf "app:$(pwd)/app"', readme)
 
     def test_generated_tf_loads_through_app_searches_and_renders_both_text_modes(self):
         graph = _graph()
@@ -156,7 +182,9 @@ class WebAppContractTests(unittest.TestCase):
             results = app.search("word lemma=lemma2", silent="deep")
             self.assertEqual(results, [(2,)])
             self.assertEqual(api.F.pos.v(2), "V")
+            self.assertEqual(api.F.func.v(2), "dep")
             self.assertTrue(tuple(api.E.dependency_head.f(2)))
+            self.assertEqual(api.F.meta_title.v(document.id), "a")
 
             entity = next(node for node in graph.nodes if node.otype == "entity")
             translation = next(
@@ -176,6 +204,19 @@ class WebAppContractTests(unittest.TestCase):
             )
             self.assertTrue(
                 any(tuple(api.E.witness.f(node.id)) for node in documents)
+            )
+            self.assertTrue(
+                any(tuple(api.E.documented_overlap.f(node.id)) for node in documents)
+            )
+            overlap_source = next(
+                node.id
+                for node in documents
+                if tuple(api.E.documented_overlap.f(node.id))
+            )
+            overlap_target = tuple(api.E.documented_overlap.f(overlap_source))[0]
+            self.assertEqual(
+                dict(api.E.documented_overlap_family.f(overlap_source))[overlap_target],
+                "fixture-family",
             )
 
             vanilla = __import__("tf.fabric", fromlist=["Fabric"]).Fabric(
