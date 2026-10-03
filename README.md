@@ -31,6 +31,16 @@ The installed `copticscriptorium-tf` command delegates to the same reviewed CLI 
 
 The JSON summary contains operational counts, phase timings, output size, peak process RSS where available, and source records missing a literal license metadata field. It is operational metadata and must use a fresh path outside the TF destination; the converter rejects summary paths that already exist (including symlinks) or are equal to/nested under the TF destination before conversion starts. It does not assign an aggregate license verdict and does not certify the corpus.
 
+## Browse locally
+
+The repository includes a corpus-specific configuration for the standard Text-Fabric web application. From a repository checkout, point it at any freshly generated TF directory:
+
+```bash
+tf "app:$(pwd)/app" --locations=/path/to/output-tf --modules=.
+```
+
+The browser uses the physical `source_record_id` document sections and the native normalized/diplomatic text formats emitted by the converter. See [the local web-app guide](docs/web-app.md) for navigation, feature/query behavior, and the app's local-only boundary.
+
 ## Load and query
 
 Load only the features needed for a task:
