@@ -239,9 +239,44 @@ class ResearcherDocumentationTests(unittest.TestCase):
             same = cookbook.relation_pairs(api, "same_scholarly")
             overlap = cookbook.relation_pairs(api, "documented_overlap")
             witness = cookbook.relation_pairs(api, "witness")
-            self.assertEqual(len(same), 1)
-            self.assertEqual(len(overlap), 1)
-            self.assertEqual(len(witness), 1)
+            for pairs in (same, overlap, witness):
+                self.assertEqual(len(pairs), 1)
+                source, target = pairs[0]
+                self.assertEqual(
+                    (
+                        api.F.source_record_id.v(source),
+                        api.F.source_record_id.v(target),
+                    ),
+                    ("alpha/sample:a", "beta/sample:b"),
+                )
+
+            same_source, same_target = same[0]
+            self.assertEqual(
+                dict(api.E.same_scholarly_classification.f(same_source))[same_target],
+                "textual_divergence",
+            )
+            overlap_source, overlap_target = overlap[0]
+            self.assertEqual(
+                dict(api.E.documented_overlap_classification.f(overlap_source))[
+                    overlap_target
+                ],
+                "textual_divergence",
+            )
+            self.assertEqual(
+                dict(api.E.documented_overlap_family.f(overlap_source))[overlap_target],
+                "fixture-family",
+            )
+            witness_source, witness_target = witness[0]
+            self.assertEqual(
+                dict(api.E.witness_literal.f(witness_source))[witness_target],
+                "cf. urn:cts:copticLit:fixture.shared",
+            )
+            self.assertEqual(
+                dict(api.E.witness_target_scholarly_id.f(witness_source))[
+                    witness_target
+                ],
+                "urn:cts:copticLit:fixture.shared",
+            )
 
             rendered = cookbook.render_document(api, alpha_document)
             self.assertEqual(rendered["normalized"], "ⲁ ⲃ ")
