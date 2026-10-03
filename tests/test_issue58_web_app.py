@@ -99,29 +99,24 @@ class WebAppContractTests(unittest.TestCase):
         self.assertTrue(config["interfaceDefaults"]["withTypes"])
         self.assertTrue(config["interfaceDefaults"]["standardFeatures"])
         self.assertTrue(config["interfaceDefaults"]["queryFeatures"])
+        self.assertTrue(config["interfaceDefaults"]["multiFeatures"])
 
+        # Optional node types and optional annotation features must not be named in
+        # static app configuration: small valid corpora may not contain them.
+        self.assertEqual(set(config["typeDisplay"]), {"document", "word"})
         word_display = config["typeDisplay"]["word"]
-        for feature in ("lemma", "pos", "func", "source_id"):
+        for feature in ("source_record_id", "source_word_ordinal"):
             self.assertIn(feature, word_display["features"].split())
         document_display = config["typeDisplay"]["document"]
         for feature in (
             "source_record_id",
-            "scholarly_id",
             "corpus",
             "dataset",
             "source_path",
+            "source_sha256",
             "packaging",
         ):
             self.assertIn(feature, document_display["features"].split())
-        entity_display = config["typeDisplay"]["entity"]
-        self.assertIn("entity_class", entity_display["features"].split())
-        self.assertIn("identity", entity_display["features"].split())
-        self.assertEqual(
-            config["typeDisplay"]["translation"]["featuresBare"], "own_text"
-        )
-        self.assertEqual(
-            config["typeDisplay"]["arabic_translation"]["featuresBare"], "own_text"
-        )
 
     def test_generated_tf_loads_through_app_searches_and_renders_both_text_modes(self):
         graph = _graph()
