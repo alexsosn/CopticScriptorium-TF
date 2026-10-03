@@ -469,7 +469,10 @@ def parse_source_tree(
                 f"{directory.relative_to(root_path).as_posix()!r}"
             )
         if not directory.is_dir():
-            continue
+            raise ValueError(
+                f"TT dataset candidate must be a directory: "
+                f"{directory.relative_to(root_path).as_posix()!r}"
+            )
         relative = directory.relative_to(root_path)
         if len(relative.parts) != 2 or not relative.parts[1].endswith("_TT"):
             raise ValueError(f"unsupported TT dataset layout: {relative.as_posix()!r}")
@@ -486,7 +489,10 @@ def parse_source_tree(
                     f"{path.relative_to(root_path).as_posix()!r}"
                 )
             if not path.is_file():
-                continue
+                raise ValueError(
+                    f"TT source record candidate must be a regular file: "
+                    f"{path.relative_to(root_path).as_posix()!r}"
+                )
             logical_path = path.relative_to(directory)
             if len(logical_path.parts) != 1:
                 raise ValueError(
@@ -502,6 +508,11 @@ def parse_source_tree(
         if archive_path.is_symlink():
             raise ValueError(
                 f"symlinked TT archive package is unsupported: "
+                f"{archive_path.relative_to(root_path).as_posix()!r}"
+            )
+        if not archive_path.is_file():
+            raise ValueError(
+                f"TT archive package must be a regular file: "
                 f"{archive_path.relative_to(root_path).as_posix()!r}"
             )
         relative = archive_path.relative_to(root_path)
