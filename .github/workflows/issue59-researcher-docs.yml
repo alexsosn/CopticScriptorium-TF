@@ -32,3 +32,45 @@ jobs:
         run: python -m pip install 'text-fabric==13.1.0'
       - name: Run researcher documentation and cookbook contract
         run: python -m unittest discover -s tests -p 'test_issue59_*.py' -v
+
+  pinned-real-cookbook:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+      - name: Checkout pinned upstream cookbook fixture
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: upstream
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /sahidica.mark/sahidica.mark_TT/Mark_01.tt
+            /sahidica.mark/sahidica.mark_TT/Mark_02.tt
+            /sahidica.nt/sahidica.nt_TT.zip
+      - name: Verify pinned upstream fixture revision
+        run: test "$(git -C upstream rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+      - name: Execute cookbook against freshly generated real TF
+        run: >-
+          python research/issue-59/cookbook_smoke.py upstream
+          --output "$RUNNER_TEMP/issue59-cookbook-smoke.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue59-cookbook-smoke
+          path: ${{ runner.temp }}/issue59-cookbook-smoke.json
+          if-no-files-found: warn
+          retention-days: 14
