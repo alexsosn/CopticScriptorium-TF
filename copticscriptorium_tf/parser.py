@@ -482,6 +482,7 @@ def parse_source_tree(
             (item for item in directory.rglob("*") if item.suffix.casefold() == ".tt"),
             key=lambda item: item.as_posix(),
         )
+        records_before = len(pending)
         for path in tt_candidates:
             if path.is_symlink():
                 raise ValueError(
@@ -503,6 +504,10 @@ def parse_source_tree(
             record = logical[: -len(path.suffix)]
             source_id = _source_record_id(corpus, dataset, record)
             pending.append((source_id, path.relative_to(root_path).as_posix(), path.read_bytes(), "directory"))
+        if len(pending) == records_before:
+            raise ValueError(
+                f"TT dataset contains no supported TT records: {relative.as_posix()!r}"
+            )
 
     for archive_path in sorted(root_path.rglob("*_TT.zip"), key=lambda path: path.as_posix()):
         if archive_path.is_symlink():
@@ -521,6 +526,7 @@ def parse_source_tree(
         corpus = relative.parts[0]
         dataset = relative.parts[1][:-7]
         expected_prefix = f"{dataset}_TT/"
+        records_before = len(pending)
         with zipfile.ZipFile(archive_path) as archive:
             for member in sorted(archive.namelist()):
                 if member.endswith("/") or not member.casefold().endswith(".tt"):
@@ -538,6 +544,10 @@ def parse_source_tree(
                 record = logical[:-3]
                 source_id = _source_record_id(corpus, dataset, record)
                 pending.append((source_id, f"{relative.as_posix()}!/{member}", archive.read(member), "archive"))
+        if len(pending) == records_before:
+            raise ValueError(
+                f"TT archive contains no supported TT records: {relative.as_posix()!r}"
+            )
 
     pending.sort(key=lambda item: (item[0].casefold(), item[0]))
     seen: dict[str, str] = {}
