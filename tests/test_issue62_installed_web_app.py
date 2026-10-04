@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+import tomllib
 from unittest.mock import patch
 
 from copticscriptorium_tf import web_app
@@ -13,6 +14,19 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class InstalledWebAppLauncherTests(unittest.TestCase):
+    def test_project_declares_installed_launcher_and_wheel_app_resource(self):
+        metadata = tomllib.loads(
+            (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            metadata["project"]["scripts"]["copticscriptorium-tf-web"],
+            "copticscriptorium_tf.web_app:main",
+        )
+        self.assertEqual(
+            metadata["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"],
+            {"app": "copticscriptorium_tf/tf_app"},
+        )
+
     def _tf_dir(self, root: Path) -> Path:
         tf_dir = root / "generated-tf"
         tf_dir.mkdir()
