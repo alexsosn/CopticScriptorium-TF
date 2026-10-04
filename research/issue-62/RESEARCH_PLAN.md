@@ -71,3 +71,14 @@ without binding a port or launching a browser. Normal execution must delegate to
 No custom web framework, no generated-corpus sidecars, no prebuilt TF data in the
 wheel, no Agora managed-artifact discovery/composition, and no attempt to package
 the full researcher documentation/cookbook as a Python API.
+
+
+## Review refinement
+
+The first GREEN clean-wheel pass proved package-resource discovery and browser
+setup outside a checkout, but its generated fixture exposed only the normalized
+text format. The final wheel gate therefore uses an orig/norm-group fixture so
+the installed launcher path is exercised with both native `text-orig-full`
+and `text-diplomatic-full` formats. The same gate resolves the physical
+`source_record_id` section through bare Text-Fabric after launcher setup and
+asserts that the generated artifact contains only native `.tf` files.
