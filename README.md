@@ -33,13 +33,22 @@ The JSON summary contains operational counts, phase timings, output size, peak p
 
 ## Browse locally
 
-The repository includes a corpus-specific configuration for the standard Text-Fabric web application. From a repository checkout, point it at any freshly generated TF directory:
+The installed wheel includes the corpus-specific configuration for the standard
+Text-Fabric web application. Point the installed launcher at any freshly
+generated TF directory:
 
 ```bash
-tf "app:$(pwd)/app" --locations=/path/to/output-tf --modules=.
+copticscriptorium-tf-web /path/to/output-tf
 ```
 
-The browser uses the physical `source_record_id` document sections and the native normalized/diplomatic text formats emitted by the converter. See [the local web-app guide](docs/web-app.md) for navigation, feature/query behavior, and the app's local-only boundary.
+No repository checkout is needed at runtime. The browser uses the physical
+`source_record_id` document sections and the native normalized/diplomatic text
+formats emitted by the converter. See [the local web-app guide](docs/web-app.md)
+for the non-serving `--check` mode, raw Text-Fabric development command,
+navigation, feature/query behavior, and the app's local-only boundary.
+
+From a source checkout, the equivalent development/debugging command remains
+`tf "app:$(pwd)/app" --locations=/path/to/output-tf --modules=.`.
 
 ## Load and query
 

@@ -1,0 +1,140 @@
+name: issue62-installed-web-app
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: issue62-installed-web-app-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  installed-web-app-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+      - name: Run focused issue 62 launcher contract
+        run: python -m unittest discover -s tests -p 'test_issue62_*.py' -v
+
+  clean-wheel-installed-web-app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build wheel
+        run: |
+          python -m pip install build
+          python -m build --wheel
+      - name: Install wheel into clean venv
+        run: |
+          python -m venv "$RUNNER_TEMP/clean"
+          "$RUNNER_TEMP/clean/bin/python" -m pip install dist/*.whl
+      - name: Verify packaged corpus app resource
+        run: |
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/clean/bin/python" - <<'PY'
+          from importlib.resources import files
+          resource = files("copticscriptorium_tf").joinpath("tf_app", "config.yaml")
+          assert resource.is_file(), resource
+          print(resource.read_text(encoding="utf-8").splitlines()[0])
+          PY
+      - name: Generate fresh native TF outside checkout
+        env:
+          TFDIR: ${{ runner.temp }}/generated-tf
+        run: |
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/clean/bin/python" - <<'PY'
+          import os
+          from pathlib import Path
+          from copticscriptorium_tf.graph import build_graph
+          from copticscriptorium_tf.model import (
+              DocumentModel,
+              NormGroup,
+              Orig,
+              Sentence,
+              Word,
+          )
+          from copticscriptorium_tf.writer import write_graph
+
+          document = DocumentModel(
+              source_record_id="fixture/sample:a",
+              source_path="fixture/sample_TT/a.tt",
+              source_sha256="a" * 64,
+              packaging="directory",
+              upstream_repository="fixture/repo",
+              upstream_commit="b" * 40,
+              corpus="fixture",
+              dataset="fixture/sample",
+              record="a",
+              scholarly_id=None,
+              metadata={"title": "Fixture", "license": "fixture"},
+              metadata_duplicates={},
+              words=(
+                  Word(1, "w1", "ⲁ", "lemma1", "N", "root", None, 0, "ab"),
+                  Word(2, "w2", "ⲃ", "lemma2", "V", "dep", "#w1", 1, "cd"),
+              ),
+              sentences=(Sentence(1, (1, 2)),),
+              origs=(Orig("ab", (1,), 0),),
+              norm_groups=(NormGroup("ab-cd", (0,), (2,), None),),
+              orig_groups=(),
+              layout_events=(),
+              entities=(),
+              translations=(),
+              arabic_translations=(),
+              source_text="fixture",
+          )
+          location = write_graph(build_graph((document,)), Path(os.environ["TFDIR"]))
+          assert all(path.suffix == ".tf" for path in location.iterdir())
+          print(location)
+          PY
+      - name: Exercise installed launcher outside checkout
+        run: |
+          mkdir -p "$RUNNER_TEMP/outside"
+          cd "$RUNNER_TEMP/outside"
+          "$RUNNER_TEMP/clean/bin/copticscriptorium-tf-web"             "$RUNNER_TEMP/generated-tf" --check
+          "$RUNNER_TEMP/clean/bin/copticscriptorium-tf" --help
+          "$RUNNER_TEMP/clean/bin/python" - <<'PY'
+          import os
+          from pathlib import Path
+          from tf.fabric import Fabric
+          location = os.path.join(os.environ["RUNNER_TEMP"], "generated-tf")
+          api = Fabric(locations=[location], silent="deep").load(
+              "lemma pos dependency_head", silent="deep"
+          )
+          assert api
+          document = api.T.nodeFromSection(("fixture/sample:a",))
+          assert document
+          normalized = api.T.text(document, fmt="text-orig-full")
+          diplomatic = api.T.text(document, fmt="text-diplomatic-full")
+          assert normalized == "ⲁ ⲃ "
+          assert diplomatic.strip()
+          assert diplomatic != normalized
+          assert not list(Path(location).glob("*.json"))
+          assert not list(Path(location).glob("*.xml"))
+          PY

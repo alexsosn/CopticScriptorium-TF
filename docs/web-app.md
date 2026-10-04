@@ -6,19 +6,38 @@ the converter; there is no second semantic store and no JSON/XML sidecar model.
 
 ## Launch
 
-From a checkout of this repository, after converting a source tree:
+When CopticScriptorium-TF is installed from its wheel, the shortest path is:
+
+```bash
+copticscriptorium-tf-web /path/to/output-tf
+```
+
+The installed launcher locates the wheel-packaged corpus app configuration and
+delegates normal serving to Text-Fabric 13.1.0's standard browser entry point.
+It does not require a repository checkout and does not copy configuration or
+semantic sidecars into the generated TF directory.
+
+For a non-serving validation that loads the generated TF and constructs the
+standard Flask browser application, use:
+
+```bash
+copticscriptorium-tf-web /path/to/output-tf --check
+```
+
+Standard Text-Fabric browser flags are passed through. For example,
+`-noweb` starts the server without automatically opening a browser window.
+
+For app development/debugging from a repository checkout, the equivalent raw
+Text-Fabric command remains:
 
 ```bash
 tf "app:$(pwd)/app" --locations=/path/to/output-tf --modules=.
 ```
 
-Text-Fabric starts its local web server and opens the browser interface. The
-`--locations` argument points directly at the generated TF directory and
+The `--locations` argument points directly at the generated TF directory and
 `--modules=.` tells Text-Fabric that the feature files are in that directory.
-The app configuration deliberately has no remote corpus repository, so this
-path does not fetch a prebuilt corpus.
-
-For a startup smoke without opening a browser window, add `-noweb`.
+The app configuration deliberately has no remote corpus repository, so neither
+launcher path fetches a prebuilt corpus.
 
 ## Navigation and text
 
