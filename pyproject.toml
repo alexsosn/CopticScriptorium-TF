@@ -13,6 +13,10 @@ dependencies = ["text-fabric==13.1.0"]
 
 [project.scripts]
 copticscriptorium-tf = "copticscriptorium_tf.converter:main"
+copticscriptorium-tf-web = "copticscriptorium_tf.web_app:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["copticscriptorium_tf"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"app" = "copticscriptorium_tf/tf_app"
