@@ -47,6 +47,9 @@ formats emitted by the converter. See [the local web-app guide](docs/web-app.md)
 for the non-serving `--check` mode, raw Text-Fabric development command,
 navigation, feature/query behavior, and the app's local-only boundary.
 
+From a source checkout, the equivalent development/debugging command remains
+`tf "app:$(pwd)/app" --locations=/path/to/output-tf --modules=.`.
+
 ## Load and query
 
 Load only the features needed for a task:
