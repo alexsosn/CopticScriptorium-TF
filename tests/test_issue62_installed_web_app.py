@@ -11,6 +11,8 @@ from copticscriptorium_tf import web_app
 
 
 ROOT = Path(__file__).resolve().parents[1]
+WEB_DOC = ROOT / "docs" / "web-app.md"
+README = ROOT / "README.md"
 
 
 class InstalledWebAppLauncherTests(unittest.TestCase):
@@ -26,6 +28,14 @@ class InstalledWebAppLauncherTests(unittest.TestCase):
             metadata["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"],
             {"app": "copticscriptorium_tf/tf_app"},
         )
+
+    def test_installed_launcher_is_documented_as_primary_browser_path(self):
+        web_doc = WEB_DOC.read_text(encoding="utf-8")
+        readme = README.read_text(encoding="utf-8")
+        for text in (web_doc, readme):
+            self.assertIn("copticscriptorium-tf-web /path/to/output-tf", text)
+        self.assertIn('tf "app:$(pwd)/app"', web_doc)
+        self.assertIn("--check", web_doc)
 
     def _tf_dir(self, root: Path) -> Path:
         tf_dir = root / "generated-tf"
