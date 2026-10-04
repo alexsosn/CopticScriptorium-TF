@@ -82,3 +82,10 @@ the installed launcher path is exercised with both native `text-orig-full`
 and `text-diplomatic-full` formats. The same gate resolves the physical
 `source_record_id` section through bare Text-Fabric after launcher setup and
 asserts that the generated artifact contains only native `.tf` files.
+
+
+The strengthened no-sidecar assertion is applied before Text-Fabric first loads
+the directory, because Text-Fabric may create its own technical cache during
+normal loading. After reload the regression instead forbids semantic JSON/XML
+files; TF-owned cache artifacts are not corpus semantics and are outside the
+sidecar prohibition.
