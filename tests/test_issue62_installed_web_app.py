@@ -51,6 +51,23 @@ class InstalledWebAppLauncherTests(unittest.TestCase):
                 (ROOT / "app" / "config.yaml").read_bytes(),
             )
 
+    def test_incomplete_wheel_does_not_fall_back_to_unrelated_site_packages_app(self):
+        with TemporaryDirectory() as temporary:
+            site_packages = Path(temporary) / "site-packages"
+            package = site_packages / "copticscriptorium_tf"
+            package.mkdir(parents=True)
+            unrelated = site_packages / "app"
+            unrelated.mkdir()
+            (unrelated / "config.yaml").write_text("apiVersion: 3\n", encoding="utf-8")
+
+            with (
+                patch.object(web_app, "files", return_value=package),
+                patch.object(web_app, "__file__", str(package / "web_app.py")),
+            ):
+                with self.assertRaises(FileNotFoundError):
+                    with web_app.app_directory():
+                        self.fail("incomplete installed wheel must fail closed")
+
     def test_browser_arguments_use_packaged_app_and_generated_tf_location(self):
         app_dir = Path("/fixture/app")
         tf_dir = Path("/fixture/generated tf")
