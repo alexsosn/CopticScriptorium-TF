@@ -110,6 +110,7 @@ jobs:
               source_text="fixture",
           )
           location = write_graph(build_graph((document,)), Path(os.environ["TFDIR"]))
+          assert all(path.suffix == ".tf" for path in location.iterdir())
           print(location)
           PY
       - name: Exercise installed launcher outside checkout
@@ -134,5 +135,6 @@ jobs:
           assert normalized == "ⲁ ⲃ "
           assert diplomatic.strip()
           assert diplomatic != normalized
-          assert all(path.suffix == ".tf" for path in Path(location).iterdir())
+          assert not list(Path(location).glob("*.json"))
+          assert not list(Path(location).glob("*.xml"))
           PY
