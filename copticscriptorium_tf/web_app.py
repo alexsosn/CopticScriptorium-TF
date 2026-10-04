@@ -26,8 +26,9 @@ def app_directory() -> Iterator[Path]:
 
     # Development/source-checkout fallback. The wheel does not depend on this
     # path: Hatch force-includes the canonical top-level app into tf_app.
-    source = Path(__file__).resolve().parents[1] / "app"
-    if (source / "config.yaml").is_file():
+    source_root = Path(__file__).resolve().parents[1]
+    source = source_root / "app"
+    if (source_root / "pyproject.toml").is_file() and (source / "config.yaml").is_file():
         yield source
         return
 
