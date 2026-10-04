@@ -73,7 +73,13 @@ jobs:
           import os
           from pathlib import Path
           from copticscriptorium_tf.graph import build_graph
-          from copticscriptorium_tf.model import DocumentModel, Sentence, Word
+          from copticscriptorium_tf.model import (
+              DocumentModel,
+              NormGroup,
+              Orig,
+              Sentence,
+              Word,
+          )
           from copticscriptorium_tf.writer import write_graph
 
           document = DocumentModel(
@@ -94,8 +100,8 @@ jobs:
                   Word(2, "w2", "ⲃ", "lemma2", "V", "dep", "#w1", 1, "cd"),
               ),
               sentences=(Sentence(1, (1, 2)),),
-              origs=(),
-              norm_groups=(),
+              origs=(Orig("ab", (1,), 0),),
+              norm_groups=(NormGroup("ab-cd", (0,), (2,), None),),
               orig_groups=(),
               layout_events=(),
               entities=(),
@@ -114,11 +120,19 @@ jobs:
           "$RUNNER_TEMP/clean/bin/copticscriptorium-tf" --help
           "$RUNNER_TEMP/clean/bin/python" - <<'PY'
           import os
+          from pathlib import Path
           from tf.fabric import Fabric
           location = os.path.join(os.environ["RUNNER_TEMP"], "generated-tf")
           api = Fabric(locations=[location], silent="deep").load(
               "lemma pos dependency_head", silent="deep"
           )
           assert api
-          assert api.T.nodeFromSection(("fixture/sample:a",))
+          document = api.T.nodeFromSection(("fixture/sample:a",))
+          assert document
+          normalized = api.T.text(document, fmt="text-orig-full")
+          diplomatic = api.T.text(document, fmt="text-diplomatic-full")
+          assert normalized == "ⲁ ⲃ "
+          assert diplomatic.strip()
+          assert diplomatic != normalized
+          assert all(path.suffix == ".tf" for path in Path(location).iterdir())
           PY
