@@ -42,3 +42,30 @@ The current README is stale in two user-visible ways: it still describes #16/#26
 ## Scope boundary
 
 This slice can be merged while #17 is externally blocked. It must not close #18 until the canonical Agora registration/Context-Fabric section can be finalized, and it must not describe the synthetic query fixture as certification of upstream scholarly correctness.
+
+
+## Final Agora documentation gate
+
+Issue #18 was reopened because its direct-use documentation was merged while the
+cross-repository dependency #17 was still incomplete. The existing README and
+this plan still preserve that historical boundary as if it were current.
+
+Agora #196 has now merged the supported server-local native-TF import path:
+`install_local_corpus` copies a generated native TF directory into
+Context-Fabric's managed cache, after which the ordinary
+`prepare_corpus`/`load_corpus`/cfabric-mcp query workflow applies. This is an
+explicit handoff; it is not automatic converter-to-consumer composition.
+
+Agora #198 is the remaining dependency for canonical Coptic materializer
+registration. Its final acceptance now includes a real stdio MCP smoke that
+takes the registered Coptic materializer's generated `tf/` output through
+`install_local_corpus -> prepare_corpus -> load_corpus -> search`.
+
+The final documentation change must not land until that #198 exact-head gate is
+GREEN and merged. At that point README should give the shortest supported Agora
+path using the canonical plugin id `copticscriptorium-tf`, materializer id
+`copticscriptorium-text-fabric`, and the registered materializer scripts
+documented by Agora, followed by the explicit Context-Fabric handoff. It must
+remove the stale claims that canonical registration/composition is still
+blocked, while retaining the distinction between manual handoff and automatic
+orchestration.
