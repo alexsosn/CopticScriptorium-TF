@@ -53,13 +53,22 @@ class ReadmeContractTests(unittest.TestCase):
             "7,157.1 MiB",
             "618,769,322 bytes",
             "## Agora integration status",
-            "not yet canonically registered",
+            "copticscriptorium-tf",
+            "copticscriptorium-text-fabric",
+            "agora_install_materializer.py install copticscriptorium-tf",
+            "agora_materialize_registered.py",
+            "install_local_corpus",
+            "prepare_corpus",
+            "load_corpus",
             "## Troubleshooting",
             "does not certify",
         )
         for value in required:
             with self.subTest(value=value):
                 self.assertIn(value, text)
+
+        self.assertNotIn("not yet canonically registered", text)
+        self.assertNotIn("canonical registration/composition remains blocked", text)
 
 
 class DocumentedQueryContractTests(unittest.TestCase):
