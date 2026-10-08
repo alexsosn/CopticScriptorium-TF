@@ -27,7 +27,7 @@ Input discovery accepts `<corpus>/<dataset>_TT/*.tt` directories and `<corpus>/<
 
 ## ⚠ CoNLL-U supplementation is not wired into conversion
 
-The #1 source contract names validated CoNLL-U as the supplementary authority for UD FEATS, `Cxn`/`Morphs`-style MISC enrichments, normalized relations, and dependency heads absent from TT (52,773 such heads on the pinned snapshot). `copticscriptorium_tf.conllu.parse_conllu_supplement` implements validated, non-overwriting parsing and is unit-tested, but neither the direct converter nor the Agora adapter calls it, and no generated feature carries its data. Generated TF therefore contains TT annotations only: there are no UD morphological features, and `dependency_head` covers only heads present in TT.
+The #1 source contract names validated CoNLL-U as the supplementary authority for UD FEATS, `Cxn`/`Morphs`-style MISC enrichments, normalized relations, and dependency heads absent from TT (52,773 such heads on the pinned snapshot). `copticscriptorium_tf.conllu.parse_conllu_supplement` implements validated, non-overwriting parsing and is unit-tested, but neither the direct converter nor the Agora adapter calls it, and no generated feature carries its data. Generated TF therefore contains TT annotations only: there are no UD morphological features, and `dependency_head` covers only heads present in TT. Tracked in #66.
 
 ## ⚠ Only the pinned upstream revision is regression-tested
 
