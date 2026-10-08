@@ -19,11 +19,15 @@ The repository ships `agora.materializer.json` and the offline `copticscriptoriu
 
 ## ⚠ Full-corpus conversion needs about 7 GiB of memory
 
-The reviewed full-source run peaked at 7,157.1 MiB RSS (down from 11,075.7 MiB, #26), took about 7m47s in GitHub Actions including clean reload, and produced 618,769,322 bytes of TF. These figures are tied to that source revision and CI environment, not hardware-independent guarantees. No corpus-selection option is currently documented, so a smaller footprint requires converting a smaller source tree.
+The reviewed full-source run peaked at 7,157.1 MiB RSS (down from 11,075.7 MiB, #26), took about 7m47s in GitHub Actions including clean reload, and produced 618,769,322 bytes of TF. These figures are tied to that source revision and CI environment, not hardware-independent guarantees. Neither the direct CLI nor the Agora adapter has a corpus-selection option, so a smaller footprint requires converting a smaller source tree.
 
 ## ⚠ Only TreeTagger SGML (`*.tt`) input is supported
 
-Input discovery accepts `<corpus>/<dataset>_TT/*.tt` directories and `<corpus>/<dataset>_TT.zip` packages. Other upstream exports (CoNLL-U, PAULA, relANNIS, TEI) are not accepted as converter input. Per #1 they serve as measured evidence rather than independent document parsers. Unsupported layouts fail explicitly rather than being guessed.
+Input discovery accepts `<corpus>/<dataset>_TT/*.tt` directories and `<corpus>/<dataset>_TT.zip` packages. Other upstream exports (CoNLL-U, PAULA, relANNIS, TEI) are not accepted as converter input. Unsupported layouts fail explicitly rather than being guessed.
+
+## ⚠ CoNLL-U supplementation is not wired into conversion
+
+The #1 source contract names validated CoNLL-U as the supplementary authority for UD FEATS, `Cxn`/`Morphs`-style MISC enrichments, normalized relations, and dependency heads absent from TT (52,773 such heads on the pinned snapshot). `copticscriptorium_tf.conllu.parse_conllu_supplement` implements validated, non-overwriting parsing and is unit-tested, but neither the direct converter nor the Agora adapter calls it, and no generated feature carries its data. Generated TF therefore contains TT annotations only: there are no UD morphological features, and `dependency_head` covers only heads present in TT.
 
 ## ⚠ Only the pinned upstream revision is regression-tested
 
@@ -51,7 +55,7 @@ Converter tests and full-corpus gates verify conversion behavior. They do not ce
 
 ## ✅ Resolved design questions that shape the output
 
-- **Source authority (#1):** TT is the canonical document stream; other formats are measured evidence.
+- **Source authority (#1):** TT is the canonical document stream; validated CoNLL-U is designated as a supplement (not yet wired in, see above), and the other formats are measured evidence.
 - **Slot and sections (#3):** one source `norm` token is one `word` slot, with no synthetic slots. The only TF section level is the physical document (`source_record_id`). Sentence, chapter, verse and video markers stay ordinary nodes/features.
 - **Intersecting layout (#3, #13):** 13,015 page/column/line boundaries fall inside word content. Words are not split; layout nodes keep their literal diplomatic text and token-relative offsets and render through their own text formats.
 - **Document-local IDs:** upstream `xml:id`/`head` values remain literal features and are resolved per document into native `dependency_head` / `entity_head` edges, never used as global node IDs.
