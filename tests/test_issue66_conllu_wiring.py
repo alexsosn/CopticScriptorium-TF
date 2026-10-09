@@ -186,10 +186,12 @@ class SupplementedOutputTests(unittest.TestCase):
             destination = Path(temporary) / "tf"
             result = _convert(root, destination)
 
-            api = _load(destination, "source_record_id conllu_status conllu_source_path")
+            api = _load(destination, "source_record_id conllu_status")
             document = _document(api, "alpha/alpha:a")
             self.assertEqual(api.F.conllu_status.v(document), "missing")
-            self.assertIsNone(api.F.conllu_source_path.v(document))
+            # Features without any value are not serialized at all.
+            self.assertFalse((destination / "conllu_source_path.tf").exists())
+            self.assertFalse(any(path.stem.startswith("ud_") for path in destination.glob("*.tf")))
             self.assertEqual(result.conllu_supplemented_source_records, 0)
             self.assertEqual(result.conllu_missing_source_records, ("alpha/alpha:a",))
 
@@ -217,18 +219,25 @@ class NonSupplementingOutcomeTests(unittest.TestCase):
             destination = Path(temporary) / "tf"
             result = _convert(root, destination)
 
-            api = _load(destination, f"source_record_id norm lemma conllu_status {UD_WORD_FEATURES}")
+            api = _load(
+                destination, "source_record_id norm lemma conllu_status conllu_source_path"
+            )
+            # No document was supplemented, so no UD value exists anywhere.
+            self.assertFalse(any(path.stem.startswith("ud_") for path in destination.glob("*.tf")))
             for name, (_raw, reason) in self.CASES.items():
                 with self.subTest(name):
                     document = _document(api, f"alpha/alpha:{name}")
                     self.assertEqual(api.F.conllu_status.v(document), reason)
+                    self.assertEqual(
+                        api.F.conllu_source_path.v(document),
+                        f"alpha/alpha_CONLLU/{name}.conllu",
+                    )
                     (word,) = _words(api, document)
                     self.assertEqual(api.F.norm.v(word), "x")
                     self.assertEqual(api.F.lemma.v(word), "x")
-                    self.assertIsNone(api.F.ud_upos.v(word))
-                    self.assertIsNone(api.F.ud_head_ordinal.v(word))
             missing = _document(api, "alpha/alpha:missing")
             self.assertEqual(api.F.conllu_status.v(missing), "missing")
+            self.assertIsNone(api.F.conllu_source_path.v(missing))
 
             self.assertEqual(result.conllu_supplemented_source_records, 0)
             self.assertEqual(result.conllu_missing_source_records, ("alpha/alpha:missing",))
@@ -400,6 +409,35 @@ class DiscoveryFailsClosedTests(unittest.TestCase):
             lambda root: _write(root / "alpha" / "alpha_CONLLU" / "a.conllu", colliding),
             "UD feature-name collision",
         )
+
+
+class CookbookTests(unittest.TestCase):
+    def test_cookbook_queries_the_supplemental_ud_layer(self):
+        import importlib.util
+
+        path = Path(__file__).resolve().parents[1] / "examples" / "query_cookbook.py"
+        spec = importlib.util.spec_from_file_location("issue66_query_cookbook", path)
+        cookbook = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cookbook)
+
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary) / "source"
+            _supplemented_tree(root)
+            destination = Path(temporary) / "tf"
+            _convert(root, destination)
+            api = cookbook.load_generated_tf(destination)
+            w1, w2, w3 = _words(api, _document(api, "alpha/alpha:a"))
+
+            self.assertEqual(cookbook.ud_hits(api, ud_upos="PRON"), ((w3,),))
+            self.assertEqual(
+                cookbook.ud_hits(api, ud_upos="NOUN", ud_feat_number_psor="Sing"), ((w1,),)
+            )
+            self.assertEqual(
+                sorted(cookbook.ud_dependency_pairs(api)), [(w2, w1), (w3, w1)]
+            )
+            self.assertEqual(cookbook.ud_dependency_pairs(api, deprel="obj"), ((w3, w1),))
+            with self.assertRaisesRegex(ValueError, "ud_feat_absent"):
+                cookbook.ud_hits(api, ud_feat_absent="x")
 
 
 class AgoraParityTests(unittest.TestCase):

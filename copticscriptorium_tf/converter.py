@@ -17,6 +17,7 @@ from time import monotonic
 from typing import Any
 
 from ._atomic import publish_path_no_clobber as _publish_summary_no_clobber
+from .conllu import attach_conllu_supplements
 from .graph import build_graph
 from .parser import parse_source_tree
 from .writer import write_graph
@@ -57,13 +58,21 @@ class ConversionResult:
     write_seconds: float
     peak_rss_mb: float
     missing_license_metadata_source_records: tuple[str, ...]
+    conllu_supplemented_source_records: int = 0
+    conllu_unavailable_source_records: tuple[dict[str, str], ...] = ()
+    conllu_missing_source_records: tuple[str, ...] = ()
+    conllu_records_without_tt: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["output_path"] = str(self.output_path)
-        data["missing_license_metadata_source_records"] = list(
-            self.missing_license_metadata_source_records
-        )
+        for name in (
+            "missing_license_metadata_source_records",
+            "conllu_unavailable_source_records",
+            "conllu_missing_source_records",
+            "conllu_records_without_tt",
+        ):
+            data[name] = list(getattr(self, name))
         return data
 
 
@@ -102,10 +111,12 @@ def convert_source_tree(
         upstream_repository=upstream_repository,
         upstream_commit=upstream_commit,
     )
-    parse_seconds = monotonic() - parse_started
     source_records = len(documents)
     if not documents:
         raise ValueError(f"no supported TT source records found under {Path(source_root)}")
+    # TT stays canonical; validated CoNLL-U only adds separately named values.
+    documents, conllu_report = attach_conllu_supplements(documents, source_root)
+    parse_seconds = monotonic() - parse_started
 
     # Preserve literal per-document license metadata as TF features. Surface only
     # absence/blank values in the operational report, without assigning an
@@ -147,6 +158,10 @@ def convert_source_tree(
         write_seconds=write_seconds,
         peak_rss_mb=_peak_rss_mb(),
         missing_license_metadata_source_records=missing_license_metadata_source_records,
+        conllu_supplemented_source_records=conllu_report.supplemented_source_records,
+        conllu_unavailable_source_records=conllu_report.unavailable_source_records,
+        conllu_missing_source_records=conllu_report.missing_source_records,
+        conllu_records_without_tt=conllu_report.records_without_tt,
     )
 
 
@@ -215,7 +230,10 @@ def _write_summary(path: Path, result: ConversionResult) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Convert supported Coptic Scriptorium TT sources to native Text-Fabric."
+        description=(
+            "Convert supported Coptic Scriptorium TT sources, supplemented by "
+            "validated CoNLL-U, to native Text-Fabric."
+        )
     )
     parser.add_argument("source_root", type=Path)
     parser.add_argument("destination", type=Path)

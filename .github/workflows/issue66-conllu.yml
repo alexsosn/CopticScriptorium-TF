@@ -1,0 +1,88 @@
+name: issue66-conllu
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: issue66-conllu-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UPSTREAM_COMMIT: 3ac067f1709a0012daf39ea8da2fac79980176a5
+
+jobs:
+  conllu-wiring-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned real Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+      - name: Run focused issue 66 tests
+        run: python -m unittest discover -s tests -p 'test_issue66_*.py' -v
+
+  conllu-full-corpus-parity:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'feat/issue66-conllu-supplement'
+    needs: conllu-wiring-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact tested head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned real Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+      - name: Check out pinned TT and CoNLL-U sources
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: ${{ env.UPSTREAM_COMMIT }}
+          path: upstream
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*/*_TT/**
+            /*/*_TT.zip
+            /*/*_CONLLU/**
+            /*/*_CONLLU.zip
+      - name: Verify pinned upstream source
+        run: test "$(git -C upstream rev-parse HEAD)" = "$UPSTREAM_COMMIT"
+      - name: Convert, reload and independently reread CoNLL-U
+        run: |
+          /usr/bin/time -v -o "$RUNNER_TEMP/issue66-time.txt" \
+            python research/issue-66/full_corpus_parity.py upstream \
+              --work-root "$RUNNER_TEMP/issue66-work" \
+              --output "$RUNNER_TEMP/issue66-parity.json"
+      - name: Show resource measurements
+        if: always()
+        run: |
+          test ! -f "$RUNNER_TEMP/issue66-time.txt" || cat "$RUNNER_TEMP/issue66-time.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue66-conllu-parity
+          path: |
+            ${{ runner.temp }}/issue66-time.txt
+            ${{ runner.temp }}/issue66-parity.json
+          if-no-files-found: warn

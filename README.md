@@ -2,7 +2,7 @@
 
 CopticScriptorium-TF converts supported local Coptic Scriptorium TT sources into ordinary native [Text-Fabric](https://annotation.github.io/text-fabric/tf/index.html).
 
-The converter preserves physical source documents, word slots, linguistic/grouping structure, layout boundaries, entities, English and Arabic translations, document relations, source metadata, and provenance. Structural relationships are native TF node/edge features; generated semantic features do not hide JSON/XML containers.
+The converter preserves physical source documents, word slots, linguistic/grouping structure, layout boundaries, entities, English and Arabic translations, document relations, source metadata, and provenance. Where a record's CoNLL-U export validates and aligns with TT, words also carry a separately named supplemental UD layer (`ud_*` features and a `ud_head` edge); TT values are never overwritten. Structural relationships are native TF node/edge features; generated semantic features do not hide JSON/XML containers.
 
 The complete pinned Coptic Scriptorium source tree has been converted and cleanly reloaded with the supported Text-Fabric version. This project validates converter behavior; it does not certify the scholarly correctness, completeness, licensing eligibility, or editorial quality of upstream Coptic Scriptorium data.
 
@@ -25,11 +25,13 @@ copticscriptorium-tf \
   --summary /path/to/conversion-summary.json
 ```
 
+If the source tree also contains `<corpus>/<dataset>_CONLLU/*.conllu` or `<corpus>/<dataset>_CONLLU.zip`, matching records are validated and attached as the supplemental UD layer. CoNLL-U is optional: a TT-only tree converts the same TT data, and each document records its `conllu_status`.
+
 The installed `copticscriptorium-tf` command delegates to the same reviewed CLI as `python -m copticscriptorium_tf.converter`; the module form remains supported as an equivalent fallback. Supported input discovery includes both direct `<corpus>/<dataset>_TT/*.tt` datasets and `<corpus>/<dataset>_TT.zip` packages. Directory TT datasets/records and `*_TT.zip` archive packages must be physical paths in the handed-off source tree; symlinked `*_TT` directories, `.tt` members, and archive packages (including dangling symlinks) are rejected rather than followed or silently ignored. The destination must not already exist. The repository/commit arguments record provenance for the local tree; conversion does not fetch data from the network.
 
 `--upstream-commit` must be a full 40-hex SHA-1 or 64-hex SHA-256 commit ID. Symbolic refs and abbreviated hashes are rejected before source parsing; for an intentionally unversioned local tree, use the explicit `unversioned-local` sentinel. The converter validates identifier form locally and does not contact the repository to prove membership.
 
-The JSON summary contains operational counts, phase timings, output size, peak process RSS where available, and source records missing a literal license metadata field. It is operational metadata and must use a fresh path outside the TF destination; the converter rejects summary paths that already exist (including symlinks) or are equal to/nested under the TF destination before conversion starts. It does not assign an aggregate license verdict and does not certify the corpus.
+The JSON summary contains operational counts, phase timings, output size, peak process RSS where available, source records missing a literal license metadata field, and the CoNLL-U outcome for every record (supplemented count, unavailable records with reasons, records with no CoNLL-U counterpart, and CoNLL-U records with no TT counterpart). It is operational metadata and must use a fresh path outside the TF destination; the converter rejects summary paths that already exist (including symlinks) or are equal to/nested under the TF destination before conversion starts. It does not assign an aggregate license verdict and does not certify the corpus.
 
 ## Browse locally
 
@@ -145,7 +147,9 @@ The sole slot type is `word`. Non-slot node types are:
 
 Frequently useful node/slot features include `source_record_id`, `source_word_ordinal`, `source_id`, `norm`, `lemma`, `pos`, `func`, `source_text`, `scholarly_id`, `corpus`, `dataset`, `source_path`, `source_sha256`, `packaging`, `entity_class`, `identity`, and `own_text`. Document metadata is projected as deterministic scalar `meta_*` features, including occurrence-suffixed features when a source metadata attribute is repeated.
 
-Native edge features include `parent`, `direct_word`, `dependency_head`, `entity_head`, `same_scholarly`, `documented_overlap`, and `witness`, plus the valued relation-evidence features listed above.
+Native edge features include `parent`, `direct_word`, `dependency_head`, `ud_head`, `entity_head`, `same_scholarly`, `documented_overlap`, and `witness`, plus the valued relation-evidence features listed above.
+
+The supplemental UD layer adds word features `ud_lemma`, `ud_upos`, `ud_xpos`, `ud_deprel`, `ud_head_ordinal`, one `ud_feat_<key>` per FEATS key (for example `ud_feat_pron_type`, `ud_feat_number_psor`) and one `ud_misc_<key>` per MISC key, plus document features `conllu_status`, `conllu_source_path` and `conllu_source_sha256`. `dependency_head` remains TT-only; CoNLL-U heads, including those TT lacks, are on `ud_head`. See the researcher guide for status values and query examples.
 
 Available text formats depend on the source content. The writer emits `text-orig-full` for normalized word text, `text-diplomatic-full` when diplomatic/original surfaces exist, and node-default own-text formats for translations and layout nodes.
 
@@ -162,6 +166,8 @@ On the pinned upstream snapshot `CopticScriptorium/corpora@3ac067f1709a0012daf39
 - about 7m47s for the GitHub Actions smoke including conversion and clean reload.
 
 These are reproducible measurements for that pinned source revision and CI environment, not fixed corpus invariants or hardware-independent performance guarantees. The earlier implementation peaked at 11,075.7 MiB; issue #26 reduced the retained-memory high-water mark while preserving output semantics.
+
+Issue #66 added the supplemental UD layer. On the same snapshot, 2,361 records are supplemented (2,104,966 words). Edges rise to 4,540,623, including 2,034,751 `ud_head` edges, and the output grows to 162 TF files totaling 744,311,071 bytes. A local macOS run peaked at 6,902.6 MiB RSS, within the #26 envelope; the authoritative Linux CI figure is recorded by the `issue66-conllu` workflow.
 
 ## Agora integration status
 

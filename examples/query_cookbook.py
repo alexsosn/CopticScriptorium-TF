@@ -41,11 +41,15 @@ NODE_FEATURES = {
     "end_word_ordinal",
     "end_char",
     "end_after_word_ordinal",
+    "conllu_status",
+    "conllu_source_path",
+    "conllu_source_sha256",
 }
 EDGE_FEATURES = {
     "parent",
     "direct_word",
     "dependency_head",
+    "ud_head",
     "entity_head",
     "same_scholarly",
     "same_scholarly_classification",
@@ -68,7 +72,7 @@ def load_generated_tf(location: Path | str):
     wanted_nodes = sorted(
         feature
         for feature in available_nodes
-        if feature in NODE_FEATURES or feature.startswith("meta_")
+        if feature in NODE_FEATURES or feature.startswith(("meta_", "ud_"))
     )
     wanted_edges = sorted(
         feature for feature in available_edges if feature in EDGE_FEATURES
@@ -150,6 +154,42 @@ def dependency_pairs(
 {dep_spec}
 head:word
 dependent -dependency_head> head
+"""
+    return tuple(api.S.search(query, silent="deep"))
+
+
+def ud_hits(api, **constraints: str) -> tuple[tuple[int, ...], ...]:
+    """Filter word slots by supplemental UD features, e.g. ud_upos="VERB".
+
+    Keys are generated feature names such as ud_feat_verb_form; only words of
+    CoNLL-U-supplemented records carry these values.
+    """
+    if not constraints:
+        raise ValueError("provide at least one ud_* feature constraint")
+    specs = ["word"]
+    for feature, value in sorted(constraints.items()):
+        if not feature.startswith("ud_"):
+            raise ValueError(f"{feature!r} is not a supplemental UD feature")
+        _require_node_feature(api, feature)
+        specs.append(f"{feature}={_search_literal(value)}")
+    return tuple(api.S.search(" ".join(specs), silent="deep"))
+
+
+def ud_dependency_pairs(
+    api,
+    *,
+    deprel: str | None = None,
+) -> tuple[tuple[int, int], ...]:
+    """Return (dependent, head) pairs from CoNLL-U heads, including TT-absent ones."""
+    _require_edge_feature(api, "ud_head")
+    dep_spec = "dependent:word"
+    if deprel is not None:
+        _require_node_feature(api, "ud_deprel")
+        dep_spec += f" ud_deprel={_search_literal(deprel)}"
+    query = f"""\
+{dep_spec}
+head:word
+dependent -ud_head> head
 """
     return tuple(api.S.search(query, silent="deep"))
 

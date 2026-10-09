@@ -118,3 +118,9 @@ class DocumentModel:
     translations: tuple[Translation, ...]
     arabic_translations: tuple[Translation, ...]
     source_text: str = field(repr=False)
+    # CoNLL-U supplementation outcome. ``None`` means supplementation was not
+    # attempted; the converter always records an explicit status.
+    conllu_status: str | None = None
+    conllu_source_path: str | None = None
+    conllu_source_sha256: str | None = None
+    conllu_words: tuple[SupplementalWord, ...] | None = field(default=None, repr=False)

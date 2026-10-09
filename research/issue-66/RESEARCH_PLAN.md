@@ -90,3 +90,17 @@ The summary adds `conllu_supplemented_source_records` (count), `conllu_unavailab
 1. RED unit tests (`tests/test_issue66_conllu_wiring.py`) on synthetic directory/archive trees: discovery strictness, all statuses, TT invariance, feature names/values/edges, archive vs directory equality, name collision, TT-only trees, summary contents, Agora adapter parity.
 2. Pinned full-corpus gate: convert, reload, assert 2,361 supplemented / 227 placeholder / 40 malformed / 0 other / 0 without TT, then independently reread every supplemented CoNLL-U file and compare each word's UD values and the 52,773 TT-absent heads against TF.
 3. Resource re-measurement against #26.
+
+## Verification record
+
+Full pinned-corpus gate (`research/issue-66/full_corpus_parity.py`), run locally on macOS against the implementation head:
+
+- statuses: 2,361 `supplemented`, 227 `placeholder`, 40 `malformed_conllu`, with no `missing` and no CoNLL-U records without TT;
+- independent reread: all 2,104,966 supplemented words match the reloaded TF for `ud_lemma`, `ud_upos`, `ud_xpos`, `ud_deprel`, `ud_head_ordinal`, the `ud_head` edge, and every FEATS/MISC key (resolved through each feature's `sourceKey` header), with 0 failures;
+- 52,773 TT-absent heads are supplied by CoNLL-U; there are 2,034,751 `ud_head` edges;
+- words of the 267 non-supplemented records carry no UD values;
+- output: 4,540,623 edges, 162 TF files, 744,311,071 bytes;
+- resources: converter-reported peak RSS 6,902.6 MiB, within the #26 envelope; convert time 488 s; whole process including reload and reread 774 s;
+- the documented guide queries run on the full output (8,236 `ud_upos=VERB ud_feat_verb_form=Inf` words; 86,924 `ud_deprel=obj` `-ud_head>` pairs).
+
+The authoritative Linux CI measurement comes from the `issue66-conllu` workflow's `conllu-full-corpus-parity` job.
