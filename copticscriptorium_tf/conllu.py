@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, replace
+from hashlib import sha256
 import html
+from pathlib import Path
 import re
-from typing import Any
+from sys import intern
+from types import MappingProxyType
+from typing import Any, Iterable, Mapping
+import zipfile
 
 from .model import ConlluSupplement, DocumentModel, SupplementalWord
 
@@ -12,6 +18,14 @@ from .model import ConlluSupplement, DocumentModel, SupplementalWord
 BASIC_ID_RE = re.compile(r"[1-9][0-9]*$")
 MWT_ID_RE = re.compile(r"([1-9][0-9]*)-([1-9][0-9]*)$")
 EMPTY_ID_RE = re.compile(r"(0|[1-9][0-9]*)\.([1-9][0-9]*)$")
+
+# About two million supplemental words are retained during full-corpus
+# conversion. Share the empty attribute mapping and intern repeated strings.
+_EMPTY: Mapping[str, str] = MappingProxyType({})
+
+
+def _value(column: str) -> str | None:
+    return None if column == "_" else intern(column)
 
 
 class SupplementUnavailable(ValueError):
@@ -35,9 +49,9 @@ class _UnsupportedConlluShape(ValueError):
     pass
 
 
-def _kv_field(value: str) -> dict[str, str]:
+def _kv_field(value: str) -> Mapping[str, str]:
     if value == "_" or value == "":
-        return {}
+        return _EMPTY
     result: dict[str, str] = {}
     for item in value.split("|"):
         if "=" not in item:
@@ -45,7 +59,7 @@ def _kv_field(value: str) -> dict[str, str]:
         key, field_value = item.split("=", 1)
         if not key or key in result:
             raise _MalformedConllu(f"duplicate/empty attribute key {key!r}")
-        result[key] = field_value
+        result[intern(key)] = intern(field_value)
     return result
 
 
@@ -78,14 +92,14 @@ def _validate_sentence(rows: list[tuple[int, list[str]]]) -> list[dict[str, Any]
             basics.append(
                 {
                     "local_id": token_id,
-                    "form_literal": columns[1],
-                    "form": html.unescape(columns[1]),
-                    "lemma": None if columns[2] == "_" else columns[2],
-                    "upos": None if columns[3] == "_" else columns[3],
-                    "xpos": None if columns[4] == "_" else columns[4],
+                    "form_literal": intern(columns[1]),
+                    "form": intern(html.unescape(columns[1])),
+                    "lemma": _value(columns[2]),
+                    "upos": _value(columns[3]),
+                    "xpos": _value(columns[4]),
                     "feats": _kv_field(columns[5]),
                     "head_local": int(head_literal),
-                    "deprel": None if columns[7] == "_" else columns[7],
+                    "deprel": _value(columns[7]),
                     "misc": _kv_field(columns[9]),
                 }
             )
@@ -196,7 +210,10 @@ def parse_conllu_supplement(
 ) -> ConlluSupplement:
     """Validate and align one CoNLL-U record without mutating TT source values."""
 
-    text = raw.decode("utf-8")
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise SupplementUnavailable("invalid_utf8", source_path, str(exc)) from exc
     if not text.strip():
         raise SupplementUnavailable("placeholder", source_path)
     try:
@@ -246,12 +263,229 @@ def parse_conllu_supplement(
                     lemma=token["lemma"],
                     upos=token["upos"],
                     xpos=token["xpos"],
-                    feats=dict(token["feats"]),
+                    feats=token["feats"],
                     head_ordinal=head_ordinal,
                     deprel=token["deprel"],
-                    misc=dict(token["misc"]),
+                    misc=token["misc"],
                 )
             )
         absolute_offset += len(sentence)
 
     return ConlluSupplement(source_path=source_path, words=tuple(result))
+
+
+SUPPLEMENTED = "supplemented"
+MISSING = "missing"
+
+
+@dataclass(frozen=True, slots=True)
+class ConlluLocator:
+    """Where one CoNLL-U source record lives; its bytes are read on demand."""
+
+    source_record_id: str
+    source_path: str
+    filesystem_path: Path
+    member: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ConlluReport:
+    """Operational outcome of pairing TT documents with CoNLL-U records."""
+
+    supplemented_source_records: int
+    unavailable_source_records: tuple[dict[str, str], ...]
+    missing_source_records: tuple[str, ...]
+    records_without_tt: tuple[str, ...]
+
+
+def _source_record_id(corpus: str, dataset: str, record: str) -> str:
+    return f"{corpus}/{dataset}:{record}"
+
+
+def discover_conllu_records(root: Path | str) -> dict[str, ConlluLocator]:
+    """Locate supported CoNLL-U records, keyed by case-folded source_record_id.
+
+    Packaging rules mirror TT discovery: ``corpus/dataset_CONLLU/*.conllu`` and
+    ``corpus/dataset_CONLLU.zip`` members that are root-level or directly under
+    ``dataset_CONLLU/``. Unsupported layouts fail closed rather than being guessed.
+    """
+
+    root_path = Path(root)
+    found: list[ConlluLocator] = []
+
+    for directory in sorted(root_path.rglob("*_CONLLU"), key=lambda path: path.as_posix()):
+        relative = directory.relative_to(root_path)
+        if directory.is_symlink():
+            raise ValueError(
+                f"symlinked CoNLL-U dataset directory is unsupported: {relative.as_posix()!r}"
+            )
+        if not directory.is_dir():
+            raise ValueError(
+                f"CoNLL-U dataset candidate must be a directory: {relative.as_posix()!r}"
+            )
+        if len(relative.parts) != 2:
+            raise ValueError(f"unsupported CoNLL-U dataset layout: {relative.as_posix()!r}")
+        corpus = relative.parts[0]
+        dataset = relative.parts[1][: -len("_CONLLU")]
+        candidates = sorted(
+            (item for item in directory.rglob("*") if item.suffix.casefold() == ".conllu"),
+            key=lambda item: item.as_posix(),
+        )
+        records_before = len(found)
+        for path in candidates:
+            source_path = path.relative_to(root_path).as_posix()
+            if path.is_symlink():
+                raise ValueError(f"symlinked CoNLL-U source record is unsupported: {source_path!r}")
+            if not path.is_file():
+                raise ValueError(
+                    f"CoNLL-U source record candidate must be a regular file: {source_path!r}"
+                )
+            logical = path.relative_to(directory)
+            if len(logical.parts) != 1:
+                raise ValueError(
+                    f"unsupported CoNLL-U directory member layout in {relative.as_posix()}: "
+                    f"{logical.as_posix()!r}"
+                )
+            record = logical.name[: -len(path.suffix)]
+            found.append(
+                ConlluLocator(_source_record_id(corpus, dataset, record), source_path, path)
+            )
+        if len(found) == records_before:
+            raise ValueError(
+                f"CoNLL-U dataset contains no supported CoNLL-U records: {relative.as_posix()!r}"
+            )
+
+    for archive_path in sorted(root_path.rglob("*_CONLLU.zip"), key=lambda path: path.as_posix()):
+        relative = archive_path.relative_to(root_path)
+        if archive_path.is_symlink():
+            raise ValueError(
+                f"symlinked CoNLL-U archive package is unsupported: {relative.as_posix()!r}"
+            )
+        if not archive_path.is_file():
+            raise ValueError(
+                f"CoNLL-U archive package must be a regular file: {relative.as_posix()!r}"
+            )
+        if len(relative.parts) != 2:
+            raise ValueError(f"unsupported CoNLL-U dataset layout: {relative.as_posix()!r}")
+        corpus = relative.parts[0]
+        dataset = relative.parts[1][: -len("_CONLLU.zip")]
+        expected_prefix = f"{dataset}_CONLLU/"
+        records_before = len(found)
+        with zipfile.ZipFile(archive_path) as archive:
+            for member in sorted(archive.namelist()):
+                if member.endswith("/") or not member.casefold().endswith(".conllu"):
+                    continue
+                if "/" not in member:
+                    logical = member
+                elif member.startswith(expected_prefix):
+                    logical = member[len(expected_prefix):]
+                    if not logical or "/" in logical:
+                        raise ValueError(
+                            f"unsupported CoNLL-U archive member layout in "
+                            f"{relative.as_posix()}: {member!r}"
+                        )
+                else:
+                    raise ValueError(
+                        f"unsupported CoNLL-U archive member layout in "
+                        f"{relative.as_posix()}: {member!r}"
+                    )
+                record = logical[: -len(".conllu")]
+                found.append(
+                    ConlluLocator(
+                        _source_record_id(corpus, dataset, record),
+                        f"{relative.as_posix()}!/{member}",
+                        archive_path,
+                        member,
+                    )
+                )
+        if len(found) == records_before:
+            raise ValueError(
+                f"CoNLL-U archive contains no supported CoNLL-U records: {relative.as_posix()!r}"
+            )
+
+    result: dict[str, ConlluLocator] = {}
+    for locator in found:
+        key = locator.source_record_id.casefold()
+        previous = result.get(key)
+        if previous is not None:
+            raise ValueError(
+                f"CoNLL-U source-record collision: {previous.source_path!r} "
+                f"versus {locator.source_path!r}"
+            )
+        result[key] = locator
+    return result
+
+
+def attach_conllu_supplements(
+    documents: Iterable[DocumentModel],
+    root: Path | str,
+) -> tuple[list[DocumentModel], ConlluReport]:
+    """Pair TT documents with CoNLL-U counterparts and record every outcome.
+
+    TT remains canonical: a document is never altered except for the separate
+    ``conllu_*`` fields, and CoNLL-U records without a TT counterpart are reported
+    rather than converted.
+    """
+
+    locators = discover_conllu_records(root)
+    archives: dict[Path, zipfile.ZipFile] = {}
+    attached: list[DocumentModel] = []
+    unavailable: list[dict[str, str]] = []
+    missing: list[str] = []
+    supplemented = 0
+    try:
+        for document in documents:
+            locator = locators.pop(document.source_record_id.casefold(), None)
+            if locator is None:
+                missing.append(document.source_record_id)
+                attached.append(replace(document, conllu_status=MISSING))
+                continue
+            if locator.member is None:
+                raw = locator.filesystem_path.read_bytes()
+            else:
+                archive = archives.get(locator.filesystem_path)
+                if archive is None:
+                    archive = zipfile.ZipFile(locator.filesystem_path)
+                    archives[locator.filesystem_path] = archive
+                raw = archive.read(locator.member)
+            provenance = {
+                "conllu_source_path": locator.source_path,
+                "conllu_source_sha256": sha256(raw).hexdigest(),
+            }
+            try:
+                supplement = parse_conllu_supplement(
+                    document, raw, source_path=locator.source_path
+                )
+            except SupplementUnavailable as exc:
+                unavailable.append({
+                    "source_record_id": document.source_record_id,
+                    "conllu_source_path": locator.source_path,
+                    "reason": exc.reason,
+                    "detail": exc.detail,
+                })
+                attached.append(replace(document, conllu_status=exc.reason, **provenance))
+                continue
+            supplemented += 1
+            attached.append(replace(
+                document,
+                conllu_status=SUPPLEMENTED,
+                conllu_words=supplement.words,
+                **provenance,
+            ))
+    finally:
+        for archive in archives.values():
+            archive.close()
+
+    report = ConlluReport(
+        supplemented_source_records=supplemented,
+        unavailable_source_records=tuple(sorted(
+            unavailable,
+            key=lambda item: (item["source_record_id"].casefold(), item["source_record_id"]),
+        )),
+        missing_source_records=tuple(missing),
+        records_without_tt=tuple(sorted(
+            (locator.source_path for locator in locators.values()),
+            key=lambda path: (path.casefold(), path),
+        )),
+    )
+    return attached, report

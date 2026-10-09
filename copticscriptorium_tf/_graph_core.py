@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Iterable, Iterator, Sequence
 
-from .model import DocumentModel, LayoutEvent
+from .model import DocumentModel, LayoutEvent, SupplementalWord
 
 NODE_TYPE_ORDER = (
     "document", "sentence", "orig_group", "norm_group", "orig",
@@ -13,6 +13,11 @@ NODE_TYPE_ORDER = (
 )
 LAYOUT_TYPES = {"page", "column", "line"}
 DOCUMENT_RELATION_TYPES = {"same_scholarly", "documented_overlap", "witness"}
+WORD_EDGE_TYPES = {"dependency_head", "ud_head"}
+CONLLU_STATUSES = {
+    "supplemented", "missing", "placeholder", "malformed_conllu",
+    "unsupported_conllu_shape", "token_alignment", "invalid_utf8",
+}
 OVERLAP_CLASSES = {
     "byte_identical", "core_identical_source_variant",
     "alternate_analysis", "textual_divergence",
@@ -33,6 +38,8 @@ class GraphSlot:
     dependency_head_ordinal: int | None
     source_text: str
     kind: str = "word"
+    # Validated CoNLL-U values for this word, kept apart from TT values.
+    ud: SupplementalWord | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +74,9 @@ class GraphNode:
     end_word_ordinal: int | None = None
     end_char: int | None = None
     end_after_word_ordinal: int | None = None
+    conllu_status: str | None = None
+    conllu_source_path: str | None = None
+    conllu_source_sha256: str | None = None
 
     @property
     def slots(self) -> tuple[int, ...]:
@@ -298,11 +308,17 @@ def build_graph(
     for document in ordered:
         _check_document(document)
         starts[document.source_record_id] = len(slots) + 1
-        for word in document.words:
+        ud_words = document.conllu_words
+        if ud_words is not None and len(ud_words) != len(document.words):
+            raise ValueError(
+                f"CoNLL-U supplement does not align with TT words in {document.source_record_id}"
+            )
+        for index, word in enumerate(document.words):
             slots.append(GraphSlot(
                 len(slots) + 1, document.source_record_id, word.ordinal, word.source_id,
                 word.norm, word.lemma, word.pos, word.func, word.head_literal,
                 word.dependency_head_ordinal, word.source_text,
+                ud=None if ud_words is None else ud_words[index],
             ))
 
     def slot_id(document: DocumentModel, ordinal: int) -> int:
@@ -339,6 +355,9 @@ def build_graph(
                     source_sha256=document.source_sha256, packaging=document.packaging,
                     section_address=(record,), metadata=tuple(sorted(document.metadata.items())),
                     metadata_duplicates=tuple(sorted(document.metadata_duplicates.items())),
+                    conllu_status=document.conllu_status,
+                    conllu_source_path=document.conllu_source_path,
+                    conllu_source_sha256=document.conllu_source_sha256,
                 )
                 document_ids[record] = node.id
             elif otype == "sentence":
@@ -420,6 +439,9 @@ def build_graph(
             edges.append(GraphEdge(
                 "dependency_head", slot.id, start + slot.dependency_head_ordinal - 1
             ))
+        if slot.ud is not None and slot.ud.head_ordinal:
+            start = starts[slot.source_record_id]
+            edges.append(GraphEdge("ud_head", slot.id, start + slot.ud.head_ordinal - 1))
     for entity_id, document, head in entity_heads:
         edges.append(GraphEdge("entity_head", entity_id, slot_id(document, head)))
 
@@ -537,10 +559,19 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
             if slot_document[slot_id]:
                 errors.append(f"slot {slot_id} belongs to multiple documents")
             slot_document[slot_id] = document.id
+    for document in document_by_record.values():
+        if document.conllu_status is not None and document.conllu_status not in CONLLU_STATUSES:
+            errors.append(f"document {document.id} has unknown conllu_status {document.conllu_status!r}")
     for slot in graph.slots:
         owner = document_by_record.get(slot.source_record_id)
         if owner is None or slot_document[slot.id] != owner.id:
             errors.append(f"slot {slot.id} document/source_record mismatch")
+            continue
+        supplemented = owner.conllu_status == "supplemented"
+        if supplemented != (slot.ud is not None):
+            errors.append(f"slot {slot.id} CoNLL-U values disagree with document conllu_status")
+        elif slot.ud is not None and slot.ud.ordinal != slot.source_word_ordinal:
+            errors.append(f"slot {slot.id} CoNLL-U word ordinal is misaligned")
 
     sentence_membership = bytearray(slot_count + 1)
     for sentence in typed("sentence"):
@@ -593,13 +624,13 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
                 errors.append(f"entity node {node.id} has invalid parent entity")
 
     for edge in graph.edges:
-        if edge.kind == "dependency_head":
+        if edge.kind in WORD_EDGE_TYPES:
             source = slot_at(edge.source)
             target = slot_at(edge.target)
             if source is None or target is None:
-                errors.append(f"dependency edge {edge.source}->{edge.target} must connect word slots")
+                errors.append(f"{edge.kind} edge {edge.source}->{edge.target} must connect word slots")
             elif source.source_record_id != target.source_record_id:
-                errors.append(f"dependency edge {edge.source}->{edge.target} crosses documents")
+                errors.append(f"{edge.kind} edge {edge.source}->{edge.target} crosses documents")
         elif edge.kind == "entity_head":
             source = node_at(edge.source)
             target = slot_at(edge.target)
@@ -640,6 +671,11 @@ def graph_fingerprint(graph: Graph) -> str:
         emit("slot", slot.id, slot.kind, slot.source_record_id, slot.source_word_ordinal,
              slot.source_id, slot.norm, slot.lemma, slot.pos, slot.func, slot.head_literal,
              slot.dependency_head_ordinal, slot.source_text)
+        if slot.ud is not None:
+            ud = slot.ud
+            emit("ud", slot.id, ud.ordinal, ud.form_literal, ud.form, ud.lemma, ud.upos,
+                 ud.xpos, tuple(sorted(ud.feats.items())), ud.head_ordinal, ud.deprel,
+                 tuple(sorted(ud.misc.items())))
     for node in graph.nodes:
         emit("node", node.id, node.otype, node.source_record_id, node.source_ordinal,
              node.slot_ranges, node.value, node.text, node.label, node.scholarly_id,
@@ -649,6 +685,9 @@ def graph_fingerprint(graph: Graph) -> str:
              node.render_mode, node.event_ordinal, node.start_word_ordinal, node.start_char,
              node.start_after_word_ordinal, node.end_word_ordinal, node.end_char,
              node.end_after_word_ordinal)
+        if node.conllu_status is not None:
+            emit("conllu", node.id, node.conllu_status, node.conllu_source_path,
+                 node.conllu_source_sha256)
     for edge in graph.edges:
         emit("edge", edge.kind, edge.source, edge.target, edge.classification, edge.family,
              edge.witness_literal, edge.target_scholarly_id)

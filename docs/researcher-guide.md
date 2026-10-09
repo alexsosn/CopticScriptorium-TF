@@ -145,6 +145,48 @@ For a pair (dependent, head), E.dependency_head.f(dependent) contains head.
 The cookbook's dependency_pairs() implements this query and makes the root
 semantics explicit.
 
+## Supplemental UD layer from CoNLL-U
+
+TT is the canonical source. When a record's CoNLL-U export validates and aligns
+token-for-token and sentence-for-sentence with TT, its words also carry
+separately named UD values. TT features are never overwritten or filled in.
+
+- ud_lemma, ud_upos, ud_xpos, ud_deprel — CoNLL-U LEMMA, UPOS, XPOS, DEPREL;
+- ud_head_ordinal — document-relative HEAD, where 0 means root;
+- ud_head — word -> word edge for every non-root CoNLL-U head;
+- ud_feat_<key> — one feature per FEATS key, for example ud_feat_pron_type
+  (PronType) or ud_feat_number_psor (Number[psor]);
+- ud_misc_<key> — one feature per MISC key (Orig, OrigLang, Morphs, Cxn,
+  CxnElt, Entity, Subject), kept as literal source strings. CxnElt values
+  begin with a sentence-local CoNLL-U word ID; Entity uses CoNLL-U bracket
+  notation, while the entity nodes come from TT.
+
+Each per-key feature records the literal UD key as sourceKey in its .tf header.
+
+dependency_head contains TT heads only. On the pinned snapshot CoNLL-U adds
+52,773 heads that TT lacks (1,146 of them roots); where both supply a head they
+agree. Their relation labels differ on 4,902 words, so compare func and
+ud_deprel rather than assuming one equals the other.
+
+~~~python
+infinitives = tuple(
+    api.S.search("word ud_upos=VERB ud_feat_verb_form=Inf", silent="deep")
+)
+ud_pairs = tuple(api.S.search("""
+dependent:word ud_deprel=obj
+head:word
+dependent -ud_head> head
+""", silent="deep"))
+~~~
+
+Each document node records conllu_status: supplemented, missing (no CoNLL-U
+counterpart), or the reason it was not used (placeholder, malformed_conllu,
+unsupported_conllu_shape, token_alignment, invalid_utf8).
+conllu_source_path and conllu_source_sha256 identify the CoNLL-U record
+whenever one exists. On the pinned snapshot, 2,361 records are supplemented,
+227 CoNLL-U files are whitespace-only placeholders and 40 are structurally
+invalid. Words of those 267 records carry TT values only.
+
 ## Entities
 
 An entity is a measured non-slot node. Its oslots span is the entity occurrence.

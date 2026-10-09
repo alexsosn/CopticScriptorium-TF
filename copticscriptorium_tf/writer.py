@@ -15,6 +15,8 @@ from .graph import Graph, validate_graph
 
 _META_SAFE_RE = re.compile(r"[a-z][a-z0-9_]*\Z")
 _META_OCCURRENCE_SUFFIX_RE = re.compile(r"__\d+\Z")
+_UD_KEY_RE = re.compile(r"([A-Z][A-Za-z0-9]*)(?:\[([a-z0-9]+)\])?\Z")
+_CAMEL_BOUNDARY_RE = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 
 # (feature name, slot attribute, node attribute, TF value type)
 _SCALAR_FEATURES = (
@@ -48,12 +50,25 @@ _SCALAR_FEATURES = (
     ("end_word_ordinal", None, "end_word_ordinal", "int"),
     ("end_char", None, "end_char", "int"),
     ("end_after_word_ordinal", None, "end_after_word_ordinal", "int"),
+    ("conllu_status", None, "conllu_status", "str"),
+    ("conllu_source_path", None, "conllu_source_path", "str"),
+    ("conllu_source_sha256", None, "conllu_source_sha256", "str"),
+)
+
+# (feature name, SupplementalWord attribute, TF value type)
+_UD_FEATURES = (
+    ("ud_lemma", "lemma", "str"),
+    ("ud_upos", "upos", "str"),
+    ("ud_xpos", "xpos", "str"),
+    ("ud_deprel", "deprel", "str"),
+    ("ud_head_ordinal", "head_ordinal", "int"),
 )
 
 _EDGE_FEATURES = (
     "parent",
     "direct_word",
     "dependency_head",
+    "ud_head",
     "entity_head",
     "same_scholarly",
     "same_scholarly_classification",
@@ -81,6 +96,46 @@ def _metadata_feature_name(key: str) -> str:
     if _META_SAFE_RE.fullmatch(key) and not _META_OCCURRENCE_SUFFIX_RE.search(key):
         return f"meta_{key}"
     return f"meta__hex_{key.encode('utf-8').hex()}"
+
+
+def _ud_key_feature_name(field: str, key: str) -> str:
+    """Map a literal FEATS/MISC key to a deterministic TF-safe feature name.
+
+    UD-shaped keys become snake_case (``Number[psor]`` -> ``number_psor``); any
+    other key uses an invertible hex spelling, as metadata features do.
+    """
+    if not isinstance(key, str) or not key:
+        raise ValueError(f"UD {field} keys must be non-empty strings")
+    match = _UD_KEY_RE.fullmatch(key)
+    if match is None:
+        return f"ud_{field}__hex_{key.encode('utf-8').hex()}"
+    name = _CAMEL_BOUNDARY_RE.sub("_", match.group(1)).lower()
+    if match.group(2):
+        name = f"{name}_{match.group(2)}"
+    return f"ud_{field}_{name}"
+
+
+def _ud_key_descriptors(graph: Graph) -> tuple[tuple[str, str, str], ...]:
+    """Return collision-checked (feature, field, literal key) descriptors."""
+    keys: dict[str, set[str]] = {"feat": set(), "misc": set()}
+    for slot in graph.slots:
+        if slot.ud is not None:
+            keys["feat"].update(slot.ud.feats)
+            keys["misc"].update(slot.ud.misc)
+    descriptors: dict[str, tuple[str, str]] = {}
+    for field, literal_keys in keys.items():
+        for key in sorted(literal_keys):
+            feature_name = _ud_key_feature_name(field, key)
+            previous = descriptors.setdefault(feature_name, (field, key))
+            if previous != (field, key):
+                raise ValueError(
+                    f"UD feature-name collision for {feature_name!r}: "
+                    f"{previous[1]!r} versus {key!r}"
+                )
+    return tuple(
+        (feature_name, field, key)
+        for feature_name, (field, key) in sorted(descriptors.items())
+    )
 
 
 def _slot_ids(ranges):
@@ -301,6 +356,7 @@ def _edge_feature_data(graph: Graph, feature_name: str) -> dict[int, object]:
 
     unvalued_kind = {
         "dependency_head": "dependency_head",
+        "ud_head": "ud_head",
         "entity_head": "entity_head",
         "same_scholarly": "same_scholarly",
         "documented_overlap": "documented_overlap",
@@ -376,6 +432,10 @@ def _projection_specs(graph: Graph):
     yield ("diplomatic", None)
     for descriptor in _metadata_descriptors(graph):
         yield ("metadata", descriptor)
+    for spec in _UD_FEATURES:
+        yield ("ud", spec)
+    for descriptor in _ud_key_descriptors(graph):
+        yield ("ud_key", descriptor)
     for feature_name in _EDGE_FEATURES:
         yield ("edge", feature_name)
     yield ("otext", None)
@@ -444,6 +504,31 @@ def _project_batch(graph: Graph, spec):
             {},
             _batch_metadata(graph, (feature_name, "str", False)),
         )
+
+    if kind == "ud":
+        feature_name, attribute, value_type = detail
+        data: dict[int, str | int] = {}
+        for slot in graph.slots:
+            if slot.ud is not None:
+                _put_scalar(data, feature_name, slot.id, getattr(slot.ud, attribute), value_type)
+        if not data:
+            return {}, {}, {"": _global_metadata(graph)}
+        return (
+            {feature_name: data},
+            {},
+            _batch_metadata(graph, (feature_name, value_type, False)),
+        )
+
+    if kind == "ud_key":
+        feature_name, field, key = detail
+        data = {}
+        for slot in graph.slots:
+            if slot.ud is not None:
+                values = slot.ud.feats if field == "feat" else slot.ud.misc
+                _put_scalar(data, feature_name, slot.id, values.get(key), "str")
+        metadata = _batch_metadata(graph, (feature_name, "str", False))
+        metadata[feature_name]["sourceKey"] = key
+        return {feature_name: data}, {}, metadata
 
     if kind == "edge":
         feature_name = detail
