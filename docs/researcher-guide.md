@@ -69,6 +69,7 @@ without a parallel JSON/XML structure.
 | page | physical-layout segment |
 | column | physical-layout segment |
 | line | physical-layout segment |
+| verse_n_marker / vid_n_marker / verse_vid_marker | source reference marker inside an unsplit word, with exact character offset; not a whole-word verse membership |
 | entity | entity annotation spanning one or more words |
 | translation | English translation segment with its own text |
 | arabic_translation | Arabic translation segment with its own text |
@@ -277,6 +278,44 @@ features preserve evidence rather than packing it into strings:
 
 The classifications describe converter-preserved/measured relation evidence;
 they are not a preferred-edition ranking.
+
+## Biblical source references and LXX alignment boundaries
+
+Biblical TT sources may contain `verse_n`, `vid_n`, or `verse_vid` reference
+markers. Their **literal source strings** are exposed as optional word features
+of the same names. Absence means source evidence was not available for a given
+word; it does not imply an inferred verse. A new `verse_n` explicitly resets
+the preceding CTS/verse-label values rather than leaking them across a
+reference boundary.
+
+Some source-reference tags start *inside* a source `norm` after visible
+characters. Such a word crosses the source reference boundary; it cannot
+honestly have a single whole-word verse address. The converter preserves
+these events as `verse_n_marker`, `vid_n_marker`, and
+`verse_vid_marker` **native nodes** anchored by `oslots` to their containing
+word; the literal marker is `label`, and `start_word_ordinal` /
+`start_char` locate its exact original-text offset. A missing word-level
+`verse_n` for such a word is deliberate. A source marker at the *start* of a
+word can apply to that whole word.
+
+```python
+api = Fabric(locations=["/path/to/tf"], silent="deep").load(
+    "source_record_id norm verse_n vid_n verse_vid "
+    "label start_word_ordinal start_char", silent="deep"
+)
+word = 1
+source_verse_literal = api.F.verse_n.v(word)
+for node in api.F.otype.s("verse_n_marker"):
+    print(api.F.source_record_id.v(node), api.F.label.v(node),
+          api.F.start_word_ordinal.v(node), api.F.start_char.v(node))
+```
+
+These values are **source-local references**, not verified Greek
+`CenterBLC/LXX` correspondences. Upstream explicitly warns that Coptic and
+Septuagint versification may differ. A subsequent alignment layer must check
+an edition-qualified LXX parent version, document its reference-mapping
+evidence and exceptions, and leave unresolvable passages visible. TF node
+integers cannot be used as cross-corpus edge targets.
 
 ## Document metadata
 

@@ -9,9 +9,12 @@ from .model import DocumentModel, LayoutEvent
 
 NODE_TYPE_ORDER = (
     "document", "sentence", "orig_group", "norm_group", "orig",
-    "page", "column", "line", "entity", "translation", "arabic_translation",
+    "page", "column", "line",
+    "verse_n_marker", "vid_n_marker", "verse_vid_marker",
+    "entity", "translation", "arabic_translation",
 )
 LAYOUT_TYPES = {"page", "column", "line"}
+VERSE_POSITION_TYPES = {"verse_n_marker", "vid_n_marker", "verse_vid_marker"}
 DOCUMENT_RELATION_TYPES = {"same_scholarly", "documented_overlap", "witness"}
 OVERLAP_CLASSES = {
     "byte_identical", "core_identical_source_variant",
@@ -33,6 +36,9 @@ class GraphSlot:
     dependency_head_ordinal: int | None
     source_text: str
     kind: str = "word"
+    verse_n: str | None = None
+    vid_n: str | None = None
+    verse_vid: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,6 +309,7 @@ def build_graph(
                 len(slots) + 1, document.source_record_id, word.ordinal, word.source_id,
                 word.norm, word.lemma, word.pos, word.func, word.head_literal,
                 word.dependency_head_ordinal, word.source_text,
+                verse_n=word.verse_n, vid_n=word.vid_n, verse_vid=word.verse_vid,
             ))
 
     def slot_id(document: DocumentModel, ordinal: int) -> int:
@@ -381,6 +388,28 @@ def build_graph(
                         end_word_ordinal=next_event.word_ordinal if next_event else None,
                         end_char=next_event.char_offset if next_event else None,
                         end_after_word_ordinal=next_event.after_word_ordinal if next_event else len(document.words),
+                    )
+            elif otype in VERSE_POSITION_TYPES:
+                # An in-word verse annotation is a *position*, not proof
+                # that all characters of that source word belong to one verse.
+                # oslots anchors it to the existing word; start_char carries
+                # the exact source offset, without creating synthetic slots.
+                for event in sorted(
+                    (e for e in document.layout_events if e.kind == otype),
+                    key=lambda e: e.ordinal,
+                ):
+                    if event.word_ordinal is None or event.char_offset is None:
+                        raise ValueError(
+                            f"source marker {otype} lacks an exact word/char offset in {record}"
+                        )
+                    add(
+                        otype, source_record_id=record,
+                        source_ordinal=event.ordinal,
+                        slot_ranges=_ranges((slot_id(document, event.word_ordinal),)),
+                        label=event.value, event_ordinal=event.ordinal,
+                        start_word_ordinal=event.word_ordinal,
+                        start_char=event.char_offset,
+                        start_after_word_ordinal=event.after_word_ordinal,
                     )
             elif otype == "entity":
                 for item in sorted(document.entities, key=lambda x: x.ordinal):
@@ -573,6 +602,11 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
                 errors.append(f"{node.otype} node {node.id} must render own text")
         if node.otype in LAYOUT_TYPES and (node.render_mode != "own_text" or node.text is None):
             errors.append(f"layout node {node.id} must render own text")
+        if node.otype in VERSE_POSITION_TYPES:
+            if node.label is None or node.start_char is None or node.start_char <= 0:
+                errors.append(f"source position node {node.id} lacks a mid-word value/offset")
+            if sum(1 for _ in _iter_ranges(node.slot_ranges)) != 1:
+                errors.append(f"source position node {node.id} must anchor to exactly one word")
         if node.otype == "norm_group":
             parent = node_at(node.parent_node_id)
             if node.parent_node_id is not None and (
@@ -639,7 +673,8 @@ def graph_fingerprint(graph: Graph) -> str:
     for slot in graph.slots:
         emit("slot", slot.id, slot.kind, slot.source_record_id, slot.source_word_ordinal,
              slot.source_id, slot.norm, slot.lemma, slot.pos, slot.func, slot.head_literal,
-             slot.dependency_head_ordinal, slot.source_text)
+             slot.dependency_head_ordinal, slot.source_text,
+             slot.verse_n, slot.vid_n, slot.verse_vid)
     for node in graph.nodes:
         emit("node", node.id, node.otype, node.source_record_id, node.source_ordinal,
              node.slot_ranges, node.value, node.text, node.label, node.scholarly_id,

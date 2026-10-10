@@ -120,6 +120,11 @@ def parse_tt_record(
     arabic_stack: list[dict[str, Any]] = []
     layout_events: list[LayoutEvent] = []
     current_word: dict[str, Any] | None = None
+    # Preserve upstream literal verse references. They are not claimed to
+    # match any particular Greek edition or CenterBLC/LXX node.
+    current_verse_n: str | None = None
+    current_vid_n: str | None = None
+    current_verse_vid: str | None = None
 
     def append_word_text(fragment: str) -> None:
         if current_word is None:
@@ -198,9 +203,63 @@ def parse_tt_record(
                 if not arabic_stack:
                     raise ValueError(f"closing Arabic translation without open annotation in {source_record_id}")
                 arabic_raw.append(arabic_stack.pop())
+            elif name == "verse_n":
+                current_verse_n = None
+                current_vid_n = None
+                current_verse_vid = None
+            elif name == "vid_n":
+                current_vid_n = None
+            elif name == "verse_vid":
+                current_verse_vid = None
             continue
 
         if name == "meta":
+            continue
+        if name in {"verse_n", "vid_n", "verse_vid"}:
+            # Some real TT records start nested source-reference wrappers
+            # before the first visible character of norm; that is compatible
+            # with one word slot. When a marker opens *after* visible content,
+            # a word crosses its boundary, so it gets a separate, explicitly
+            # positioned native marker node, never a forged whole-word verse.
+            literal = attrs.get(name)
+            if literal is None:
+                raise ValueError(
+                    f"verse marker {name!r} has no literal in {source_record_id}"
+                )
+            marker_midword = current_word is not None and current_offset() > 0
+            if marker_midword:
+                layout_events.append(
+                    LayoutEvent(
+                        ordinal=len(layout_events) + 1,
+                        kind=f"{name}_marker",
+                        value=literal,
+                        word_ordinal=current_word["ordinal"],
+                        char_offset=current_offset(),
+                        after_word_ordinal=len(raw_words),
+                    )
+                )
+                # Both the pre- and post-boundary characters remain in this
+                # single source norm; no whole-word membership is justified.
+                current_word["verse_n"] = None
+                current_word["vid_n"] = None
+                current_word["verse_vid"] = None
+            if name == "verse_n":
+                current_verse_n = literal
+                # A new source verse cannot inherit old CTS identifiers.
+                current_vid_n = None
+                current_verse_vid = None
+                if current_word is not None and not marker_midword:
+                    current_word["verse_n"] = literal
+                    current_word["vid_n"] = None
+                    current_word["verse_vid"] = None
+            elif name == "vid_n":
+                current_vid_n = literal
+                if current_word is not None and not marker_midword:
+                    current_word["vid_n"] = literal
+            else:
+                current_verse_vid = literal
+                if current_word is not None and not marker_midword:
+                    current_word["verse_vid"] = literal
             continue
         if name == "orig_group":
             open_linguistic("orig_group", {None})
@@ -259,6 +318,9 @@ def parse_tt_record(
                 "head_literal": attrs.get("head"),
                 "text_parts": [],
                 "source_text": "",
+                "verse_n": current_verse_n,
+                "vid_n": current_vid_n,
+                "verse_vid": current_verse_vid,
             }
             if (attrs.get("new_sent") or "").casefold() == "true":
                 sentence_starts.append(ordinal)
@@ -356,6 +418,9 @@ def parse_tt_record(
                 head_literal=literal_head,
                 dependency_head_ordinal=dependency_head,
                 source_text=raw_word["source_text"],
+                verse_n=raw_word["verse_n"],
+                vid_n=raw_word["vid_n"],
+                verse_vid=raw_word["verse_vid"],
             )
         )
 

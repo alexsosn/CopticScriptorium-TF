@@ -1,0 +1,56 @@
+name: issue69-complete-pinned-verse-census
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue69-full-verse-census.yml'
+      - 'tests/live_issue69_full_verse_census.py'
+      - 'copticscriptorium_tf/parser.py'
+      - 'copticscriptorium_tf/model.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-complete-tt-source-marker-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact Coptic converter PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact source code head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Check out all and only pinned upstream TT files using sparse Git
+        uses: actions/checkout@v4
+        timeout-minutes: 30
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*/*_TT/**
+            /*/*_TT.zip
+
+      - name: Assert exact upstream revision before corpus audit
+        run: test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Audit every raw TT record, including ZIP members, for marker position and parser compatibility
+        timeout-minutes: 13
+        run: |
+          /usr/bin/time -v python tests/live_issue69_full_verse_census.py pinned-coptic
