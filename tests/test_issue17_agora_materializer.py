@@ -98,6 +98,23 @@ class AgoraManifestContractTests(unittest.TestCase):
             "host checkout must be a real YAML step, not text in a commented line",
         )
 
+    def test_live_real_source_workflow_is_bound_to_pinned_thomas_smoke(self) -> None:
+        workflow = (ROOT / ".github/workflows/issue17-agora.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "Run pinned real Gospel of Thomas TT through Agora sandbox", workflow
+        )
+        self.assertIn("python tests/live_issue17_thomas.py", workflow)
+        script = (ROOT / "tests/live_issue17_thomas.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("3ac067f1709a0012daf39ea8da2fac79980176a5", script)
+        self.assertIn("thomas-gospel/thomas.gospel_TT/thomas_gospel.tt", script)
+        self.assertIn("acquire_git_source", script)
+        self.assertIn("materialize(", script)
+        self.assertIn("Fabric(", script)
+
     def test_python_package_is_installable_by_agora(self) -> None:
         project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
         self.assertEqual(project["name"], "copticscriptorium-tf")
