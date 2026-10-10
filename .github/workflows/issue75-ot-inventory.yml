@@ -6,6 +6,7 @@ on:
       - '.github/workflows/issue75-ot-inventory.yml'
       - 'copticscriptorium_tf/ot_inventory.py'
       - 'tests/test_issue75_ot_inventory.py'
+      - 'tests/test_issue75_book_matrix.py'
       - 'tests/live_issue75_ot_inventory.py'
       - 'research/issue-75/**'
   workflow_dispatch:
@@ -36,7 +37,9 @@ jobs:
           python-version: '3.12'
 
       - name: RED-first source-scope and ZIP/direct inventory contracts
-        run: python -m unittest tests.test_issue75_ot_inventory -v
+        run: |
+          python -m unittest tests.test_issue75_ot_inventory -v
+          python -m unittest tests.test_issue75_book_matrix -v
 
       - name: Acquire precisely the immutable direct and ZIP TT subset
         uses: actions/checkout@v4
