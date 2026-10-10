@@ -203,6 +203,14 @@ def parse_tt_record(
                 if not arabic_stack:
                     raise ValueError(f"closing Arabic translation without open annotation in {source_record_id}")
                 arabic_raw.append(arabic_stack.pop())
+            elif name == "verse_n":
+                current_verse_n = None
+                current_vid_n = None
+                current_verse_vid = None
+            elif name == "vid_n":
+                current_vid_n = None
+            elif name == "verse_vid":
+                current_verse_vid = None
             continue
 
         if name == "meta":
