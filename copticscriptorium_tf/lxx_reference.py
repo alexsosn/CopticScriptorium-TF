@@ -11,27 +11,57 @@ from typing import Callable, Literal
 
 from .model import DocumentModel, Word
 
-# Deliberately limited to source families actually inspected in pinned TT.
-# Do not guess every Bible-book/dataset name from substrings.
+# All families below occur in the immutable full-source OT profile; this is
+# a reviewed evidence gate, not a guess from a filename or an NT verse marker.
 CORPUS_LXX_BOOK: dict[str, str] = {
     "sahidic.ruth": "Ruth",
     "sahidic.jonah": "Jonah",
+    "bohairic-jonah": "Jonah",
     "bohairic-habakkuk": "Hab",
-    "bohairic.habakkuk": "Hab",
+    "bohairic.habakkuk": "Hab",  # source dataset spelling
 }
+MULTIWORK_FAMILIES = frozenset({
+    "sahidic.ot", "bohairic.ot", "coptic-treebank", "bohairic-treebank",
+})
+
+# Manual alias review of 49 distinct real pinned CTS work strings, checked
+# against the book-code inventory of CenterBLC/LXX v1.0.1 (CATSS-TF profile).
+# These identify candidate *addresses* only, not Greek textual equivalence.
+CTS_WORK_TO_LXX: dict[str, str] = {
+    "gen": "Gen", "exod": "Exod", "lev": "Lev", "num": "Num",
+    "deut": "Deut", "josh": "Josh", "judg": "Judg", "ruth": "Ruth",
+    "1sam": "1Sam", "2sam": "2Sam", "1kgs": "1Kgs", "2kgs": "2Kgs",
+    "1chr": "1Chr", "2chr": "2Chr", "2macc": "2Mac",
+    "esth": "Esth", "jdt": "Jdt", "pss": "Ps",
+    "prov": "Prov", "eccl": "Qoh", "song": "Cant",
+    "job": "Job", "wis": "Wis", "sir": "Sir",
+    "hos": "Hos", "mic": "Mic", "amos": "Amos", "joel": "Joel",
+    "jonah": "Jonah", "obad": "Obad", "nah": "Nah",
+    "hab": "Hab", "zeph": "Zeph", "hag": "Hag",
+    "zach": "Zech", "zech": "Zech", "mal": "Mal",
+    "isa": "Isa", "jer": "Jer", "bar": "Bar", "epjer": "EpJer",
+    "lam": "Lam", "ezek": "Ezek",
+}
+# Deliberately no entries for dan/tob/sus/bel/prman:
+# Greek edition choice or target book is underdetermined from the CTS work.
+AMBIGUOUS_OR_UNSUPPORTED_WORKS = frozenset({"dan", "tob", "sus", "bel", "prman"})
+
 BOOK_ALIASES = {
-    "ruth": "Ruth",
-    "jonah": "Jonah",
-    "habakkuk": "Hab",
-    "hab": "Hab",
+    "ruth": "Ruth", "jonah": "Jonah", "habakkuk": "Hab", "hab": "Hab",
+    "genesis": "Gen", "exodus": "Exod", "leviticus": "Lev",
+    "numbers": "Num", "deuteronomy": "Deut",
+    "psalms": "Ps", "psalm": "Ps", "ecclesiastes": "Qoh",
+    "song of songs": "Cant", "zechariah": "Zech",
 }
-# Compare the *work* identity too, not only matching numeric CTS suffixes.
-# Edition spelling can vary (e.g. copto_edt vs coptot_ed in real Ruth).
-CTS_WORK_BY_BOOK = {
-    "Ruth": re.compile(r"^urn:cts:copticLit:ot\.ruth\.[^:]+:(\d+)\.(\d+)$"),
-    "Jonah": re.compile(r"^urn:cts:copticLit:ot\.jonah\.[^:]+:(\d+)\.(\d+)$"),
-    "Hab": re.compile(r"^urn:cts:copticLit:ot\.hab\.[^:]+:(\d+)\.(\d+)$"),
-}
+# Full namespace/work identity required, not a matched trailing substring.
+DOC_CTS = re.compile(
+    r"^urn:cts:copticLit:ot\\.([A-Za-z0-9_-]+)\\.[^:]+:(\\d+)$"
+)
+VERSE_CTS = re.compile(
+    r"^urn:cts:copticLit:ot\\.([A-Za-z0-9_-]+)\\.[^:]+:(\\d+)\\.(\\d+)$"
+)
+
+
 LXX_REFERENCE_EDITION = "CenterBLC/LXX:1935"
 VERSE_VID = re.compile(r"^([A-Za-z][A-Za-z ]*) (\d+):(\d+)$")
 
@@ -81,6 +111,40 @@ def _unique_markers(group: tuple[Word, ...], field: str) -> set[str]:
     return {value for word in group if (value := getattr(word, field)) is not None}
 
 
+def _source_book(document: DocumentModel) -> tuple[str | None, str | None]:
+    """Return a curated LXX book code and optional contradictory-source reason.
+
+    A multi-work OT archive or treebank must have an exact document CTS work;
+    book-like source paths or bare metadata labels cannot authorize mapping.
+    """
+    family = document.corpus
+    if family not in CORPUS_LXX_BOOK and family not in MULTIWORK_FAMILIES:
+        return None, "source family outside reviewed Coptic OT scope"
+    family_book = CORPUS_LXX_BOOK.get(family)
+    source_cts = (document.metadata.get("document_cts_urn") or "").strip()
+    if not source_cts:
+        if family in MULTIWORK_FAMILIES:
+            return None, "multi-work family lacks exact OT document CTS work"
+        return family_book, None
+
+    match = DOC_CTS.fullmatch(source_cts)
+    if match is None:
+        return family_book, "invalid or non-OT document CTS identity"
+    raw_work, chapter_text = match.groups()
+    book = CTS_WORK_TO_LXX.get(raw_work.casefold())
+    if book is None:
+        return None, (
+            "ambiguous target LXX edition or unreviewed CTS work: " + raw_work
+        )
+    if family_book is not None and family_book != book:
+        return family_book, "document CTS work contradicts single-book family"
+    chapter_literal = document.metadata.get("chapter")
+    if (_positive_int(chapter_text) is None or
+            _positive_int(chapter_literal) != _positive_int(chapter_text)):
+        return book, "document CTS chapter contradicts source metadata chapter"
+    return book, None
+
+
 def resolve_coptic_lxx_references(
     document: DocumentModel,
     *,
@@ -94,7 +158,7 @@ def resolve_coptic_lxx_references(
     `verse_n`, `verse_vid`, `vid_n` or book evidence.
     """
     groups = _group_words(document)
-    book = CORPUS_LXX_BOOK.get(document.corpus)
+    book, document_issue = _source_book(document)
     result: list[CopticLxxReference] = []
 
     for group in groups:
@@ -119,9 +183,10 @@ def resolve_coptic_lxx_references(
 
         if book is None:
             status, reason = "unclassified_corpus", (
-                "source family not yet covered by reviewed Coptic OT book mapping; "
-                "biblical or nonbiblical status must not be guessed"
+                document_issue or "unreviewed source work or ambiguous Greek edition"
             )
+        elif document_issue:
+            status, reason = "ambiguous", document_issue
         elif not chapter or not verse:
             status, reason = "unresolved", "no valid positive chapter/verse source reference"
         elif len(cts_set) > 1 or len(label_set) > 1:
@@ -131,8 +196,9 @@ def resolve_coptic_lxx_references(
             if meta_book is not None and BOOK_ALIASES.get(meta_book.strip().casefold()) != book:
                 status, reason = "ambiguous", "book metadata contradicts reviewed corpus identity"
             elif cts_set and (
-                not (match := CTS_WORK_BY_BOOK[book].fullmatch(cts or ""))
-                or (int(match[1]), int(match[2])) != (chapter, verse)
+                not (match := VERSE_CTS.fullmatch(cts or ""))
+                or CTS_WORK_TO_LXX.get(match[1].casefold()) != book
+                or (int(match[2]), int(match[3])) != (chapter, verse)
             ):
                 status, reason = "ambiguous", "CTS work/chapter/verse contradicts source corpus reference"
             elif label_set and (
