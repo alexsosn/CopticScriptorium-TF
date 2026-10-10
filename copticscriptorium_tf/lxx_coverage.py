@@ -41,7 +41,7 @@ class CopticLxxCoverageAudit:
             raise ValueError("unsupported pinned Coptic source revision")
         self._source_commit = source_commit
         self._lookup = lookup
-        self._seen: set[str] = set()
+        self._seen: dict[str, str] = {}
         self._source_scopes: Counter[str] = Counter()
         self._refs: Counter[str] = Counter()
         self._words: Counter[str] = Counter()
@@ -85,9 +85,16 @@ class CopticLxxCoverageAudit:
             document.upstream_commit != self._source_commit
         ):
             raise ValueError("source revision/repository mismatch")
-        if document.source_record_id in self._seen:
-            raise ValueError(f"duplicate physical source record: {document.source_record_id}")
-        self._seen.add(document.source_record_id)
+        # Match parse_source_tree's global casefold collision guard, not
+        # just Python's case-sensitive string membership.
+        key = document.source_record_id.casefold()
+        previous = self._seen.get(key)
+        if previous is not None:
+            raise ValueError(
+                f"duplicate physical source record: {previous!r} versus "
+                f"{document.source_record_id!r}"
+            )
+        self._seen[key] = document.source_record_id
         evidence = classify_biblical_record(document.corpus, document.metadata)
         self._source_scopes[evidence.status] += 1
         self._total_words += len(document.words)
