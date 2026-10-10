@@ -124,14 +124,70 @@ class VerseReferencePreservationTests(unittest.TestCase):
             ],
         )
 
-    def test_token_internal_boundary_rejected_not_mapped_to_whole_word(self):
-        bad = (
-            '<meta corpus="sahidic.ruth" chapter="2">'
-            '<norm_group norm_group="a"><norm xml:id="u1" new_sent="true" '
-            'func="root" norm="a">a<verse_n verse_n="2">b</norm></norm_group>'
+    def test_midword_verse_boundary_is_an_exact_native_event_not_a_forged_word_span(self):
+        # Seen in the full pinned helias sources: a source marker can occur
+        # *after* visible characters within an already opened norm token.
+        markup = (
+            '<meta corpus="helias" chapter="2">'
+            '<norm_group norm_group="a">'
+            '<norm xml:id="u1" new_sent="true" func="root" norm="abcd">'
+            'ab<verse_n verse_n="2">cd'
+            '</norm></norm_group>'
+            '<norm_group norm_group="b">'
+            '<norm xml:id="u2" new_sent="true" func="root" norm="x">x</norm>'
+            '</norm_group>'
         )
-        with self.assertRaisesRegex(ValueError, "verse marker.*inside norm"):
-            parse(bad)
+        document = parse(markup)
+        self.assertEqual(len(document.words), 2)
+        # Neither side of the split norm may be silently assigned a whole-word
+        # Coptic verse address. The later clean word can inherit verse 2.
+        self.assertIsNone(document.words[0].verse_n)
+        self.assertEqual(document.words[1].verse_n, "2")
+        events = [e for e in document.layout_events if e.kind == "verse_n_marker"]
+        self.assertEqual(len(events), 1)
+        self.assertEqual((events[0].value, events[0].word_ordinal, events[0].char_offset),
+                         ("2", 1, 2))
+        graph = build_graph([document])
+        self.assertEqual(len(graph.slots), 2)
+        marker_nodes = [n for n in graph.nodes if n.otype == "verse_n_marker"]
+        self.assertEqual(len(marker_nodes), 1)
+        self.assertEqual(marker_nodes[0].label, "2")
+        self.assertEqual(marker_nodes[0].start_char, 2)
+        self.assertEqual(marker_nodes[0].slots, (1,))
+        with TemporaryDirectory() as root:
+            target = Path(root) / "tf"
+            write_graph(graph, target)
+            api = Fabric(locations=[str(target)], silent="deep").load(
+                "norm verse_n label start_char source_record_id", silent="deep"
+            )
+            self.assertTrue(api)
+            markers = api.F.otype.s("verse_n_marker")
+            self.assertEqual(len(markers), 1)
+            self.assertEqual(api.F.label.v(markers[0]), "2")
+            self.assertEqual(api.F.start_char.v(markers[0]), 2)
+            self.assertEqual(tuple(api.L.d(markers[0], otype="word")), (1,))
+            self.assertEqual(api.F.verse_n.v(2), "2")
+
+    def test_midword_multiple_reference_markers_keep_distinct_native_anchors(self):
+        markup = (
+            '<meta chapter="7">'
+            '<norm_group norm_group="a">'
+            '<norm xml:id="u1" new_sent="true" func="root" norm="abcd">'
+            'ab<verse_vid verse_vid="41N 7:16">'
+            '<vid_n vid_n="urn:cts:copticLit:nt.mark.sahidica_ed:7.16">cd'
+            '</vid_n></verse_vid></norm></norm_group>'
+        )
+        document = parse(markup)
+        self.assertIsNone(document.words[0].vid_n)
+        self.assertIsNone(document.words[0].verse_vid)
+        events = [e for e in document.layout_events if e.kind.endswith("_marker")]
+        self.assertEqual(
+            [(e.kind, e.value, e.word_ordinal, e.char_offset) for e in events],
+            [
+                ("verse_vid_marker", "41N 7:16", 1, 2),
+                ("vid_n_marker", "urn:cts:copticLit:nt.mark.sahidica_ed:7.16", 1, 2),
+            ],
+        )
 
     def test_native_tf_preserves_raw_reference_without_new_slot_or_section_type(self):
         document = parse(RUTH)
