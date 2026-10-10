@@ -57,3 +57,26 @@ feature files are the prior reference observations). Independently review
 each PR at its final head. Do **not** mark the acquired-source path or issue
 as finished before the full live verification is green. This change is
 Coptic-side manifest wiring, not a claim about upstream completeness.
+
+
+### Complete upstream Git-tree census (independent of converter)
+
+On the pinned `CopticScriptorium/corpora` commit, inspected root + all
+79 top-level directory trees through the Git Trees API at `?recursive=1`.
+All subtrees were untruncated. 78 directories contain TT packages;
+`bible/` is the sole directory without TT blobs. Every tracked path with
+`_TT` matches `<corpus>/<dataset>_TT.zip` or
+`<corpus>/<dataset>_TT/<member>`: **565 matching Git blobs** totaling
+**220,289,125 bytes (210.08 MiB)**. All tracked blobs, including root
+`README.md` and `meta.json`, total **1,894,430,888 bytes**;
+TT material is **11.63%** by uncompressed blob-size bytes.
+These figures are *not measured network transfer or worktree size*.
+The root `meta.json` is excluded: the present Python converter only
+reads TT packages, but future extra source formats may require another
+selection strategy.
+
+Acceptance must compare the *actual* sparse checkout inventory against
+the 565 pinned Git blob paths **and** run full conversion against the
+previous 2,628-document/2,394,354-slot/130-TF-file observations before
+closing issue #17. A manifest schema check or successful tiny fixture alone
+cannot establish that source completeness.
