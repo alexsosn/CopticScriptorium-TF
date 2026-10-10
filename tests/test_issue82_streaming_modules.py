@@ -29,7 +29,7 @@ class StreamingNativeReferenceModulesTests(unittest.TestCase):
         parent = root / "coptic-tf"
         write_graph(build_graph([first, second]), parent)
         api = Fabric(locations=[str(parent)], silent="deep").load(
-            "source_record_id source_word_ordinal", silent="deep"
+            "source_record_id source_word_ordinal source_sha256", silent="deep"
         )
         self.assertTrue(api)
         return (first, second), parent, api
