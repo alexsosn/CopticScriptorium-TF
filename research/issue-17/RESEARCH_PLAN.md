@@ -28,3 +28,32 @@
 ## Remaining integration dependency
 
 A **separate Agora-side registry PR** must bind an immutable CopticScriptorium-TF commit and explicitly approved materializer installation to this manifest. After Agora 1.0's frozen scope is lifted, test actual acquired and user-local sources via Agora, then prove generated `tf/` loads through supported Context-Fabric/cfabric-mcp local-artifact API (or record its dependency if that API is not available). Do not mark #17 complete until this end-to-end gate succeeds.
+
+
+## 2026-10-10 follow-up: full Git transfer is not yet usable
+
+The native TT converter and user-local Agora/cfabric-mcp handoff succeeded in merged
+Agora #198; however the *automatic* source acquisition checked by that PR
+failed fetching `CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`
+with a 120-second limit and `fatal: early EOF`. The published source repository
+is ~2.7 GiB and stores non-TT formats the converter never consumes. As such,
+the acquired-source exit criterion is **not** complete, irrespective of issue
+state. Agora #205 and draft PR #210 introduce explicit `sparse_patterns`
+without changing legacy full Git sources.
+
+Research finding: this converter reads `<corpus>/<dataset>_TT/*.tt` and
+`<corpus>/<dataset>_TT.zip`, including the pinned real-source family of
+`AP`, `sahidica.nt`, `thomas-gospel`. The **root-anchored**
+non-cone sparse patterns `/*/*_TT/**` and `/*/*_TT.zip` select both
+supported packaging forms, and omit adjacent PAULA/ANNIS/CoNLL-U/TEI data.
+
+Follow-up gates: RED first for the exact manifest pattern contract; then
+update the manifest on a new Coptic commit; run Coptic full CI; separately
+wait for reviewed + merged Agora #210; update Agora registry from its old
+immutable Coptic pin to the *new* reviewed commit; run pinned automatic
+real upstream acquisition plus actual materialization and Context-Fabric
+load (2,628 physical records / 2,394,354 TF slots / 130 native TF
+feature files are the prior reference observations). Independently review
+each PR at its final head. Do **not** mark the acquired-source path or issue
+as finished before the full live verification is green. This change is
+Coptic-side manifest wiring, not a claim about upstream completeness.
