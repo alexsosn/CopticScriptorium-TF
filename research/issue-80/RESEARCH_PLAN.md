@@ -1,0 +1,17 @@
+# Issue #80 — complete Coptic OT → pinned LXX reference-address coverage matrix
+
+## Grounded research (2026-10-10)
+- ETCBC DSS/BHSA precedent aligns by book/chapter/verse before uncertain word-level matching. CATSS-TF uses dual additive native TF module projections on separately versioned LXX/BHSA parent warps; no foreign TF node IDs should cross warps.
+- Immutable pinned `CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`: 565 Git TT blobs, 2,628 physical source records, of which the existing source-only evidence classifier currently reports 1,574 OT candidates, 615 NT and 439 undetermined. 29 token-internal verse source markers have precise native positions, NOT an invented whole-word reference.
+- Pinned Greek parent `CenterBLC/LXX@f32a98eddf7eb239aa73ab863d70381e416d5076` (Rahlfs 1935, CATSS-TF v1.0.1 profile) has 623,693 slots, 30,371 verse nodes and subverse structure. Verify feature Git hashes with existing `verify_lxx_parent_feature_blobs`, not just numerical counts.
+- PR #79 independently reviewed and merged at `59a8be3e71e7c434f5eac71f10c3da837113b873`; 7 real records yielded 89 Greek reference-address candidates, 3,013 candidate Coptic word slots; Zechariah chapter 1 verses 18–21 and Psalms 1:0,1:7 were unresolved, Tobit/Susanna Greek editions withheld. This is neither complete OT coverage nor textual equivalence.
+
+## RED → implement → genuine CI → adversarial review
+1. RED unit test a pure streaming `CopticLxxCoverageAudit` on 4+ source records: mixed scoped OT/NT/unknown, resolvable/unresolved/ambiguous source markers, duplicate physical source ID rejection, no lookups for non-OT, exact source commit enforcement, balanced word/record partitions and bounded deterministic examples, and positioned in-word marker counting.
+2. Implement one-record-at-a-time API; aggregate Coptic record/word and source-versification evidence by family, source work and candidate Greek book. Preserve status/reason; count **candidate reference-addresses**, not translated alignment. Do not hold Text-Fabric graph or all documents in memory. No serialized copyrighted source text.
+3. Live runner follows original full TT inventory semantics for direct and ZIP TT, validates 565/2628 and OT evidence counts against raw pinned source, queries the actual LXX verse section nodes after validating feature blob SHA identities, writes only compact metadata counters and bounded source identity examples, sorted deterministically.
+4. Dedicated GitHub Actions (up to 60 minutes) with exact head and two immutable Git pins. Acquire real sparse Coptic TT and pinned LXX TF, install text-fabric, run unit and live tests, emit `df`, `/usr/bin/time -v`; retain **aggregate report only**, not original or converted content.
+5. Independent adversarial exact-head review after genuine job success: stress omissions, duplicate physical identities, version mismatch, OT/NT contamination, mistaken denominators and LXX subverse/edition discrepancies. Keep #75/#70 OPEN for researched 1:N/N:1 versification crosswalk and full bilateral modules.
+
+## Explicit limitation
+Even when a Coptic reference group resolves to a Greek verse address, this is a **reference_candidate** only. Greek/Coptic textual correspondence remains unverified; no source verse number is silently repaired and no Greek word alignment is inferred. Coverage denominators separate *source OT evidence* from candidate verse matches.
