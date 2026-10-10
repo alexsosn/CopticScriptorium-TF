@@ -92,9 +92,6 @@ class AgoraManifestContractTests(unittest.TestCase):
         )
         host_commit = "39c18b43ead861e614daf8b2bb8f452a551de7c6"
         self.assertEqual(workflow.count(host_commit), 2)
-        self.assertIn(
-            "      - name: Check out immutable Agora reference\\n", workflow,
-        )
         self.assertEqual(
             sum(line == "      - name: Check out immutable Agora reference"
                 for line in workflow.splitlines()), 1,
