@@ -8,6 +8,7 @@ on:
       - 'pyproject.toml'
       - 'copticscriptorium_tf/**'
       - 'tests/test_issue17_agora_materializer.py'
+      - 'tests/live_issue17_thomas.py'
       - 'tests/test_issue17_license_reporting.py'
   workflow_dispatch:
 
