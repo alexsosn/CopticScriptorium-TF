@@ -27,7 +27,17 @@ The Coptic source is `CopticScriptorium/corpora` pinned to
   corpora's native `otype`, `oslots` and text untouched. Three real Coptic
   documents (Ruth 2, Jonah 2, Bohairic Habakkuk 2) have 2,104 word slots,
   54 candidate reference addresses and 54 matching real LXX verse nodes.
-  Full OT coverage has not been demonstrated.
+  Full OT coverage has not been demonstrated in the pilot. The separate
+  issue #82 streaming acceptance covers the complete pinned 2,628 TT-record
+  corpus, producing both additive modules without retaining all Coptic
+  documents and a 2.4-million-entry slot dictionary. In the live full-source
+  run, 21,120 distinct LXX verse addresses received a candidate ID,
+  1,072,234 Coptic word slots were marked as reference candidates, and all
+  2,394,354 Coptic slots had an explicit status. These are address
+  correspondences only, **not** verified Greek/Coptic textual alignments.
+  The resource regression measured approximately 7.4 GB peak RSS for the
+  entire conversion-plus-overlay process, not for the standalone streaming
+  module alone.
 
 ## Features and cross-parent join
 
@@ -83,6 +93,38 @@ It loads the full Greek TF parent, verifies mapping-critical Git blob
 fingerprints and positive Coptic/Git revision IDs, materializes the two
 weft-only modules, reloads both, and checks the shared-reference join.
 The generated corpus and modules are intentionally **not redistributed**.
+
+## Full-source streaming modules (issue #82)
+
+For large corpora, prefer `materialize_lxx_reference_modules_streaming`
+over the earlier pilot `materialize_lxx_reference_modules`. It accepts a
+one-pass source-document iterator (including ZIP TT members) and emits native
+Coptic and LXX weft-only features. Its intermediate disk-backed index is
+temporary, not a serialized research sidecar.
+
+**Important source authenticity requirement:** the supplied Coptic parent
+Text-Fabric API **must load** `source_sha256` alongside
+`source_record_id` and `source_word_ordinal`. Before any overlay is
+published, the streaming mapper compares every input document's exact
+TT source SHA-256 with that of the corresponding parent `document` node.
+A matching record name, token count, or stated Git commit is insufficient.
+
+```python
+from tf.fabric import Fabric
+
+coptic_api = Fabric(locations=[str(coptic_tf)], silent="deep").load(
+    "source_record_id source_word_ordinal source_sha256", silent="deep"
+)
+assert coptic_api
+```
+
+The real full-source CI workflow `.github/workflows/issue82-full-streamed-lxx.yml`
+checks both immutable Git commits, Greek mapping-critical feature hashes,
+the Coptic parent's native warp fingerprint, all source records/slots, and
+reloads both weft overlays. The process is intentionally resource-intensive
+because constructing the complete Coptic parent TF remains memory-heavy;
+the streaming change eliminates the additional all-word Python index and
+per-feature dictionaries, not the parent conversion cost.
 
 ## Known limitations and next gates
 
