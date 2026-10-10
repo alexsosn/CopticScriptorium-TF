@@ -26,12 +26,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: alexsosn/Agora
-          ref: 0b7f65fb9e144abf32ecac19860afe2169a10b5f
+          ref: 39c18b43ead861e614daf8b2bb8f452a551de7c6
           path: .reference/agora
           persist-credentials: false
 
       - name: Verify exact Agora reference
-        run: test "$(git -C .reference/agora rev-parse HEAD)" = 0b7f65fb9e144abf32ecac19860afe2169a10b5f
+        run: test "$(git -C .reference/agora rev-parse HEAD)" = 39c18b43ead861e614daf8b2bb8f452a551de7c6
 
       - name: Install Python 3.12
         uses: actions/setup-python@v5
