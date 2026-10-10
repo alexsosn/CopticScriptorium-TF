@@ -120,7 +120,11 @@ class CopticLxxCoverageAudit:
                 words[ref.status] += len(ref.source_word_ordinals)
                 self._reasons[ref.reason] += 1
                 book_label = ref.lxx_book or "unclassified"
-                book_row = self._books.setdefault(book_label, self._new_group())
+                book_row = self._books.setdefault(book_label, {
+                    "reference_statuses": Counter(),
+                    "word_statuses": Counter(),
+                    "examples": [],
+                })
                 # A single physical document may span several Greek references.
                 book_row["reference_statuses"][ref.status] += 1
                 book_row["word_statuses"][ref.status] += len(ref.source_word_ordinals)
