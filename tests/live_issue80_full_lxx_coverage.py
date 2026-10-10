@@ -118,6 +118,7 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         "source_records": report["totals"]["source_records"],
         "source_scopes": report["source_scopes"],
         "coptic_ot_word_slots": report["totals"]["ot_candidate_word_slots"],
+        "distinct_candidate_lxx_verses": report["totals"]["distinct_candidate_lxx_verses"],
         "ot_reference_statuses": report["ot_reference_statuses"],
         "ot_word_statuses": report["ot_word_statuses"],
         "verse_position_events": report["totals"]["verse_position_events"],
@@ -126,7 +127,7 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         "family_profiles": len(report["families"]),
         "lxx_feature_git_blobs_verified": True,
         "mapping_semantics": "address candidates ONLY, NOT textual equivalence",
-    }, sort_keys=True, flush=True))
+    }, sort_keys=True), flush=True)
 
 
 if __name__ == "__main__":
