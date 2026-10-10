@@ -86,6 +86,21 @@ class AgoraManifestContractTests(unittest.TestCase):
                        "prompt": "Select the root of a Coptic Scriptorium source tree (containing corpus/dataset_TT or corpus/dataset_TT.zip)"},
                       materializer["acquisition"])
 
+    def test_ci_checkout_uses_merged_agora_host_on_an_actual_yaml_step_line(self) -> None:
+        workflow = (ROOT / ".github/workflows/issue17-agora.yml").read_text(
+            encoding="utf-8"
+        )
+        host_commit = "39c18b43ead861e614daf8b2bb8f452a551de7c6"
+        self.assertEqual(workflow.count(host_commit), 2)
+        self.assertIn(
+            "      - name: Check out immutable Agora reference\\n", workflow,
+        )
+        self.assertEqual(
+            sum(line == "      - name: Check out immutable Agora reference"
+                for line in workflow.splitlines()), 1,
+            "host checkout must be a real YAML step, not text in a commented line",
+        )
+
     def test_python_package_is_installable_by_agora(self) -> None:
         project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
         self.assertEqual(project["name"], "copticscriptorium-tf")
