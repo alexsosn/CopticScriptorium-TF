@@ -291,3 +291,205 @@ def materialize_lxx_reference_modules(
         coptic_status_words=len(source_values["coptic_lxx_ref_status"]),
         source_documents=len(source_docs),
     )
+
+
+def _stream_tf_header(handle, *, parent_repo: str, parent_commit: str | None,
+                      fingerprint: str | None = None) -> None:
+    """Same plain native TF header as _write_feature; no map allocation."""
+    header = [
+        "@node", "@valueType=str",
+        "@description=Source-evidenced Coptic/LXX reference candidates; not verified textual equivalence",
+        "@writtenBy=CopticScriptorium-TF",
+        "@referencePolicy=reference_candidate_unverified_versification",
+        "@copticSourceCommit=" + COPTIC_PIN,
+        "@lxxReleaseCommit=" + LXX_PIN,
+        "@parentRepo=" + parent_repo,
+    ]
+    if parent_commit:
+        header.append("@parentCommit=" + parent_commit)
+    if fingerprint:
+        header.append("@parentFingerprintSha256=" + fingerprint)
+    handle.write("\n".join((*header, "")) + "\n")
+
+
+def _stream_tf_row(handle, node: int, value: str) -> None:
+    if not isinstance(node, int) or isinstance(node, bool) or node <= 0:
+        raise ValueError("invalid native TF node ID")
+    if not isinstance(value, str) or not value:
+        raise ValueError("invalid empty native TF scalar")
+    handle.write(f'{node}\t{value.replace("\\", "\\\\").replace(chr(9), "\\t").replace(chr(10), "\\n")}\n')
+
+
+def materialize_lxx_reference_modules_streaming(
+    *, documents: Iterable[DocumentModel], coptic_api: object, lxx_api: object,
+    output_root: Path, lxx_parent_commit: str, coptic_source_commit: str,
+    coptic_parent_tf: Path | None = None, lxx_parent_tf: Path | None = None,
+    verify_parent_feature_hashes: bool = True,
+) -> LxxModuleSummary:
+    """Stream one-pass unsorted source records into immutable bilateral TF wefts.
+
+    Store only interval facts in an ephemeral SQLite index, then scan the Coptic
+    parent word nodes in numeric order and immediately emit TF feature lines.
+    SQLite staging is deleted; it is never a persistent corpus sidecar.
+    """
+    if lxx_parent_commit != LXX_PIN:
+        raise ValueError("pinned LXX parent commit mismatch")
+    if coptic_source_commit != COPTIC_PIN:
+        raise ValueError("pinned Coptic source revision mismatch")
+    if verify_parent_feature_hashes:
+        if lxx_parent_tf is None:
+            raise ValueError("missing pinned LXX TF path for Git blob verification")
+        verify_lxx_parent_feature_blobs(Path(lxx_parent_tf))
+    if coptic_parent_tf is None or coptic_api is None or lxx_api is None:
+        raise ValueError("missing generated Coptic parent TF path or loaded APIs")
+    fp = fingerprint_coptic_parent(Path(coptic_parent_tf))
+    greek_otype = lxx_api.F.otype
+    if (greek_otype.maxSlot, greek_otype.maxNode, len(greek_otype.s("verse"))) != (
+        623693, 685732, 30371
+    ):
+        raise ValueError("pinned LXX parent node profile mismatch")
+    root = Path(output_root)
+    if root.exists() or root.is_symlink():
+        raise ValueError(f"destination already exists: {root}")
+    root.parent.mkdir(parents=True, exist_ok=True)
+
+    def lookup(book: str, chapter: int, verse: int) -> int | None:
+        node = lxx_api.T.nodeFromSection((book, chapter, verse))
+        if node is not None and greek_otype.v(node) != "verse":
+            raise ValueError("Greek parent verse address resolved to non-verse node")
+        return node
+
+    with TemporaryDirectory(prefix=".coptic-lxx-", dir=root.parent) as temp:
+        db = sqlite3.connect(Path(temp) / "index.sqlite")
+        try:
+            db.executescript("""
+                CREATE TABLE docs(record TEXT PRIMARY KEY, folded TEXT UNIQUE, words INT);
+                CREATE TABLE spans(record TEXT, start INT, stop INT, status TEXT,
+                                   evidence TEXT, reason TEXT, ref TEXT,
+                                   PRIMARY KEY(record,start));
+            """)
+            greek_refs: dict[int, str] = {}
+            n_docs = n_words = 0
+            for document in documents:
+                if (document.upstream_repository != "CopticScriptorium/corpora"
+                        or document.upstream_commit != COPTIC_PIN):
+                    raise ValueError("source documents do not carry the pinned Coptic revision")
+                if any(w.ordinal != i for i, w in enumerate(document.words, 1)):
+                    raise ValueError("noncontiguous source ordinals")
+                try:
+                    db.execute("INSERT INTO docs VALUES (?,?,?)", (
+                        document.source_record_id, document.source_record_id.casefold(),
+                        len(document.words)))
+                except sqlite3.IntegrityError as exc:
+                    raise ValueError("duplicate or casefold-colliding source record") from exc
+                n_docs += 1
+                n_words += len(document.words)
+                previous = 0
+                for m in resolve_coptic_lxx_references(document, lookup=lookup):
+                    ords = m.source_word_ordinals
+                    if (not ords or ords[0] != previous + 1
+                            or ords != tuple(range(ords[0], ords[-1] + 1))):
+                        raise ValueError("noncontiguous or overlapping source verse span")
+                    previous = ords[-1]
+                    if m.status == "reference_candidate":
+                        if m.shared_id is None or m.lxx_node is None:
+                            raise ValueError("candidate lacks Greek reference")
+                        prior = greek_refs.setdefault(m.lxx_node, m.shared_id)
+                        if prior != m.shared_id:
+                            raise ValueError("conflicting Greek reference identity")
+                    elif m.shared_id is not None or m.lxx_node is not None:
+                        raise ValueError("noncandidate claims Greek reference")
+                    db.execute("INSERT INTO spans VALUES (?,?,?,?,?,?,?)", (
+                        document.source_record_id, ords[0], ords[-1], m.status,
+                        m.evidence, m.reason, m.shared_id))
+                if previous != len(document.words):
+                    raise ValueError("incomplete source word/reference partition")
+            if not n_docs:
+                raise ValueError("need unique nonempty Coptic documents")
+            if n_words != coptic_api.F.otype.maxSlot:
+                raise ValueError("source word count does not match Coptic parent")
+            db.commit()
+            payload = Path(temp) / "payload"
+            coptic_path = payload / "coptic"
+            greek_path = payload / "lxx"
+            coptic_path.mkdir(parents=True)
+            greek_path.mkdir(parents=True)
+            feature_names = (
+                "coptic_lxx_ref_id", "coptic_lxx_ref_status",
+                "coptic_lxx_ref_evidence", "coptic_lxx_ref_reason",
+            )
+            current_record = None
+            last_ordinal = expected_doc_words = last_node = 0
+            seen_docs: set[str] = set()
+            spans = iter(())
+            active = None
+            status_words = candidate_words = 0
+            with ExitStack() as stack:
+                handles = {
+                    feature: stack.enter_context(
+                        (coptic_path / f"{feature}.tf").open("w", encoding="utf-8")
+                    ) for feature in feature_names
+                }
+                for handle in handles.values():
+                    _stream_tf_header(
+                        handle, parent_repo="CopticScriptorium-TF/generated",
+                        parent_commit=None, fingerprint=fp)
+                for node in coptic_api.F.otype.s("word"):
+                    if node <= last_node:
+                        raise ValueError("Coptic parent slots are not strictly increasing")
+                    last_node = node
+                    record = coptic_api.F.source_record_id.v(node)
+                    ordinal = coptic_api.F.source_word_ordinal.v(node)
+                    if record != current_record:
+                        if current_record is not None and last_ordinal != expected_doc_words:
+                            raise ValueError("incomplete Coptic parent word span")
+                        if record in seen_docs:
+                            raise ValueError("noncontiguous Coptic TF document word span")
+                        row = db.execute(
+                            "SELECT words FROM docs WHERE record=?", (record,)).fetchone()
+                        if row is None:
+                            raise ValueError("missing source document in Coptic parent")
+                        seen_docs.add(record)
+                        current_record = record
+                        expected_doc_words = row[0]
+                        last_ordinal = 0
+                        spans = iter(db.execute(
+                            "SELECT start,stop,status,evidence,reason,ref "
+                            "FROM spans WHERE record=? ORDER BY start",
+                            (record,)).fetchall())
+                        active = next(spans, None)
+                    if ordinal != last_ordinal + 1:
+                        raise ValueError("parent source ordinal gap or duplicate")
+                    if active is None:
+                        raise ValueError("source reference interval missing")
+                    if ordinal > active[1]:
+                        active = next(spans, None)
+                    if active is None or not (active[0] <= ordinal <= active[1]):
+                        raise ValueError("source reference interval mismatch")
+                    last_ordinal = ordinal
+                    status, evidence, reason, ref = active[2:]
+                    for feature, value in (
+                        ("coptic_lxx_ref_status", status),
+                        ("coptic_lxx_ref_evidence", evidence),
+                        ("coptic_lxx_ref_reason", reason),
+                    ):
+                        _stream_tf_row(handles[feature], node, value)
+                    if ref is not None:
+                        if status != "reference_candidate":
+                            raise ValueError("noncandidate source word has reference ID")
+                        _stream_tf_row(handles["coptic_lxx_ref_id"], node, ref)
+                        candidate_words += 1
+                    status_words += 1
+            if (current_record is None or last_ordinal != expected_doc_words
+                    or len(seen_docs) != n_docs or status_words != n_words):
+                raise ValueError("incomplete Coptic TF/source document bijection")
+            _write_feature(
+                greek_path, "coptic_lxx_ref_id", greek_refs,
+                parent_repo="CenterBLC/LXX", parent_commit=LXX_PIN)
+            payload.rename(root)
+            return LxxModuleSummary(
+                coptic_candidate_words=candidate_words,
+                lxx_candidate_verses=len(greek_refs),
+                coptic_status_words=status_words, source_documents=n_docs)
+        finally:
+            db.close()
