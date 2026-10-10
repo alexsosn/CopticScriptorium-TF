@@ -1,0 +1,71 @@
+name: issue75-complete-pinned-coptic-ot-scope-inventory
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue75-ot-inventory.yml'
+      - 'copticscriptorium_tf/ot_inventory.py'
+      - 'tests/test_issue75_ot_inventory.py'
+      - 'tests/live_issue75_ot_inventory.py'
+      - 'research/issue-75/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-source-family-inventory:
+    name: Enumerate all pinned Coptic TT records by biblical source evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact issue-75 research head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact source-code head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Install Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: RED-first source-scope and ZIP/direct inventory contracts
+        run: python -m unittest tests.test_issue75_ot_inventory -v
+
+      - name: Acquire precisely the immutable direct and ZIP TT subset
+        uses: actions/checkout@v4
+        timeout-minutes: 30
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*/*_TT/**
+            /*/*_TT.zip
+
+      - name: Verify pinned upstream Git source revision
+        run: test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+
+      - name: Record complete source family and candidate biblical scope counts
+        timeout-minutes: 12
+        run: |
+          /usr/bin/time -v python tests/live_issue75_ot_inventory.py \
+            pinned-coptic "$RUNNER_TEMP/coptic-ot-inventory.json"
+          test -s "$RUNNER_TEMP/coptic-ot-inventory.json"
+
+      - name: Upload aggregate metadata inventory only — no corpus text
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue75-coptic-ot-scope-inventory
+          path: ${{ runner.temp }}/coptic-ot-inventory.json
+          if-no-files-found: warn
