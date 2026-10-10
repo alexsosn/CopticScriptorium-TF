@@ -55,10 +55,10 @@ BOOK_ALIASES = {
 }
 # Full namespace/work identity required, not a matched trailing substring.
 DOC_CTS = re.compile(
-    r"^urn:cts:copticLit:ot\\.([A-Za-z0-9_-]+)\\.[^:]+:(\\d+)$"
+    r"^urn:cts:copticLit:ot\.([A-Za-z0-9_-]+)\.[^:]+:(\d+)$"
 )
 VERSE_CTS = re.compile(
-    r"^urn:cts:copticLit:ot\\.([A-Za-z0-9_-]+)\\.[^:]+:(\\d+)\\.(\\d+)$"
+    r"^urn:cts:copticLit:ot\.([A-Za-z0-9_-]+)\.[^:]+:(\d+)\.(\d+)$"
 )
 
 
