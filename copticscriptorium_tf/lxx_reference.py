@@ -28,13 +28,12 @@ BOOK_ALIASES = {
 # Compare the *work* identity too, not only matching numeric CTS suffixes.
 # Edition spelling can vary (e.g. copto_edt vs coptot_ed in real Ruth).
 CTS_WORK_BY_BOOK = {
-    "Ruth": re.compile(r"^urn:cts:copticLit:ot\\.ruth\\.[^:]+:(\\d+)\\.(\\d+)$"),
-    "Jonah": re.compile(r"^urn:cts:copticLit:ot\\.jonah\\.[^:]+:(\\d+)\\.(\\d+)$"),
-    "Hab": re.compile(r"^urn:cts:copticLit:ot\\.hab\\.[^:]+:(\\d+)\\.(\\d+)$"),
+    "Ruth": re.compile(r"^urn:cts:copticLit:ot\.ruth\.[^:]+:(\d+)\.(\d+)$"),
+    "Jonah": re.compile(r"^urn:cts:copticLit:ot\.jonah\.[^:]+:(\d+)\.(\d+)$"),
+    "Hab": re.compile(r"^urn:cts:copticLit:ot\.hab\.[^:]+:(\d+)\.(\d+)$"),
 }
 LXX_REFERENCE_EDITION = "CenterBLC/LXX:1935"
 VERSE_VID = re.compile(r"^([A-Za-z][A-Za-z ]*) (\d+):(\d+)$")
-CTS_SUFFIX = re.compile(r":(\d+)\.(\d+)$")
 
 MappingStatus = Literal[
     "reference_candidate", "unresolved", "ambiguous", "unclassified_corpus"
