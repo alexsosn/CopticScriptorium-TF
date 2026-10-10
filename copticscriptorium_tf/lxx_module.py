@@ -59,10 +59,25 @@ def fingerprint_coptic_parent(directory: Path) -> str:
     actual compatible parent data, rather than trusting a mislabelled commit.
     """
     digest = sha256()
-    for feature in ("otype", "oslots", "source_record_id", "source_word_ordinal"):
+    required = (
+        "otype", "oslots", "source_record_id", "source_word_ordinal",
+        "source_sha256",
+    )
+    # A module's Coptic correspondence depends on source verse semantics,
+    # not merely unchanged word node IDs. Include all source reference
+    # literals and precisely positioned marker-event features when present.
+    optional = (
+        "verse_n", "vid_n", "verse_vid", "value", "event_ordinal",
+        "start_word_ordinal", "start_char", "start_after_word_ordinal",
+        "end_word_ordinal", "end_char", "end_after_word_ordinal",
+    )
+    for feature in (*required, *optional):
         path = directory / f"{feature}.tf"
         if not path.is_file():
-            raise ValueError(f"missing generated Coptic parent TF feature {feature}")
+            if feature in required:
+                raise ValueError(f"missing generated Coptic parent TF feature {feature}")
+            digest.update(f"{feature}\\0missing\\0".encode("ascii"))
+            continue
         payload = path.read_bytes()
         digest.update(f"{feature}\\0{len(payload)}\\0".encode("ascii"))
         digest.update(payload)
