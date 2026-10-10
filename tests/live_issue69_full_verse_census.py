@@ -37,10 +37,9 @@ def scan_markers(raw: bytes, identity: str) -> tuple[Counter, tuple[str, ...]]:
         if name in {"verse_n", "vid_n", "verse_vid"} and not closing:
             counts[name] += 1
             if open_norm:
-                if name == "verse_n" or word_chars > 0:
-                    problematic.append(
-                        f"{identity}: {name} begins at character {word_chars} within norm"
-                    )
+                if word_chars > 0:
+                    counts["midword_marker_events"] += 1
+                    counts[f"midword_{name}"] += 1
                 else:
                     counts["nested_at_word_start"] += 1
         if name == "norm":
@@ -78,7 +77,7 @@ def main(root: Path) -> None:
                     raw = archive.read(item)
                     seen, problems = scan_markers(raw, f"{rel}!{item.filename}")
                     try:
-                        parse_tt_record(
+                        document = parse_tt_record(
                             raw,
                             source_record_id=source_id,
                             source_path=f"{rel}!{item.filename}",
@@ -86,6 +85,15 @@ def main(root: Path) -> None:
                             upstream_commit=REV,
                             packaging="archive",
                         )
+                        parsed_events = sum(
+                            e.kind in {"verse_n_marker", "vid_n_marker", "verse_vid_marker"}
+                            for e in document.layout_events
+                        )
+                        if parsed_events != seen["midword_marker_events"]:
+                            problems += (
+                                f"{rel}!{item.filename}: {parsed_events} native marker events != "
+                                f"{seen['midword_marker_events']} in source",
+                            )
                     except Exception as exc:
                         problems += (f"{rel}!{item.filename}: parser {exc}",)
                     total_errors += len(problems)
@@ -99,13 +107,22 @@ def main(root: Path) -> None:
             raw = file.read_bytes()
             seen, problems = scan_markers(raw, rel)
             try:
-                parse_tt_record(
+                document = parse_tt_record(
                     raw,
                     source_record_id=f"{corpus}/{dataset}:{record}",
                     source_path=rel,
                     upstream_repository="CopticScriptorium/corpora",
                     upstream_commit=REV,
                 )
+                parsed_events = sum(
+                    e.kind in {"verse_n_marker", "vid_n_marker", "verse_vid_marker"}
+                    for e in document.layout_events
+                )
+                if parsed_events != seen["midword_marker_events"]:
+                    problems += (
+                        f"{rel}: {parsed_events} native marker events != "
+                        f"{seen['midword_marker_events']} in source",
+                    )
             except Exception as exc:
                 problems += (f"{rel}: parser {exc}",)
             total_errors += len(problems)
@@ -125,7 +142,8 @@ def main(root: Path) -> None:
         "token_internal_verse_markers_unresolved": total_errors,
         "errors_sample": errors,
         "nested_at_word_start": counts["nested_at_word_start"],
-        "interpretation": "source shape and conversion safety only, not LXX agreement",
+        "midword_markers_preserved_as_native_events": counts["midword_marker_events"],
+        "interpretation": "every source-local marker is either word-scoped or a precisely positioned native event; not LXX agreement",
     }, sort_keys=True))
     assert total_errors == 0, f"{total_errors} unsupported marker/parser shapes; see errors_sample"
 
