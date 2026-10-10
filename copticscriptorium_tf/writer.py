@@ -28,6 +28,10 @@ _SCALAR_FEATURES = (
     ("head_literal", "head_literal", "head_literal", "str"),
     ("dependency_head_ordinal", "dependency_head_ordinal", None, "int"),
     ("source_text", "source_text", None, "str"),
+    # Upstream Coptic reference literals, not inferred Greek/LXX equivalence.
+    ("verse_n", "verse_n", None, "str"),
+    ("vid_n", "vid_n", None, "str"),
+    ("verse_vid", "verse_vid", None, "str"),
     ("source_ordinal", None, "source_ordinal", "int"),
     ("value", None, "value", "str"),
     ("own_text", None, "text", "str"),
