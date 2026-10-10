@@ -13,6 +13,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Iterable
 
+from ._atomic import publish_path_no_clobber
 from .lxx_reference import resolve_coptic_lxx_references
 from .model import DocumentModel
 
@@ -487,7 +488,7 @@ def materialize_lxx_reference_modules_streaming(
             _write_feature(
                 greek_path, "coptic_lxx_ref_id", greek_refs,
                 parent_repo="CenterBLC/LXX", parent_commit=LXX_PIN)
-            payload.rename(root)
+            publish_path_no_clobber(payload, root)
             return LxxModuleSummary(
                 coptic_candidate_words=candidate_words,
                 lxx_candidate_verses=len(greek_refs),
