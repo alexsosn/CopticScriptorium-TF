@@ -72,6 +72,49 @@ class AgoraManifestContractTests(unittest.TestCase):
             "tf/otype.tf", "tf/oslots.tf", "tf/otext.tf", "conversion-summary.json",
         })
 
+    def test_immutable_upstream_git_acquisition_selects_only_tt_packaging(self) -> None:
+        """Pin the two exact shapes parsed by this converter, not a loose input glob."""
+        manifest = json.loads((ROOT / "agora.materializer.json").read_text(encoding="utf-8"))
+        materializer = manifest["materializers"][0]
+        strategy = next(s for s in materializer["acquisition"] if s["type"] == "git")
+        self.assertEqual(strategy["ref"], REVISION)
+        self.assertEqual(
+            strategy["sparse_patterns"], ["/*/*_TT/**", "/*/*_TT.zip"],
+        )
+        self.assertEqual(strategy["subpath"], ".")
+        self.assertIn({"type": "user-local", "path_type": "directory",
+                       "prompt": "Select the root of a Coptic Scriptorium source tree (containing corpus/dataset_TT or corpus/dataset_TT.zip)"},
+                      materializer["acquisition"])
+
+    def test_ci_checkout_uses_merged_agora_host_on_an_actual_yaml_step_line(self) -> None:
+        workflow = (ROOT / ".github/workflows/issue17-agora.yml").read_text(
+            encoding="utf-8"
+        )
+        host_commit = "39c18b43ead861e614daf8b2bb8f452a551de7c6"
+        self.assertEqual(workflow.count(host_commit), 2)
+        self.assertEqual(
+            sum(line == "      - name: Check out immutable Agora reference"
+                for line in workflow.splitlines()), 1,
+            "host checkout must be a real YAML step, not text in a commented line",
+        )
+
+    def test_live_real_source_workflow_is_bound_to_pinned_thomas_smoke(self) -> None:
+        workflow = (ROOT / ".github/workflows/issue17-agora.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "Run pinned real Gospel of Thomas TT through Agora sandbox", workflow
+        )
+        self.assertIn("python tests/live_issue17_thomas.py", workflow)
+        script = (ROOT / "tests/live_issue17_thomas.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("3ac067f1709a0012daf39ea8da2fac79980176a5", script)
+        self.assertIn("thomas-gospel/thomas.gospel_TT/thomas_gospel.tt", script)
+        self.assertIn("acquire_git_source", script)
+        self.assertIn("materialize(", script)
+        self.assertIn("Fabric(", script)
+
     def test_python_package_is_installable_by_agora(self) -> None:
         project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
         self.assertEqual(project["name"], "copticscriptorium-tf")
