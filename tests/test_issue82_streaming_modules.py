@@ -136,6 +136,28 @@ class StreamingNativeReferenceModulesTests(unittest.TestCase):
                 )
             self.assertFalse(target.exists())
 
+    def test_destination_created_during_publish_is_not_overwritten(self):
+        from unittest.mock import patch
+        from copticscriptorium_tf._atomic import publish_path_no_clobber
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            docs, parent, api = self._parents(root)
+            target = root / "raced-destination"
+            def racing_publish(source, destination):
+                destination.mkdir()
+                (destination / "sentinel").write_text("preserve", encoding="utf-8")
+                return publish_path_no_clobber(source, destination)
+            with patch("copticscriptorium_tf.lxx_module.publish_path_no_clobber",
+                       side_effect=racing_publish):
+                with self.assertRaises(FileExistsError):
+                    materialize_lxx_reference_modules_streaming(
+                        documents=iter(docs), output_root=target,
+                        **self._kwargs(parent, api)
+                    )
+            self.assertEqual((target / "sentinel").read_text(), "preserve")
+            self.assertFalse((target / "coptic").exists())
+            self.assertFalse(list(root.glob(".coptic-lxx-*")))
+
     def test_changed_generated_parent_fingerprint_rejects_overlay(self):
         with TemporaryDirectory() as temp:
             root = Path(temp)
