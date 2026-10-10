@@ -5,8 +5,10 @@ manuscript passages represent identical text, share versification, or that
 individual Coptic and Greek words translate each other.
 
 The first implementation covers a source-verified pilot: Sahidic Ruth 2,
-Sahidic Jonah 2, and Bohairic Habakkuk 2. The actual real-parent integration
-test in `tests/live_issue89_dual_modules.py` is the executable recipe. It
+Sahidic Jonah 2, Bohairic Jonah 2, and Bohairic Habakkuk 2. Both Coptic Jonah
+witnesses point to the same 11 Greek verse *addresses*, and the Greek module's
+`coptic_lxx_source_span_count` records two witnesses at those addresses. The
+actual real-parent integration test in `tests/live_issue89_dual_modules.py` is the executable recipe. It
 checks out pinned source data in CI, converts the three Coptic TT documents to
 native TF, loads the pinned LXX Greek TF parent, generates and reloads both
 additive modules.
