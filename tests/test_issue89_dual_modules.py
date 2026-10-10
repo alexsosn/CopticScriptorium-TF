@@ -52,6 +52,19 @@ class ModuleWeftContractTests(unittest.TestCase):
                 projection="lxx", description="invalid parent node",
             )
 
+    def test_adversarial_candidate_cannot_carry_unresolved_status(self):
+        with TemporaryDirectory() as temporary:
+            target = Path(temporary) / "no-forged-candidates"
+            with self.assertRaisesRegex(LxxModuleError, "noncandidate status"):
+                write_reference_modules(
+                    target,
+                    coptic_ref={1: "CenterBLC/LXX:1935:Ruth:2:1"},
+                    coptic_status={1: "unresolved"},
+                    lxx_ref={655362: "CenterBLC/LXX:1935:Ruth:2:1"},
+                    lxx_count={655362: 1},
+                )
+            self.assertFalse(target.exists())
+
     def test_git_blob_fingerprint_checks_actual_bytes(self):
         data = b"@node\n@valueType=str\n\n1\tx\n"
         digest = sha1(f"blob {len(data)}\0".encode() + data).hexdigest()
