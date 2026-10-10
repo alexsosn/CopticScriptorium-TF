@@ -51,6 +51,7 @@ jobs:
           sparse-checkout: |
             /sahidic.ruth/sahidic.ruth_TT/Ruth_02.tt
             /sahidic.jonah/sahidic.jonah_TT/Jonah_02.tt
+            /bohairic-jonah/bohairic.jonah_TT/bohairic.Jonah_02.tt
             /bohairic-habakkuk/bohairic.habakkuk_TT/bohairic.Habakkuk_02.tt
 
       - name: Fetch actual version-pinned Greek LXX TF data
