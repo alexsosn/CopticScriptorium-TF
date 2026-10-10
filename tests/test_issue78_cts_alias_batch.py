@@ -1,6 +1,7 @@
 """RED-first real-work-evidence contracts for bulk Coptic OT→LXX candidate addresses."""
 from __future__ import annotations
 
+from pathlib import Path
 import unittest
 from copticscriptorium_tf.parser import parse_tt_record
 from copticscriptorium_tf.lxx_reference import resolve_coptic_lxx_references
@@ -131,6 +132,25 @@ class AuditedOtAliasBatchTests(unittest.TestCase):
             expected="reference_candidate",
         )
         self.assertEqual(calls, [("Ruth", 1, 1)])
+
+
+class BatchNativeModuleAcceptanceContract(unittest.TestCase):
+    def test_live_multiwork_smoke_generates_and_reloads_both_tf_weft_modules(self):
+        source = (Path(__file__).resolve().parent / "live_issue78_cts_aliases.py").read_text(
+            encoding="utf-8"
+        )
+        for needle in (
+            "materialize_lxx_reference_modules",
+            "verify_coptic_module_parent",
+            "coptic_lxx_ref_id",
+            "coptic_lxx_ref_status",
+            "set(coptic_keys) == set(greek_keys)",
+            "Fabric(",
+            "write_graph(",
+            "build_graph(",
+        ):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, source)
 
 
 if __name__ == "__main__":
