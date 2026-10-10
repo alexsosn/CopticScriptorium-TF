@@ -72,6 +72,20 @@ class AgoraManifestContractTests(unittest.TestCase):
             "tf/otype.tf", "tf/oslots.tf", "tf/otext.tf", "conversion-summary.json",
         })
 
+    def test_immutable_upstream_git_acquisition_selects_only_tt_packaging(self) -> None:
+        """Pin the two exact shapes parsed by this converter, not a loose input glob."""
+        manifest = json.loads((ROOT / "agora.materializer.json").read_text(encoding="utf-8"))
+        materializer = manifest["materializers"][0]
+        strategy = next(s for s in materializer["acquisition"] if s["type"] == "git")
+        self.assertEqual(strategy["ref"], REVISION)
+        self.assertEqual(
+            strategy["sparse_patterns"], ["/*/*_TT/**", "/*/*_TT.zip"],
+        )
+        self.assertEqual(strategy["subpath"], ".")
+        self.assertIn({"type": "user-local", "path_type": "directory",
+                       "prompt": "Select the root of a Coptic Scriptorium source tree (containing corpus/dataset_TT or corpus/dataset_TT.zip)"},
+                      materializer["acquisition"])
+
     def test_python_package_is_installable_by_agora(self) -> None:
         project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
         self.assertEqual(project["name"], "copticscriptorium-tf")
