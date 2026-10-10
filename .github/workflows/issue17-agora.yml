@@ -111,3 +111,7 @@ jobs:
           assert {api.F.norm.v(i) for i in (1, 2)} == {'a', 'b'}
           print('Agora real-sandbox local materialization: valid')
           PY
+
+      - name: Run pinned real Gospel of Thomas TT through Agora sandbox
+        timeout-minutes: 15
+        run: python tests/live_issue17_thomas.py
