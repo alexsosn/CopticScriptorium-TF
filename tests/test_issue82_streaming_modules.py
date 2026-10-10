@@ -120,6 +120,42 @@ class StreamingNativeReferenceModulesTests(unittest.TestCase):
                         )
                     self.assertFalse(target.exists())
 
+    def test_rejects_source_byte_identity_drift_despite_same_word_ids(self):
+        """RED: same chapter/word IDs must not disguise a different TT witness."""
+        from dataclasses import replace
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            documents, parent, api = self._parents(root)
+            # The source really is different even though it advertises the same
+            # commit, identity, book/chapter/verse and token ordinal sequence.
+            altered = replace(documents[0], source_sha256="f" * 64)
+            target = root / "stale-source"
+            with self.assertRaisesRegex(ValueError, "source SHA-256 mismatch"):
+                materialize_lxx_reference_modules_streaming(
+                    documents=iter((altered, documents[1])),
+                    output_root=target,
+                    **self._kwargs(parent, api),
+                )
+            self.assertFalse(target.exists())
+            self.assertFalse(list(root.glob(".coptic-lxx-*")))
+
+    def test_rejects_unloaded_coptic_parent_source_hash_feature(self):
+        """RED: cannot certify source identity without loaded native TF hashes."""
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            documents, parent, _api = self._parents(root)
+            api = Fabric(locations=[str(parent)], silent="deep").load(
+                "source_record_id source_word_ordinal", silent="deep"
+            )
+            target = root / "missing-hash"
+            with self.assertRaisesRegex(ValueError, "source_sha256"):
+                materialize_lxx_reference_modules_streaming(
+                    documents=iter(documents),
+                    output_root=target,
+                    **self._kwargs(parent, api),
+                )
+            self.assertFalse(target.exists())
+
     def test_casefold_colliding_source_records_fail_atomically(self):
         with TemporaryDirectory() as temp:
             root = Path(temp)
