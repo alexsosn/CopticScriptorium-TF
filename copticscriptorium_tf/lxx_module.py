@@ -46,7 +46,7 @@ def verify_lxx_parent_feature_blobs(directory: Path) -> None:
         if not path.is_file():
             raise ValueError(f"missing pinned LXX feature file {path.name}")
         digest = sha1()
-        digest.update(f"blob {path.stat().st_size}\\0".encode("ascii"))
+        digest.update(f"blob {path.stat().st_size}\0".encode("ascii"))
         with path.open("rb") as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(chunk)
