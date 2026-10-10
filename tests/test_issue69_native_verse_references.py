@@ -103,6 +103,27 @@ class VerseReferencePreservationTests(unittest.TestCase):
             "urn:cts:copticLit:nt.mark.sahidica_ed:7.16",
         )
 
+    def test_closed_source_label_scopes_do_not_leak_to_following_words(self):
+        markup = (
+            '<meta corpus="sahidic.ruth" chapter="2">'
+            '<verse_n verse_n="1">'
+            '<verse_vid verse_vid="Ruth 2:1"><vid_n vid_n="urn:cts:copticLit:ot.ruth.coptot_ed:2.1">'
+            '<norm_group norm_group="a"><norm xml:id="u1" new_sent="true" func="root" norm="a">a</norm></norm_group>'
+            '</vid_n></verse_vid>'
+            '<norm_group norm_group="b"><norm xml:id="u2" new_sent="true" func="root" norm="b">b</norm></norm_group>'
+            '</verse_n>'
+            '<norm_group norm_group="c"><norm xml:id="u3" new_sent="true" func="root" norm="c">c</norm></norm_group>'
+        )
+        parsed = parse(markup)
+        self.assertEqual(
+            [(w.verse_n, w.vid_n, w.verse_vid) for w in parsed.words],
+            [
+                ("1", "urn:cts:copticLit:ot.ruth.coptot_ed:2.1", "Ruth 2:1"),
+                ("1", None, None),
+                (None, None, None),
+            ],
+        )
+
     def test_token_internal_boundary_rejected_not_mapped_to_whole_word(self):
         bad = (
             '<meta corpus="sahidic.ruth" chapter="2">'
