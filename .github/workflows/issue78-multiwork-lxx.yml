@@ -1,0 +1,82 @@
+name: issue78-real-pinned-multiwork-coptic-lxx-candidates
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue78-multiwork-lxx.yml'
+      - 'copticscriptorium_tf/lxx_reference.py'
+      - 'tests/test_issue78_cts_alias_batch.py'
+      - 'tests/live_issue78_cts_aliases.py'
+      - 'research/issue-78/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/issue78-multiwork-lxx.yml'
+      - 'copticscriptorium_tf/lxx_reference.py'
+      - 'tests/test_issue78_cts_alias_batch.py'
+      - 'tests/live_issue78_cts_aliases.py'
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-multiwork-coptic-verses:
+    name: Several real Coptic OT CTS works → pinned LXX verse candidate audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact tested Coptic resolver
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact tested code commit
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Checkout only immutable Bohairic and Sahidic OT TT ZIP packages
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: real-coptic
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /bohairic.ot/bohairic.ot_TT.zip
+            /sahidic.ot/sahidic.ot_TT.zip
+
+      - name: Checkout exact CenterBLC/LXX parent
+        uses: actions/checkout@v4
+        with:
+          repository: CenterBLC/LXX
+          ref: f32a98eddf7eb239aa73ab863d70381e416d5076
+          path: real-lxx
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout: |
+            tf/1935
+
+      - name: Assert exact immutable upstream source revisions
+        run: |
+          test "$(git -C real-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C real-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned Text-Fabric 13.1
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: RED-first batch alias and existing pilot regressions
+        run: |
+          python -m unittest tests.test_issue78_cts_alias_batch -v
+          python -m unittest tests.test_issue70_lxx_reference_candidates -v
+
+      - name: Compare actual multi-book Coptic ZIP verse addresses against Greek native TF
+        run: python tests/live_issue78_cts_aliases.py real-coptic real-lxx/tf/1935
