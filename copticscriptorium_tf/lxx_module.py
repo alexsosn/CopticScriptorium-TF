@@ -317,7 +317,8 @@ def _stream_tf_row(handle, node: int, value: str) -> None:
         raise ValueError("invalid native TF node ID")
     if not isinstance(value, str) or not value:
         raise ValueError("invalid empty native TF scalar")
-    handle.write(f'{node}\t{value.replace("\\", "\\\\").replace(chr(9), "\\t").replace(chr(10), "\\n")}\n')
+    escaped = value.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n")
+    handle.write(f"{node}\t{escaped}\n")
 
 
 def materialize_lxx_reference_modules_streaming(
