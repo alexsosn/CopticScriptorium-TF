@@ -49,6 +49,11 @@ class CopticLxxCoverageAudit:
         self._families: dict[str, dict[str, object]] = {}
         self._books: dict[str, dict[str, object]] = {}
         self._works: dict[str, dict[str, object]] = {}
+        # Native Greek nodes are local to the pinned LXX parent. Keep a
+        # reference-key index only to distinguish many Coptic witnesses
+        # from actual distinct candidate Greek verse addresses.
+        self._candidate_greek_verses: dict[str, int] = {}
+        self._book_candidate_verses: dict[str, set[str]] = {}
         self._total_words = 0
         self._ot_words = 0
         self._midword_events = 0
@@ -121,6 +126,14 @@ class CopticLxxCoverageAudit:
                 if ref.status == "reference_candidate":
                     if ref.lxx_node is None or ref.shared_id is None:
                         raise ValueError("positive reference candidate lacks a verified LXX node")
+                    previous_node = self._candidate_greek_verses.setdefault(
+                        ref.shared_id, ref.lxx_node
+                    )
+                    if previous_node != ref.lxx_node:
+                        raise ValueError("conflicting Greek node identity for a shared verse reference")
+                    self._book_candidate_verses.setdefault(
+                        ref.lxx_book or "unclassified", set()
+                    ).add(ref.shared_id)
                 elif ref.lxx_node is not None or ref.shared_id is not None:
                     raise ValueError("unresolved/ambiguous verse invented a Greek correspondence")
                 statuses[ref.status] += 1
@@ -179,6 +192,7 @@ class CopticLxxCoverageAudit:
                 "ot_candidate_word_slots": self._ot_words,
                 "verse_position_events": self._midword_events,
                 "ot_reference_groups": sum(self._refs.values()),
+                "distinct_candidate_lxx_verses": len(self._candidate_greek_verses),
             },
             "source_scopes": sorted_counts(self._source_scopes),
             "ot_reference_statuses": sorted_counts(self._refs),
@@ -191,7 +205,13 @@ class CopticLxxCoverageAudit:
                 key: serialize_row(row) for key, row in sorted(self._works.items())
             },
             "candidate_lxx_books": {
-                key: serialize_row(row) for key, row in sorted(self._books.items())
+                key: {
+                    **serialize_row(row),
+                    "distinct_candidate_verses": len(
+                        self._book_candidate_verses.get(key, set())
+                    ),
+                }
+                for key, row in sorted(self._books.items())
             },
             "interpretation": (
                 "Reference address candidates only; Coptic/LXX textual equivalence, "
