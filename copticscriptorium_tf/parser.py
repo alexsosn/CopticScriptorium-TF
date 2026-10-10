@@ -120,6 +120,11 @@ def parse_tt_record(
     arabic_stack: list[dict[str, Any]] = []
     layout_events: list[LayoutEvent] = []
     current_word: dict[str, Any] | None = None
+    # Preserve upstream literal verse references. They are not claimed to
+    # match any particular Greek edition or CenterBLC/LXX node.
+    current_verse_n: str | None = None
+    current_vid_n: str | None = None
+    current_verse_vid: str | None = None
 
     def append_word_text(fragment: str) -> None:
         if current_word is None:
@@ -202,6 +207,29 @@ def parse_tt_record(
 
         if name == "meta":
             continue
+        if name in {"verse_n", "vid_n", "verse_vid"}:
+            # Splitting a word would violate the one-norm = one-slot contract.
+            # A genuine in-word source boundary needs a separately measured
+            # subword locus, not an implicit whole-word verse membership.
+            if current_word is not None:
+                raise ValueError(
+                    f"verse marker {name!r} inside norm in {source_record_id}"
+                )
+            literal = attrs.get(name)
+            if literal is None:
+                raise ValueError(
+                    f"verse marker {name!r} has no literal in {source_record_id}"
+                )
+            if name == "verse_n":
+                current_verse_n = literal
+                # A new verse must not inherit the prior verse's CTS IDs.
+                current_vid_n = None
+                current_verse_vid = None
+            elif name == "vid_n":
+                current_vid_n = literal
+            else:
+                current_verse_vid = literal
+            continue
         if name == "orig_group":
             open_linguistic("orig_group", {None})
             index = len(orig_groups_raw)
@@ -259,6 +287,9 @@ def parse_tt_record(
                 "head_literal": attrs.get("head"),
                 "text_parts": [],
                 "source_text": "",
+                "verse_n": current_verse_n,
+                "vid_n": current_vid_n,
+                "verse_vid": current_verse_vid,
             }
             if (attrs.get("new_sent") or "").casefold() == "true":
                 sentence_starts.append(ordinal)
@@ -356,6 +387,9 @@ def parse_tt_record(
                 head_literal=literal_head,
                 dependency_head_ordinal=dependency_head,
                 source_text=raw_word["source_text"],
+                verse_n=raw_word["verse_n"],
+                vid_n=raw_word["vid_n"],
+                verse_vid=raw_word["verse_vid"],
             )
         )
 
