@@ -1,0 +1,101 @@
+name: issue82-full-streamed-coptic-lxx-weft-modules
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue82-full-streamed-lxx.yml'
+      - 'copticscriptorium_tf/lxx_module.py'
+      - 'tests/test_issue82_streaming_modules.py'
+      - 'tests/live_issue82_full_modules.py'
+      - 'research/issue-82/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-streamed-native-weft:
+    name: All 2628 Coptic sources to 2 native TF wefts to 21120 real Greek verses
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out exact Coptic streaming PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert source-code identity
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Install Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run RED-first streaming test contracts
+        run: |
+          python -m pip install 'text-fabric==13.1.0'
+          python -m unittest tests.test_issue82_streaming_modules -v
+
+      - name: Sparse acquire complete immutable Coptic TT source
+        uses: actions/checkout@v4
+        timeout-minutes: 35
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*/*_TT/**
+            /*/*_TT.zip
+
+      - name: Acquire pinned mapping-critical CenterBLC/LXX parent warp
+        uses: actions/checkout@v4
+        timeout-minutes: 15
+        with:
+          repository: CenterBLC/LXX
+          ref: f32a98eddf7eb239aa73ab863d70381e416d5076
+          path: pinned-lxx
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout: |
+            tf/1935
+
+      - name: Verify both immutable data revision identities
+        run: |
+          test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C pinned-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
+
+      - name: Record free disk before native corpus projection
+        run: df -h "$RUNNER_TEMP"
+
+      - name: Convert real corpus and stream both native weft modules, fresh-load full output
+        timeout-minutes: 38
+        run: |
+          /usr/bin/time -v -o "$RUNNER_TEMP/issue82-resource.txt" \
+            python tests/live_issue82_full_modules.py \
+            pinned-coptic pinned-lxx/tf/1935 \
+            "$RUNNER_TEMP/issue82-streamed-native"
+
+      - name: Report peak resident memory, elapsed time and scratch usage
+        if: always()
+        run: |
+          df -h "$RUNNER_TEMP"
+          test ! -f "$RUNNER_TEMP/issue82-resource.txt" || cat "$RUNNER_TEMP/issue82-resource.txt"
+          test ! -d "$RUNNER_TEMP/issue82-streamed-native" || \
+            du -sh "$RUNNER_TEMP/issue82-streamed-native"
+          test ! -d "$RUNNER_TEMP/issue82-streamed-native/modules" || \
+            du -sh "$RUNNER_TEMP/issue82-streamed-native/modules"
+
+      - name: Upload operational timing only, never Coptic/Greek corpus
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue82-full-streamed-weft-timing
+          path: ${{ runner.temp }}/issue82-resource.txt
+          if-no-files-found: warn
