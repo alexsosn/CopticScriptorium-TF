@@ -99,3 +99,24 @@ merge the manifest release, update Agora's canonical immutable plugin
 registry pin to the reviewed Coptic commit, then run the full registered
 remote acquisition → real TF conversion → Context-Fabric import checks.
 Do not close issue #17 on upstream acquisition alone.
+
+### Real-source representative conversion RED→implementation gate
+
+- RED manifest/CI contract `test_live_real_source_workflow_is_bound_to_pinned_thomas_smoke` added before implementation.
+- Live workflow `issue17-agora.yml` invokes `tests/live_issue17_thomas.py` after installing Coptic wheel, verifying merged Agora host schema and enabling real Bubblewrap.
+- The script clones a single real pinned Git blob:
+  `thomas-gospel/thomas.gospel_TT/thomas_gospel.tt` (1,474,064 bytes)
+  from immutable commit `3ac067f1709a0012daf39ea8da2fac79980176a5`
+  via the same Agora `acquire_git_source` implementation, with an intentionally
+  *narrower test-only* sparse selection. It then hands that real checked-out
+  source explicitly to the *actual network-denied Agora materialize host*,
+  reloads native TF and verifies commit binding, real slots and lemma access.
+- The receipt accurately records `source.type=user-local` for this explicit
+  second-stage source override; the upstream acquisition step independently
+  verifies the immutable Git `resolved_commit`.
+- This is **representative real-data** verification, **not** production
+  registry-ID automatic acquisition of all TT files, whose 565-blob completeness
+  is proven separately on merged Agora #210. Full registered acquired-source
+  2,628-record native-TF conversion + Context-Fabric handoff still gates closure.
+- Exact-head workflow results and independent adversarial review are pending
+  for the Coptic head containing this test.
