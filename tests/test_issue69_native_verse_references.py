@@ -80,6 +80,29 @@ class VerseReferencePreservationTests(unittest.TestCase):
         unmarked = parse(UNMARKED)
         self.assertIsNone(unmarked.words[0].verse_n)
 
+    def test_nested_reference_wrappers_before_first_visible_character_attach_to_current_word(self):
+        # Genuine pinned coptic-treebank Mark 7 pattern: verse_vid and vid_n
+        # can open inside norm under sbl_greek before the visible characters.
+        markup = (
+            '<meta corpus="coptic.treebank" book="Mark" chapter="7">'
+            '<verse_n verse_n="16">'
+            '<norm_group norm_group="[..]">'
+            '<norm xml:id="u1" new_sent="true" func="root" norm="[..]">'
+            '<sbl_greek sbl_greek="…">'
+            '<verse_vid verse_vid="41N 7:16">'
+            '<vid_n vid_n="urn:cts:copticLit:nt.mark.sahidica_ed:7.16">'
+            '[..]</vid_n></verse_vid></sbl_greek></norm>'
+            '</norm_group></verse_n>'
+        )
+        parsed = parse(markup)
+        self.assertEqual(len(parsed.words), 1)
+        self.assertEqual(parsed.words[0].verse_n, "16")
+        self.assertEqual(parsed.words[0].verse_vid, "41N 7:16")
+        self.assertEqual(
+            parsed.words[0].vid_n,
+            "urn:cts:copticLit:nt.mark.sahidica_ed:7.16",
+        )
+
     def test_token_internal_boundary_rejected_not_mapped_to_whole_word(self):
         bad = (
             '<meta corpus="sahidic.ruth" chapter="2">'
