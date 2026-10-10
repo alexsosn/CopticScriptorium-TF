@@ -140,12 +140,15 @@ The sole slot type is `word`. Non-slot node types are:
 - `document`, `sentence`;
 - `orig_group`, `norm_group`, `orig`;
 - `page`, `column`, `line`;
+- `verse_n_marker`, `vid_n_marker`, `verse_vid_marker` (precise token-internal biblical source reference events);
 - `entity`;
 - `translation`, `arabic_translation`.
 
 Frequently useful node/slot features include `source_record_id`, `source_word_ordinal`, `source_id`, `norm`, `lemma`, `pos`, `func`, `source_text`, `scholarly_id`, `corpus`, `dataset`, `source_path`, `source_sha256`, `packaging`, `entity_class`, `identity`, and `own_text`. Document metadata is projected as deterministic scalar `meta_*` features, including occurrence-suffixed features when a source metadata attribute is repeated.
 
 Native edge features include `parent`, `direct_word`, `dependency_head`, `entity_head`, `same_scholarly`, `documented_overlap`, and `witness`, plus the valued relation-evidence features listed above.
+
+When present, optional word features `verse_n`, `vid_n`, and `verse_vid` preserve literal upstream Coptic Bible references. Token-internal reference changes are distinct native marker nodes with `label` and `start_char`, not fabricated whole-word or LXX alignments; see the [researcher guide](docs/researcher-guide.md#biblical-source-references-and-lxx-alignment-boundaries).
 
 Available text formats depend on the source content. The writer emits `text-orig-full` for normalized word text, `text-diplomatic-full` when diplomatic/original surfaces exist, and node-default own-text formats for translations and layout nodes.
 
