@@ -234,6 +234,16 @@ for limits, lifecycle, and feature-module behavior.
 
 ### Automatic upstream acquisition: outstanding limitation
 
+The manifest now opts in to Agora's proposed `sparse_patterns` Git acquisition
+(`/*/*_TT/**` and `/*/*_TT.zip`), which downloads TT directory files and
+TT ZIP archives at the same pinned upstream commit without deliberately
+materializing other formats. The host support is under review in
+[Agora PR #210](https://github.com/alexsosn/Agora/pull/210).
+**This is only a declaration**: existing Agora registry installations remain
+pinned to the earlier reviewed Coptic plugin commit until that registry pin is
+updated after both PRs are approved. A full real-source automatic acquisition
+and conversion has not yet passed, so use `--source` meanwhile.
+
 The materializer manifest also declares immutable Git acquisition from
 `CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`.
 Running the registered materializer without `--source` selects that acquisition
