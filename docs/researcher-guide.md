@@ -12,6 +12,18 @@ serialization behavior; it does not certify the scholarly correctness,
 completeness, authorship, licensing interpretation, or editorial quality of
 upstream annotations.
 
+## Source paths and Agora
+
+For local TT trees, the direct converter and Agora's registered
+`copticscriptorium-tf` materializer produce the same native TF model.
+[README: Agora integration](../README.md#agora-integration-status) gives the
+reviewed local `--source` materialization command and the explicit
+`install_local_corpus` → `prepare_corpus` → `load_corpus` handoff to
+Context-Fabric/cfabric-mcp. The server must be able to read the generated
+`tf/` directory locally. Bulk automatic Git acquisition remains an open
+Agora #205 gate; do not treat its manifest declaration as a successful full
+acquisition test.
+
 ## Load a generated corpus
 
 The cookbook provides a convenience loader that loads the features used by the
