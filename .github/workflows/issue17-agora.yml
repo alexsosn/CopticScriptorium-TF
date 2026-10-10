@@ -22,7 +22,8 @@ jobs:
       - name: Check out exact converter head
         uses: actions/checkout@v4
 
-      # Pre-merge dependency verification against reviewed Agora PR #210 exact head.\n      # Replace this pin with the merged Agora commit before finalizing Coptic.\n      - name: Check out immutable Agora reference
+      # Immutable host: Agora PR #210 squash-merge commit.
+      - name: Check out immutable Agora reference
         uses: actions/checkout@v4
         with:
           repository: alexsosn/Agora
