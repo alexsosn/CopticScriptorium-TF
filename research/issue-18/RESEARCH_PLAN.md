@@ -69,3 +69,26 @@ documented by Agora, followed by the explicit Context-Fabric handoff. It must
 remove the stale claims that canonical registration/composition is still
 blocked, while retaining the distinction between manual handoff and automatic
 orchestration.
+
+
+## Implementation outcome after Agora #198 merge
+
+As of 2026-10-10, canonical registration is merged in Agora #198 at
+`98414646eef24a98a1dd88518a8fbac7ae5e570d`. Final exact-head
+Foundation, sandbox E2E, and registered-install tests passed. The registered
+Coptic fixture was actually materialized in a network-denied sandbox and
+loaded, searched, unloaded and removed through the stdio Context-Fabric MCP
+server. The old "not canonically registered" README claim is now false.
+
+The separate no-`--source` bulk automatic acquisition encountered
+`git fetch` early EOF / the 120-second hard limit on the approximately
+2.7 GiB `CopticScriptorium/corpora` repository; Agora #205 owns the
+bounded exact-source acquisition research. CopticScriptorium-TF #17 remains
+open for that acceptance. The new README must not imply that automatic
+full-corpus acquisition has succeeded.
+
+RED-first documentation contracts on draft PR #64 require accurate
+registered IDs, explicit code-execution approval, a local-source command,
+server-host `install_local_corpus` and offline prepare/load operations,
+and an explicit remaining #205 limitation. The documentation change is
+separate from converter semantics; no source data or output model changes.
