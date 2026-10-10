@@ -16,13 +16,15 @@ The Coptic source is `CopticScriptorium/corpora` pinned to
   word features* from issue #69. Source-reference boundaries inside an
   unsplit word are separate native position nodes with exact
   `start_word_ordinal/start_char` instead of dishonest whole-word labels.
-- Issue #70 resolves reviewed source families (Sahidic Ruth and Jonah;
-  Bohairic Habakkuk) only when `meta chapter`, source marker, available
-  `verse_vid` and available CTS reference are consistent. An actual
-  edition-pinned Greek `T.nodeFromSection((book,chapter,verse))` must
-  resolve to a native `verse` node. This produces only
-  `reference_candidate`, `ambiguous`, `unresolved`, or
-  `unclassified_corpus`.
+- Issue #70 first resolved a source-evidenced Ruth/Jonah/Habakkuk pilot.
+  The subsequently audited broader Coptic OT coverage uses reviewed family
+  identity **and exact source CTS work evidence** (not guessed book titles)
+  to resolve available book/chapter/verse references. The pinned Greek
+  `T.nodeFromSection((book,chapter,verse))` must point to an actual native
+  LXX `verse`. The resolver does not assign Greek targets for conflicting,
+  missing, edition-ambiguous, NT, or undetermined source references. All
+  affected Coptic words retain explicit `reference_candidate`, `ambiguous`,
+  `unresolved`, or `unclassified_corpus` status rather than disappearing.
 - Issue #73 creates **two additive weft-only TF modules**, leaving both
   corpora's native `otype`, `oslots` and text untouched. Three real Coptic
   documents (Ruth 2, Jonah 2, Bohairic Habakkuk 2) have 2,104 word slots,
@@ -35,9 +37,39 @@ The Coptic source is `CopticScriptorium/corpora` pinned to
   1,072,234 Coptic word slots were marked as reference candidates, and all
   2,394,354 Coptic slots had an explicit status. These are address
   correspondences only, **not** verified Greek/Coptic textual alignments.
-  The resource regression measured approximately 7.4 GB peak RSS for the
-  entire conversion-plus-overlay process, not for the standalone streaming
-  module alone.
+  The full-pinned run [38080479109](https://github.com/alexsosn/CopticScriptorium-TF/actions/runs/38080479109)
+  reported **9:48.45** wall time and 7,460,860 KiB (approximately **7.1 GiB**)
+  peak RSS across **full conversion**, native weft generation and both fresh
+  TF parent/module reloads combined. Do not attribute the entire peak to
+  the standalone streaming projection.
+
+### Real full-source coverage and interpretation
+
+The source evidence audit distinguishes **1,574 OT candidate records**,
+**615 NT records**, and **439 undetermined records** out of 2,628 physical
+sources. Biblical verse markers alone never imply LXX scope. The bilateral
+module instead gives each Coptic word exactly one queryable status:
+
+| Native Coptic word `coptic_lxx_ref_status` | Word slots |
+| --- | ---: |
+| `reference_candidate` | 1,072,234 |
+| `unclassified_corpus` | 1,309,117 |
+| `unresolved` | 12,951 |
+| `ambiguous` | 52 |
+| **Total** | **2,394,354** |
+
+The Greek module attaches shared reference identifiers to **21,120 distinct
+LXX verse nodes**. Equal reference addresses are a *lookup hypothesis*, **not
+textual equivalence**, and not a Greek↔Coptic word alignment. An unclassified
+word may belong to an NT or undetermined source or to a source requiring a
+separate editorial decision; it must not be silently remapped to Greek OT.
+Unresolved and ambiguous evidence remains available through the Coptic
+`coptic_lxx_ref_reason` and `coptic_lxx_ref_evidence` native scalar
+features, as well as the original source's `source_record_id`.
+
+These outputs and counts refer to the pinned
+`CopticScriptorium/corpora` snapshot and `CenterBLC/LXX` 1935 v1.0.1,
+not to all published Coptic biblical witnesses or a new critical edition.
 
 ## Features and cross-parent join
 
@@ -130,12 +162,16 @@ per-feature dictionaries, not the parent conversion cost.
 
 Do **not** infer Greek/Coptic word identity from an equal verse address;
 Coptic OT books may follow different verse divisions from Rahlfs LXX.
-Greek `subverse` membership is a separate boundary layer. The current
-pilot knows three source families; other biblical sources remain
-`unclassified_corpus` until an explicit reviewed book/corpus map is
-added. A future version needs a full coverage audit, explicit 1:N/N:1
-versification crosswalks with provenance, confidence/status reporting,
-and only then independently evaluated translated word alignment.
+Greek `subverse` membership is a separate boundary layer. The **three-book
+pilot** is retained as an introductory example, not a limit on the now
+completed full source/address-candidate inventory. The current curated
+multi-work CTS/book classification is still conservative: unresolved and
+unclassified sources, alternate Greek editions (e.g., Daniel/Tobit), and
+ambiguously displaced chapters require independent research. Issue #75
+owns an **edition- and witness-qualified 1:N/N:1 versification crosswalk**
+with primary evidence and explicit mapping statuses. That next step is
+different from a book/chapter/verse equality lookup; independently evaluated
+translated word alignment belongs after it.
 
 See [research issue #70](../research/issue-70/RESEARCH_PLAN.md) and
 [issue #73 plan](../research/issue-73/RESEARCH_PLAN.md) for those gates.
