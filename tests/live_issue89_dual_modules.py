@@ -29,6 +29,8 @@ COPTIC_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
 SOURCES = (
     ("sahidic.ruth", "sahidic.ruth", "Ruth_02.tt", 23),
     ("sahidic.jonah", "sahidic.jonah", "Jonah_02.tt", 11),
+    # A second independent source witness for the *same* Greek Jonah verses.
+    ("bohairic-jonah", "bohairic.jonah", "bohairic.Jonah_02.tt", 11),
     ("bohairic-habakkuk", "bohairic.habakkuk", "bohairic.Habakkuk_02.tt", 20),
 )
 
@@ -91,7 +93,7 @@ def main(source_root: Path, greek_tf_dir: Path) -> None:
             coptic_api=coptic_api, lxx_api=greek_api,
             lxx_tf_dir=greek_tf_dir, destination=output,
         )
-        assert summary["reference_candidate"] == 54, summary
+        assert summary["reference_candidate"] == 65, summary
         assert summary["candidate_lxx_verse_nodes"] == 54, summary
         assert summary["ambiguous"] == 0 if "ambiguous" in summary else True
         assert summary["unresolved"] == 0 if "unresolved" in summary else True
@@ -123,12 +125,21 @@ def main(source_root: Path, greek_tf_dir: Path) -> None:
             if rid:
                 ids_lxx.add(rid)
                 assert loaded_lxx.F.coptic_lxx_source_span_count.v(verse_node) >= 1
-        assert len(ids_coptic) == len(ids_lxx) == 54, (len(ids_coptic),len(ids_lxx))
+        assert len(ids_coptic) == len(ids_lxx) == 54, (len(ids_coptic), len(ids_lxx))
         assert ids_coptic == ids_lxx, "Coptic and LXX projections do not share identical stable IDs"
+        # Two Coptic textual witnesses of Jonah 2 map to the same *address*,
+        # not two invented Greek verse nodes and not word-by-word equivalence.
+        for verse in range(1, 12):
+            node = loaded_lxx.T.nodeFromSection(("Jonah", 2, verse))
+            assert loaded_lxx.F.coptic_lxx_source_span_count.v(node) == 2, (
+                "Sahidic+Bohairic Jonah witness multiplicity", verse, node
+            )
+
         print(json.dumps({
             "status": "PASS",
             "claim": "54 matching Coptic/LXX verse addresses; not verified translation alignment",
             "input_coptic_documents": len(docs),
+            "jonah_verses_with_two_coptic_witnesses": 11,
             "native_coptic_word_slots": loaded_coptic.F.otype.maxSlot,
             "native_greek_word_slots": loaded_lxx.F.otype.maxSlot,
             "shared_reference_ids": len(ids_coptic),
