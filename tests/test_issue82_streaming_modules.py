@@ -85,6 +85,27 @@ class StreamingNativeReferenceModulesTests(unittest.TestCase):
                 ["CenterBLC/LXX:1935:Ruth:2:1"] * 2,
             )
 
+    def test_git_blob_hash_stream_matches_real_sha1_object_header(self):
+        """Regression for NUL vs literal backslash-zero in streamed Git blobs."""
+        from hashlib import sha1
+        from unittest.mock import patch
+        from copticscriptorium_tf import lxx_module
+        payload = b"TF-TEST\0" * 160_000  # cross a 1 MiB read boundary
+        expected = sha1(
+            b"blob " + str(len(payload)).encode("ascii") + b"\0" + payload
+        ).hexdigest()
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "sentinel.tf"
+            source.write_bytes(payload)
+            with patch.dict(
+                lxx_module.LXX_FEATURE_GIT_BLOBS, {"sentinel": expected}, clear=True
+            ):
+                lxx_module.verify_lxx_parent_feature_blobs(root)
+                source.write_bytes(payload[:-1] + b"X")
+                with self.assertRaisesRegex(ValueError, "Git blob mismatch"):
+                    lxx_module.verify_lxx_parent_feature_blobs(root)
+
     def test_missing_or_extra_source_document_fails_atomically(self):
         with TemporaryDirectory() as temp:
             root = Path(temp)
