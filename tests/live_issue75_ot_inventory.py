@@ -74,9 +74,39 @@ def inventory_source_tree(
                 "biblical_scope_counts": Counter(),
                 "cts_work_counts": Counter(),
                 "literal_book_counts": Counter(),
+                "source_work_profiles": {},
                 "examples": [],
             },
         )
+        # Group by source-local evidence, never by an inferred LXX book.
+        # Even a mixed/contradictory collection retains every scope count.
+        if evidence.cts_scope and evidence.cts_work:
+            work_key, key_origin = f"cts:{evidence.cts_scope}.{evidence.cts_work}", "cts"
+        elif evidence.book_literal:
+            work_key, key_origin = f"book:{evidence.book_literal}", "book"
+        else:
+            work_key, key_origin = "unknown", "unknown"
+        profiles = row["source_work_profiles"]
+        profile = profiles.setdefault(work_key, {
+            "source_records": 0,
+            "verse_markers": 0,
+            "reference_evidence_counts": Counter(),
+            "scope_counts": Counter(),
+            "chapter_literal_counts": Counter(),
+            "literal_book_counts": Counter(),
+            "examples": [],
+        })
+        profile["source_records"] += 1
+        profile["verse_markers"] += verse_count
+        profile["reference_evidence_counts"][key_origin] += 1
+        profile["scope_counts"][evidence.status] += 1
+        if evidence.chapter_literal:
+            profile["chapter_literal_counts"][evidence.chapter_literal] += 1
+        if evidence.book_literal:
+            profile["literal_book_counts"][evidence.book_literal] += 1
+        if len(profile["examples"]) < 3:
+            profile["examples"].append(physical_identity)
+
         row["source_records"] += 1
         row["verse_markers"] += verse_count
         row["records_with_verse_n"] += int(verse_count > 0)
@@ -110,7 +140,15 @@ def inventory_source_tree(
 
     def finish(row: dict[str, object]) -> dict[str, object]:
         return {
-            field: dict(sorted(value.items())) if isinstance(value, Counter) else value
+            field: (
+                dict(sorted(value.items()))
+                if isinstance(value, Counter)
+                else {
+                    work: finish(value[work])
+                    for work in sorted(value)
+                } if field == "source_work_profiles"
+                else value
+            )
             for field, value in row.items()
         }
 
@@ -131,6 +169,25 @@ def inventory_source_tree(
     }
 
 
+def summarize_ot_work_profiles(report: dict[str, object]) -> list[dict[str, object]]:
+    """Return stable **candidate** source-work rows, not LXX equivalents.
+
+    Mixed-scope rows retain their full source counts and status breakdown:
+    a caller must not misread their total as only confirmed OT material.
+    """
+    rows: list[dict[str, object]] = []
+    for family, group in sorted(report["source_families"].items()):
+        for work_key, profile in sorted(group["source_work_profiles"].items()):
+            if profile["scope_counts"].get("ot_candidate", 0) == 0:
+                continue
+            rows.append({
+                "source_family": family,
+                "source_work_key": work_key,
+                **profile,
+            })
+    return rows
+
+
 def main() -> None:
     if len(sys.argv) != 3:
         raise SystemExit("usage: python tests/live_issue75_ot_inventory.py TT_ROOT OUTPUT_JSON")
@@ -139,6 +196,12 @@ def main() -> None:
     if output.exists():
         raise ValueError(f"refusing to overwrite inventory: {output}")
     report = inventory_source_tree(root)
+    ot_rows = summarize_ot_work_profiles(report)
+    print(json.dumps({
+        "ot_candidate_work_profile_count": len(ot_rows),
+        "ot_source_work_profiles": ot_rows,
+        "warning": "raw CTS/book evidence and OT scope candidates only; no verified LXX passage correspondences",
+    }, ensure_ascii=False, sort_keys=True), flush=True)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
