@@ -126,6 +126,11 @@ def write_reference_modules(
         raise FileExistsError(f"reference module bundle exists: {destination}")
     if set(coptic_ref) - set(coptic_status):
         raise LxxModuleError("source word reference lacks a candidate status")
+    for node in coptic_ref:
+        if coptic_status[node] != "reference_candidate":
+            raise LxxModuleError(
+                f"source word {node} has candidate ID but noncandidate status"
+            )
     for node, status in coptic_status.items():
         if status not in {
             "reference_candidate", "unresolved", "ambiguous", "unclassified_corpus"
