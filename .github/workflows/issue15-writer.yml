@@ -56,6 +56,17 @@ jobs:
           ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
           path: upstream
           persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /sahidica.mark/sahidica.mark_TT/Mark_01.tt
+            /sahidica.mark/sahidica.mark_TT/Mark_02.tt
+            /sahidica.nt/sahidica.nt_TT.zip
+      - name: Fail closed on incomplete sparse writer fixture
+        run: |
+          test -f upstream/sahidica.mark/sahidica.mark_TT/Mark_01.tt
+          test -f upstream/sahidica.mark/sahidica.mark_TT/Mark_02.tt
+          test -f upstream/sahidica.nt/sahidica.nt_TT.zip
       - name: Verify pinned fixture revision
         run: test "$(git -C upstream rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
       - name: Save and reload pinned real directory and ZIP source slice
