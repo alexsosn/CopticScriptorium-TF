@@ -31,6 +31,24 @@ def make_doc(family, name, *, cts="", chapter="1", body="", book=""):
 
 
 class FullCorpusCoverageAuditTests(unittest.TestCase):
+    def test_live_report_uses_print_flush_not_json_dumps_flush(self):
+        import ast
+        from pathlib import Path
+        path = Path(__file__).parent / "live_issue80_full_lxx_coverage.py"
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        calls = [
+            n for n in ast.walk(tree)
+            if isinstance(n, ast.Call)
+            and isinstance(n.func, ast.Attribute)
+            and isinstance(n.func.value, ast.Name)
+            and n.func.value.id == "json"
+            and n.func.attr == "dumps"
+        ]
+        self.assertTrue(calls, "live runner must serialize a real aggregate report")
+        for call in calls:
+            self.assertNotIn("flush", [keyword.arg for keyword in call.keywords],
+                             "flush is a print argument, never a json.dumps argument")
+
     def test_partition_does_not_call_greek_for_nt_or_unknown(self):
         lookup_calls = []
 
