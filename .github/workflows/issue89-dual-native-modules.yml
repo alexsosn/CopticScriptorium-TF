@@ -9,6 +9,7 @@ on:
       - 'tests/test_issue89_dual_modules.py'
       - 'tests/live_issue89_dual_modules.py'
       - 'research/issue-89/**'
+      - 'docs/coptic-lxx-reference-modules.md'
   push:
     branches: [main]
     paths:
@@ -16,6 +17,7 @@ on:
       - 'copticscriptorium_tf/lxx_modules.py'
       - 'tests/test_issue89_dual_modules.py'
       - 'tests/live_issue89_dual_modules.py'
+      - 'docs/coptic-lxx-reference-modules.md'
 
 permissions:
   contents: read
