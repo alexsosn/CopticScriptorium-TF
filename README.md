@@ -165,9 +165,87 @@ These are reproducible measurements for that pinned source revision and CI envir
 
 ## Agora integration status
 
-The repository contains `agora.materializer.json` plus the offline `copticscriptorium_tf.agora` adapter. It has been validated against Agora's v1 materializer schema and exercised through Agora's real network-denied Bubblewrap host on synthetic TT input. The adapter supports both Agora-acquired Git input and user-local source directories, writes TF under the host-owned `tf/` output child, and records a stable `conversion-summary.json`.
+CopticScriptorium-TF is registered as a **standalone materializer** in
+[Agora](https://github.com/alexsosn/Agora) (merged Agora
+[PR #198](https://github.com/alexsosn/Agora/pull/198)). Its registry plugin ID is
+`copticscriptorium-tf`; the materializer ID is
+`copticscriptorium-text-fabric`. The registry pins an exact reviewed source
+commit rather than a mutable tag. Registration is at **community** verification
+level and makes no claim about the scholarly quality or licensing eligibility
+of upstream corpus content.
 
-CopticScriptorium-TF is **not yet canonically registered** in Agora, and automatic handoff of a materialized local artifact into Context-Fabric/cfabric-mcp is still an upstream post-1.0 boundary. Issue #17 remains open for those cross-repository gates. The presence of the manifest in this repository should therefore not be read as a released Agora catalog entry.
+### Materialize a local TT tree via Agora
+
+From a checkout of the Agora repository, with a supported Python runtime and
+OS sandbox available, run:
+
+```bash
+python scripts/agora_install_materializer.py list
+python scripts/agora_install_materializer.py install copticscriptorium-tf \
+  --approve-code-execution
+
+python scripts/agora_materialize_registered.py \
+  --plugin copticscriptorium-tf \
+  --materializer copticscriptorium-text-fabric \
+  --source /path/to/CopticScriptorium-corpora \
+  --output /path/to/agora-output \
+  --sandbox required
+```
+
+The installation flag is an explicit decision to run the third-party
+Python packaging/build code; listing and passive fetching do not approve it.
+The materializer executes in the required network-denied OS sandbox after
+source handoff. The destination must be absent or empty. Output lives in
+`/path/to/agora-output/tf/` as ordinary native Text-Fabric feature files;
+`conversion-summary.json` and `agora-materialization.json` in the output
+root are operational/provenance sidecars, not TF semantic containers.
+
+The local-source route above was tested end to end on an actual Agora
+installation, including sandboxed conversion, clean Text-Fabric reload,
+and Context-Fabric/cfabric-mcp search. The integration smoke uses a small
+synthetic TT fixture; the separate full-corpus Text-Fabric regression
+and measured footprint appear above.
+
+### Import the generated TF into Context-Fabric
+
+Use the Context-Fabric MCP server (Python 3.13) and invoke its public tools,
+passing a path accessible **on the MCP server host**. In a local deployment,
+after completing the command above:
+
+```text
+install_local_corpus(source="/path/to/agora-output/tf", name="Coptic Scriptorium")
+prepare_corpus(resource_id="<returned-id>", source_mode="offline")
+load_corpus(resource_id="<returned-id>", source_mode="offline",
+            features=["norm", "lemma", "pos", "source_record_id"])
+describe_corpus(corpus="<returned-logical_name>")
+search(corpus="<returned-logical_name>", template="word", return_type="count")
+```
+
+Use the actual `id` returned by `install_local_corpus` and `logical_name`
+returned by `load_corpus`. These examples are MCP tool invocations, not shell
+commands. The imported TF is copied into Context-Fabric's evictable managed
+cache: it can be queried and later unloaded/removed, but the original TF
+directory should be retained. This is an **explicit materialize-then-import
+workflow**; Agora does not yet connect these operations automatically. The
+`install_local_corpus` tool reads server-local paths and should not be exposed
+unauthenticated on a remote transport. See the
+[Agora local-import guide](https://github.com/alexsosn/Agora/blob/main/wiki/guides/context-fabric-local-import.md)
+for limits, lifecycle, and feature-module behavior.
+
+### Automatic upstream acquisition: outstanding limitation
+
+The materializer manifest also declares immutable Git acquisition from
+`CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`.
+Running the registered materializer without `--source` selects that acquisition
+strategy, but its full-corpus end-to-end path **has not yet passed**. A CI
+attempt hit the bounded **120-second** Git fetch timeout with an early EOF
+while acquiring the approximately 2.7 GiB repository; conversion was never
+reached in that attempt. See
+[Agora #205](https://github.com/alexsosn/Agora/issues/205) and
+[CopticScriptorium-TF #17](https://github.com/alexsosn/CopticScriptorium-TF/issues/17)
+for this remaining gate. For now, use an already acquired local TT source tree
+with `--source` or the direct converter documented above; do not treat the
+declared automatic acquisition as a verified working full-corpus route.
 
 ## Troubleshooting
 
@@ -187,8 +265,8 @@ Active changes follow research/plan → RED tests → minimal implementation →
 
 Current release-facing follow-ups are:
 
-- #17 — canonical Agora registration and the intended Context-Fabric/cfabric-mcp handoff;
-- #18 — this user-facing documentation, finalized once #17's cross-repository path is available;
+- #17 — complete bounded automatic upstream acquisition (Agora #205); the registered local-source and explicit Context-Fabric handoff paths already work;
+- #18 — maintain tested installation, feature/query, and Agora instructions;
 - #11 — parent first-usable-release epic.
 
 ## License

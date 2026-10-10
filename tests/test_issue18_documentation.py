@@ -53,13 +53,48 @@ class ReadmeContractTests(unittest.TestCase):
             "7,157.1 MiB",
             "618,769,322 bytes",
             "## Agora integration status",
-            "not yet canonically registered",
+            "copticscriptorium-tf",
+            "copticscriptorium-text-fabric",
+            "agora_install_materializer.py install copticscriptorium-tf",
+            "agora_materialize_registered.py",
+            "install_local_corpus",
+            "prepare_corpus",
+            "load_corpus",
             "## Troubleshooting",
             "does not certify",
         )
         for value in required:
             with self.subTest(value=value):
                 self.assertIn(value, text)
+
+        self.assertNotIn("not yet canonically registered", text)
+        self.assertNotIn("canonical registration/composition remains blocked", text)
+
+    def test_agora_path_distinguishes_reviewed_local_handoff_from_unverified_bulk_fetch(self) -> None:
+        text = README.read_text(encoding="utf-8")
+        section = text.split("## Agora integration status", 1)[1].split(
+            "## Troubleshooting", 1
+        )[0]
+        required = (
+            "--approve-code-execution",
+            "--plugin copticscriptorium-tf",
+            "--materializer copticscriptorium-text-fabric",
+            "--source /path/to/CopticScriptorium-corpora",
+            "--sandbox required",
+            "agora-output/tf",
+            "install_local_corpus(source=",
+            "prepare_corpus(resource_id=",
+            "load_corpus(resource_id=",
+            "source_mode=\"offline\"",
+            "Agora #205",
+            "120-second",
+            "server host",
+        )
+        for value in required:
+            with self.subTest(value=value):
+                self.assertIn(value, section)
+        self.assertNotIn("automatic handoff", section)
+        self.assertNotIn("automatically discoverable", section)
 
 
 class DocumentedQueryContractTests(unittest.TestCase):
