@@ -101,6 +101,59 @@ class LxxBilateralModuleTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "fingerprint mismatch"):
                 verify_coptic_module_parent(coptic_module, coptic_path)
 
+    def test_changed_source_verse_reference_invalidates_overlay_fingerprint(self):
+        first = source("sahidic.ruth/d1:Ruth_02", "ⲁ")
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            coptic_path = root / "parent"
+            write_graph(build_graph([first]), coptic_path)
+            coptic_api = Fabric(locations=[str(coptic_path)], silent="deep").load(
+                "source_record_id source_word_ordinal", silent="deep"
+            )
+            module_root = root / "modules"
+            materialize_lxx_reference_modules(
+                documents=(first,),
+                coptic_api=coptic_api,
+                lxx_api=_FakeLxxApi(),
+                output_root=module_root,
+                lxx_parent_commit=LXX_PARENT_COMMIT,
+                coptic_source_commit=COPTIC_SOURCE_COMMIT,
+                coptic_parent_tf=coptic_path,
+                verify_parent_feature_hashes=False,
+            )
+            module = module_root / "coptic"
+            verify_coptic_module_parent(module, coptic_path)
+            # Warp, source_record_id and source_word_ordinal are UNCHANGED:
+            # only biblical verse semantics change under the same node IDs.
+            with (coptic_path / "verse_n.tf").open("a", encoding="utf-8") as output:
+                output.write("\\n")
+            with self.assertRaisesRegex(ValueError, "fingerprint mismatch"):
+                verify_coptic_module_parent(module, coptic_path)
+
+    def test_changed_pinned_source_bytes_invalidate_overlay_fingerprint(self):
+        first = source("sahidic.ruth/d1:Ruth_02", "ⲁ")
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            coptic_path = root / "parent"
+            write_graph(build_graph([first]), coptic_path)
+            coptic_api = Fabric(locations=[str(coptic_path)], silent="deep").load(
+                "source_record_id source_word_ordinal", silent="deep"
+            )
+            module_root = root / "modules"
+            materialize_lxx_reference_modules(
+                documents=(first,), coptic_api=coptic_api,
+                lxx_api=_FakeLxxApi(), output_root=module_root,
+                lxx_parent_commit=LXX_PARENT_COMMIT,
+                coptic_source_commit=COPTIC_SOURCE_COMMIT,
+                coptic_parent_tf=coptic_path,
+                verify_parent_feature_hashes=False,
+            )
+            module = module_root / "coptic"
+            with (coptic_path / "source_sha256.tf").open("a", encoding="utf-8") as output:
+                output.write("\\n")
+            with self.assertRaisesRegex(ValueError, "fingerprint mismatch"):
+                verify_coptic_module_parent(module, coptic_path)
+
 
 
     def test_rejects_wrong_greek_release_even_if_node_counts_appear_valid(self):
