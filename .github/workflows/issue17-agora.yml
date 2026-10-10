@@ -22,16 +22,16 @@ jobs:
       - name: Check out exact converter head
         uses: actions/checkout@v4
 
-      - name: Check out immutable Agora reference
+      # Pre-merge dependency verification against reviewed Agora PR #210 exact head.\n      # Replace this pin with the merged Agora commit before finalizing Coptic.\n      - name: Check out immutable Agora reference
         uses: actions/checkout@v4
         with:
           repository: alexsosn/Agora
-          ref: 626dd3b34bced339ef4b07d179dae4cf61f114e0
+          ref: 0b7f65fb9e144abf32ecac19860afe2169a10b5f
           path: .reference/agora
           persist-credentials: false
 
       - name: Verify exact Agora reference
-        run: test "$(git -C .reference/agora rev-parse HEAD)" = 626dd3b34bced339ef4b07d179dae4cf61f114e0
+        run: test "$(git -C .reference/agora rev-parse HEAD)" = 0b7f65fb9e144abf32ecac19860afe2169a10b5f
 
       - name: Install Python 3.12
         uses: actions/setup-python@v5
