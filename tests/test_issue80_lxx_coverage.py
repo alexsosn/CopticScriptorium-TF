@@ -84,6 +84,17 @@ class FullCorpusCoverageAuditTests(unittest.TestCase):
         self.assertEqual(out["totals"]["ot_candidate_word_slots"], 3)
         self.assertEqual(sum(out["ot_word_statuses"].values()), 3)
 
+    def test_distinct_greek_verse_addresses_are_not_multiplied_by_witnesses(self):
+        audit = CopticLxxCoverageAudit(source_commit=PIN, lookup=lambda *args: 81)
+        audit.add(make_doc("sahidic.ruth", "one"))
+        audit.add(make_doc("sahidic.ruth", "two"))
+        summary = audit.report()
+        self.assertEqual(summary["ot_reference_statuses"]["reference_candidate"], 2)
+        self.assertEqual(summary["totals"]["distinct_candidate_lxx_verses"], 1)
+        self.assertEqual(
+            summary["candidate_lxx_books"]["Ruth"]["distinct_candidate_verses"], 1
+        )
+
     def test_source_duplicate_or_wrong_revision_rejected(self):
         d = make_doc("sahidic.ruth", "r")
         audit = CopticLxxCoverageAudit(source_commit=PIN, lookup=lambda *args: 1)
