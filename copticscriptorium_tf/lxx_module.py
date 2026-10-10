@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha1, sha256
+from contextlib import ExitStack
+import sqlite3
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Iterable
@@ -43,8 +45,12 @@ def verify_lxx_parent_feature_blobs(directory: Path) -> None:
         path = directory / f"{feature}.tf"
         if not path.is_file():
             raise ValueError(f"missing pinned LXX feature file {path.name}")
-        payload = path.read_bytes()
-        actual = sha1(f"blob {len(payload)}\0".encode("ascii") + payload).hexdigest()
+        digest = sha1()
+        digest.update(f"blob {path.stat().st_size}\\0".encode("ascii"))
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        actual = digest.hexdigest()
         if actual != expected:
             raise ValueError(
                 f"pinned LXX feature {feature} Git blob mismatch: expected {expected}, got {actual}"
@@ -78,9 +84,10 @@ def fingerprint_coptic_parent(directory: Path) -> str:
                 raise ValueError(f"missing generated Coptic parent TF feature {feature}")
             digest.update(f"{feature}\\0missing\\0".encode("ascii"))
             continue
-        payload = path.read_bytes()
-        digest.update(f"{feature}\\0{len(payload)}\\0".encode("ascii"))
-        digest.update(payload)
+        digest.update(f"{feature}\\0{path.stat().st_size}\\0".encode("ascii"))
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
     return digest.hexdigest()
 
 
