@@ -133,6 +133,8 @@ The importable [query cookbook](examples/query_cookbook.py) runs directly agains
 
 For interactive exploration of the same generated artifact, see the [Text-Fabric web-app guide](docs/web-app.md).
 
+For edition-pinned **Coptic OT ↔ LXX verse reference candidates** (not Greek/Coptic word alignment), see [native bilateral TF modules and query guide](docs/coptic-lxx-alignment.md).
+
 ## Native TF model
 
 The sole slot type is `word`. Non-slot node types are:
