@@ -84,7 +84,7 @@ def run(coptic_source: Path, greek_tf: Path, scratch: Path) -> None:
         raise ValueError(f"unexpected complete pinned converter size: {converted}")
 
     coptic_api = Fabric(locations=[str(coptic_tf)], silent="deep").load(
-        "source_record_id source_word_ordinal", silent="deep"
+        "source_record_id source_word_ordinal source_sha256", silent="deep"
     )
     greek_api = Fabric(locations=[str(greek_tf)], silent="deep").load(
         "book chapter verse subverse", silent="deep"
