@@ -33,6 +33,9 @@ class GraphSlot:
     dependency_head_ordinal: int | None
     source_text: str
     kind: str = "word"
+    verse_n: str | None = None
+    vid_n: str | None = None
+    verse_vid: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,6 +306,7 @@ def build_graph(
                 len(slots) + 1, document.source_record_id, word.ordinal, word.source_id,
                 word.norm, word.lemma, word.pos, word.func, word.head_literal,
                 word.dependency_head_ordinal, word.source_text,
+                verse_n=word.verse_n, vid_n=word.vid_n, verse_vid=word.verse_vid,
             ))
 
     def slot_id(document: DocumentModel, ordinal: int) -> int:
@@ -639,7 +643,8 @@ def graph_fingerprint(graph: Graph) -> str:
     for slot in graph.slots:
         emit("slot", slot.id, slot.kind, slot.source_record_id, slot.source_word_ordinal,
              slot.source_id, slot.norm, slot.lemma, slot.pos, slot.func, slot.head_literal,
-             slot.dependency_head_ordinal, slot.source_text)
+             slot.dependency_head_ordinal, slot.source_text,
+             slot.verse_n, slot.vid_n, slot.verse_vid)
     for node in graph.nodes:
         emit("node", node.id, node.otype, node.source_record_id, node.source_ordinal,
              node.slot_ranges, node.value, node.text, node.label, node.scholarly_id,
