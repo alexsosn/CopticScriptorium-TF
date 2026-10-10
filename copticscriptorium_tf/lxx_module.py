@@ -345,6 +345,8 @@ def materialize_lxx_reference_modules_streaming(
     if coptic_parent_tf is None or coptic_api is None or lxx_api is None:
         raise ValueError("missing generated Coptic parent TF path or loaded APIs")
     fp = fingerprint_coptic_parent(Path(coptic_parent_tf))
+    if not hasattr(coptic_api.F, "source_sha256"):
+        raise ValueError("Coptic parent API must load source_sha256 for source identity verification")
     greek_otype = lxx_api.F.otype
     if (greek_otype.maxSlot, greek_otype.maxNode, len(greek_otype.s("verse"))) != (
         623693, 685732, 30371
@@ -365,7 +367,7 @@ def materialize_lxx_reference_modules_streaming(
         db = sqlite3.connect(Path(temp) / "index.sqlite")
         try:
             db.executescript("""
-                CREATE TABLE docs(record TEXT PRIMARY KEY, folded TEXT UNIQUE, words INT);
+                CREATE TABLE docs(record TEXT PRIMARY KEY, folded TEXT UNIQUE, words INT, sha TEXT);
                 CREATE TABLE spans(record TEXT, start INT, stop INT, status TEXT,
                                    evidence TEXT, reason TEXT, ref TEXT,
                                    PRIMARY KEY(record,start));
@@ -378,10 +380,15 @@ def materialize_lxx_reference_modules_streaming(
                     raise ValueError("source documents do not carry the pinned Coptic revision")
                 if any(w.ordinal != i for i, w in enumerate(document.words, 1)):
                     raise ValueError("noncontiguous source ordinals")
+                if (not isinstance(document.source_sha256, str)
+                        or len(document.source_sha256) != 64
+                        or any(char not in "0123456789abcdef"
+                               for char in document.source_sha256)):
+                    raise ValueError("invalid source SHA-256 on input record")
                 try:
-                    db.execute("INSERT INTO docs VALUES (?,?,?)", (
+                    db.execute("INSERT INTO docs VALUES (?,?,?,?)", (
                         document.source_record_id, document.source_record_id.casefold(),
-                        len(document.words)))
+                        len(document.words), document.source_sha256))
                 except sqlite3.IntegrityError as exc:
                     raise ValueError("duplicate or casefold-colliding source record") from exc
                 n_docs += 1
@@ -448,9 +455,21 @@ def materialize_lxx_reference_modules_streaming(
                         if record in seen_docs:
                             raise ValueError("noncontiguous Coptic TF document word span")
                         row = db.execute(
-                            "SELECT words FROM docs WHERE record=?", (record,)).fetchone()
+                            "SELECT words, sha FROM docs WHERE record=?", (record,)
+                        ).fetchone()
                         if row is None:
                             raise ValueError("missing source document in Coptic parent")
+                        parent_docs = tuple(coptic_api.L.u(node, otype="document"))
+                        if len(parent_docs) != 1:
+                            raise ValueError("Coptic word has no unique parent document")
+                        parent_doc = parent_docs[0]
+                        if coptic_api.F.source_record_id.v(parent_doc) != record:
+                            raise ValueError("parent document source record identity mismatch")
+                        parent_hash = coptic_api.F.source_sha256.v(parent_doc)
+                        if not parent_hash or parent_hash != row[1]:
+                            raise ValueError(
+                                f"source SHA-256 mismatch between TT input and Coptic TF parent: {record}"
+                            )
                         seen_docs.add(record)
                         current_record = record
                         expected_doc_words = row[0]
