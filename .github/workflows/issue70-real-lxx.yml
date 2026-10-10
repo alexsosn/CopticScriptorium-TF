@@ -1,0 +1,82 @@
+name: issue70-real-pinned-coptic-to-lxx-reference-candidates
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue70-real-lxx.yml'
+      - 'tests/live_issue70_real_lxx.py'
+      - 'tests/test_issue70_lxx_reference_candidates.py'
+      - 'copticscriptorium_tf/lxx_reference.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/issue70-real-lxx.yml'
+      - 'tests/live_issue70_real_lxx.py'
+      - 'tests/test_issue70_lxx_reference_candidates.py'
+      - 'copticscriptorium_tf/lxx_reference.py'
+
+permissions:
+  contents: read
+
+jobs:
+  coptic-vs-greek-real-reference:
+    name: Genuine pinned Coptic TT → actual pinned CenterBLC/LXX verse nodes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact Coptic candidate resolver
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify converter head commit
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Checkout three actual Coptic OT TT records from immutable source
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: real-coptic
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /sahidic.ruth/sahidic.ruth_TT/Ruth_02.tt
+            /sahidic.jonah/sahidic.jonah_TT/Jonah_02.tt
+            /bohairic-habakkuk/bohairic.habakkuk_TT/bohairic.Habakkuk_02.tt
+
+      - name: Checkout pinned real CenterBLC/LXX Text-Fabric parent
+        uses: actions/checkout@v4
+        with:
+          repository: CenterBLC/LXX
+          ref: f32a98eddf7eb239aa73ab863d70381e416d5076
+          path: real-lxx
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout: |
+            tf/1935
+
+      - name: Assert both upstream Git revisions are immutable and exact
+        run: |
+          test "$(git -C real-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C real-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Text-Fabric 13.1.0
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: Run RED-first source-evidence/lookup unit contracts
+        run: |
+          python -m unittest tests.test_issue69_native_verse_references -v
+          python -m unittest tests.test_issue70_lxx_reference_candidates -v
+
+      - name: Resolve real Ruth, Jonah and Habakkuk candidates against real LXX
+        run: python tests/live_issue70_real_lxx.py real-coptic real-lxx/tf/1935
