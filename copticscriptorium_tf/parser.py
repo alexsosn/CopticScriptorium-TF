@@ -208,12 +208,16 @@ def parse_tt_record(
         if name == "meta":
             continue
         if name in {"verse_n", "vid_n", "verse_vid"}:
-            # Splitting a word would violate the one-norm = one-slot contract.
-            # A genuine in-word source boundary needs a separately measured
-            # subword locus, not an implicit whole-word verse membership.
-            if current_word is not None:
+            # Source reference wrappers can begin immediately inside norm
+            # (e.g. real Mark 7, under sbl_greek) without splitting that word.
+            # Attaching a later, mid-text boundary to the entire word would
+            # forge its locus; reject until measured subword markers exist.
+            if current_word is not None and (
+                name == "verse_n" or current_offset() > 0
+            ):
                 raise ValueError(
-                    f"verse marker {name!r} inside norm in {source_record_id}"
+                    f"verse marker {name!r} inside norm after word start "
+                    f"in {source_record_id}"
                 )
             literal = attrs.get(name)
             if literal is None:
@@ -227,8 +231,12 @@ def parse_tt_record(
                 current_verse_vid = None
             elif name == "vid_n":
                 current_vid_n = literal
+                if current_word is not None:
+                    current_word["vid_n"] = literal
             else:
                 current_verse_vid = literal
+                if current_word is not None:
+                    current_word["verse_vid"] = literal
             continue
         if name == "orig_group":
             open_linguistic("orig_group", {None})
