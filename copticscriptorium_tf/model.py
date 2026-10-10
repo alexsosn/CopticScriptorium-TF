@@ -17,6 +17,10 @@ class Word:
     head_literal: str | None
     dependency_head_ordinal: int | None
     source_text: str
+    # Source-local biblical verse evidence; *not* an LXX passage assertion.
+    verse_n: str | None = None
+    vid_n: str | None = None
+    verse_vid: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
