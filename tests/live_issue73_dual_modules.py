@@ -45,7 +45,7 @@ def main(coptic_source: Path, greek_parent: Path) -> None:
         coptic_tf = work / "coptic-parent"
         write_graph(build_graph(docs), coptic_tf)
         coptic_api = Fabric(locations=[str(coptic_tf)], silent="deep").load(
-            "source_record_id source_word_ordinal", silent="deep"
+            "source_record_id source_word_ordinal source_sha256", silent="deep"
         )
         greek_api = Fabric(locations=[str(greek_parent)], silent="deep").load(
             "book chapter verse subverse", silent="deep"

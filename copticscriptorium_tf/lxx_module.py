@@ -162,6 +162,34 @@ def _write_feature(
     )
 
 
+def _verify_source_parent_record(
+    coptic_api: object, word_node: int, source_record_id: str, source_sha256: str,
+) -> None:
+    """Source bytes must match the actual Coptic parent document, not only IDs.
+
+    Both legacy and streaming projections must join the same original TT
+    witness. Its declared upstream Git commit/word offsets alone are not
+    sufficient for secure source provenance.
+    """
+    if not hasattr(coptic_api.F, "source_sha256"):
+        raise ValueError("Coptic parent API must load source_sha256")
+    if (not isinstance(source_sha256, str) or len(source_sha256) != 64
+            or any(character not in "0123456789abcdef"
+                   for character in source_sha256)):
+        raise ValueError("invalid source SHA-256 on input record")
+    parents = tuple(coptic_api.L.u(word_node, otype="document"))
+    if len(parents) != 1:
+        raise ValueError("Coptic word has no unique parent document")
+    parent_node = parents[0]
+    if coptic_api.F.source_record_id.v(parent_node) != source_record_id:
+        raise ValueError("parent document source record identity mismatch")
+    if coptic_api.F.source_sha256.v(parent_node) != source_sha256:
+        raise ValueError(
+            f"source SHA-256 mismatch between TT input and Coptic TF parent: "
+            f"{source_record_id}"
+        )
+
+
 def materialize_lxx_reference_modules(
     *,
     documents: Iterable[DocumentModel],
@@ -218,6 +246,14 @@ def materialize_lxx_reference_modules(
         raise ValueError("need unique nonempty Coptic documents")
     if any(d.upstream_commit != COPTIC_PIN for d in source_docs):
         raise ValueError("source documents do not carry the pinned Coptic revision")
+
+    for document in source_docs:
+        first_word = indexed.get((document.source_record_id, 1))
+        if first_word is None:
+            raise ValueError("missing Coptic parent TF first word for source document")
+        _verify_source_parent_record(
+            coptic_api, first_word, document.source_record_id, document.source_sha256,
+        )
 
     source_values: dict[str, dict[int, str]] = {
         "coptic_lxx_ref_id": {},
@@ -459,17 +495,7 @@ def materialize_lxx_reference_modules_streaming(
                         ).fetchone()
                         if row is None:
                             raise ValueError("missing source document in Coptic parent")
-                        parent_docs = tuple(coptic_api.L.u(node, otype="document"))
-                        if len(parent_docs) != 1:
-                            raise ValueError("Coptic word has no unique parent document")
-                        parent_doc = parent_docs[0]
-                        if coptic_api.F.source_record_id.v(parent_doc) != record:
-                            raise ValueError("parent document source record identity mismatch")
-                        parent_hash = coptic_api.F.source_sha256.v(parent_doc)
-                        if not parent_hash or parent_hash != row[1]:
-                            raise ValueError(
-                                f"source SHA-256 mismatch between TT input and Coptic TF parent: {record}"
-                            )
+                        _verify_source_parent_record(coptic_api, node, record, row[1])
                         seen_docs.add(record)
                         current_record = record
                         expected_doc_words = row[0]

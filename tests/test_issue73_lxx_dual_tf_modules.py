@@ -56,7 +56,7 @@ class LxxBilateralModuleTests(unittest.TestCase):
             coptic_path = root / "parent"
             write_graph(build_graph([first, second]), coptic_path)
             coptic_api = Fabric(locations=[str(coptic_path)], silent="deep").load(
-                "source_record_id source_word_ordinal", silent="deep"
+                "source_record_id source_word_ordinal source_sha256", silent="deep"
             )
             modules = root / "modules"
             summary = materialize_lxx_reference_modules(
@@ -108,7 +108,7 @@ class LxxBilateralModuleTests(unittest.TestCase):
             coptic_path = root / "parent"
             write_graph(build_graph([first]), coptic_path)
             coptic_api = Fabric(locations=[str(coptic_path)], silent="deep").load(
-                "source_record_id source_word_ordinal", silent="deep"
+                "source_record_id source_word_ordinal source_sha256", silent="deep"
             )
             module_root = root / "modules"
             materialize_lxx_reference_modules(
@@ -137,7 +137,7 @@ class LxxBilateralModuleTests(unittest.TestCase):
             coptic_path = root / "parent"
             write_graph(build_graph([first]), coptic_path)
             coptic_api = Fabric(locations=[str(coptic_path)], silent="deep").load(
-                "source_record_id source_word_ordinal", silent="deep"
+                "source_record_id source_word_ordinal source_sha256", silent="deep"
             )
             module_root = root / "modules"
             materialize_lxx_reference_modules(
@@ -177,7 +177,7 @@ class LxxBilateralModuleTests(unittest.TestCase):
             coptic_path = root / "parent"
             write_graph(build_graph([first]), coptic_path)
             coptic_api = Fabric(locations=[str(coptic_path)], silent="deep").load(
-                "source_record_id source_word_ordinal", silent="deep"
+                "source_record_id source_word_ordinal source_sha256", silent="deep"
             )
             with self.assertRaisesRegex(ValueError, "missing.*Coptic parent"):
                 materialize_lxx_reference_modules(
