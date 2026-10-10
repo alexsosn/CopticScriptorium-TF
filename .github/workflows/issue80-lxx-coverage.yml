@@ -1,0 +1,100 @@
+name: issue80-complete-Coptic-OT-to-pinned-LXX-address-coverage
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue80-lxx-coverage.yml'
+      - 'copticscriptorium_tf/lxx_coverage.py'
+      - 'copticscriptorium_tf/lxx_reference.py'
+      - 'copticscriptorium_tf/ot_inventory.py'
+      - 'tests/test_issue80_lxx_coverage.py'
+      - 'tests/live_issue80_full_lxx_coverage.py'
+      - 'research/issue-80/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-greek-address-coverage:
+    name: Complete pinned 2628-record Coptic OT candidate coverage vs LXX
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - name: Check out exact resolver PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact candidate code revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: RED-first streaming source coverage and existing alias tests
+        run: |
+          python -m unittest tests.test_issue80_lxx_coverage -v
+          python -m unittest tests.test_issue78_cts_alias_batch -v
+
+      - name: Acquire all immutable source TT blobs with sparse Git
+        uses: actions/checkout@v4
+        timeout-minutes: 32
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*/*_TT/**
+            /*/*_TT.zip
+
+      - name: Acquire exact CenterBLC LXX Text-Fabric release
+        uses: actions/checkout@v4
+        timeout-minutes: 12
+        with:
+          repository: CenterBLC/LXX
+          ref: f32a98eddf7eb239aa73ab863d70381e416d5076
+          path: pinned-lxx
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout: |
+            tf/1935
+
+      - name: Verify both source Git trees are exact immutable revisions
+        run: |
+          test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C pinned-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
+
+      - name: Install pinned Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: Run complete Coptic OT reference-address audit against actual LXX
+        timeout-minutes: 20
+        run: |
+          /usr/bin/time -v python tests/live_issue80_full_lxx_coverage.py \
+            pinned-coptic pinned-lxx/tf/1935 \
+            "$RUNNER_TEMP/coptic-lxx-reference-coverage.json"
+          test -s "$RUNNER_TEMP/coptic-lxx-reference-coverage.json"
+
+      - name: Report disk capacity and operational footprint
+        if: always()
+        run: |
+          df -h "$RUNNER_TEMP"
+          test ! -f "$RUNNER_TEMP/coptic-lxx-reference-coverage.json" || \
+            du -h "$RUNNER_TEMP/coptic-lxx-reference-coverage.json"
+
+      - name: Upload aggregate coverage counts only (no source text)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue80-coptic-lxx-reference-coverage
+          path: ${{ runner.temp }}/coptic-lxx-reference-coverage.json
+          if-no-files-found: warn
