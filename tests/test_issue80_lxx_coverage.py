@@ -90,6 +90,9 @@ class FullCorpusCoverageAuditTests(unittest.TestCase):
         audit.add(d)
         with self.assertRaisesRegex(ValueError, "duplicate"):
             audit.add(d)
+        # Mirror the converter's case-folded physical identity collision gate.
+        with self.assertRaisesRegex(ValueError, "duplicate"):
+            audit.add(make_doc("sahidic.ruth", "R"))
         bad = make_doc("sahidic.ruth", "other")
         from dataclasses import replace
         with self.assertRaisesRegex(ValueError, "source revision"):
@@ -101,7 +104,7 @@ class FullCorpusCoverageAuditTests(unittest.TestCase):
             '<verse_n verse_n="1">'
             '<norm_group norm_group="x">'
             '<norm xml:id="u1" new_sent="true" func="root" norm="abc">'
-            'ab<verse_n verse_n="2">c</norm>'
+            'SECRET_SENSITIVE_SOURCE_PAYLOAD<verse_n verse_n="2">c</norm>'
             '</norm_group>'
         )
         for n in ("z", "b", "a", "c"):
@@ -115,7 +118,7 @@ class FullCorpusCoverageAuditTests(unittest.TestCase):
             "sahidic.ruth/sahidic.ruth:b",
             "sahidic.ruth/sahidic.ruth:c",
         ])
-        self.assertNotIn("ab", json.dumps(report))
+        self.assertNotIn("SECRET_SENSITIVE_SOURCE_PAYLOAD", json.dumps(report))
         self.assertEqual(report["schema"], "coptic_lxx_reference_coverage_v1")
 
 
