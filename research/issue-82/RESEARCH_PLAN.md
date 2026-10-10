@@ -16,3 +16,13 @@ The graph builder [`_graph_core.py`](../../copticscriptorium_tf/_graph_core.py) 
 
 ### Design constraints
 No new Coptic/Greek slot IDs, no token equivalence inferred, no cross-warp integer edge, no JSON/XML semantic blob, no persisting SQLite stage after publish. Greek target module has the same shared stable IDs as Coptic side but never lists source witness identities. Real unresolved ambiguity must not acquire a target ID. The upstream full source may have token-internal verse boundary events: retain existing candidate semantics; do not make false whole-word equivalence claims. Parent #75 / #70 stay open until reviewed 1:N/N:1 versification crosswalk and full quality gates.
+
+## Independent adversarial review finding and repair (2026-10-10)
+
+Exact pre-fix head `56d53b2ac118c7352ec3f67e70574b1fe78bd0ba` passed real-source CI (2,628 TT records, 2,394,354 Coptic slots, 1,072,234 candidate word slots, 21,120 distinct Greek target verse nodes; 7:43.40 wall time; 7,424,304 KiB peak RSS). Independent review `5480529018` found a concrete correctness hole: `DocumentModel` identity was paired to parent Coptic word slots by record ID/ordinal and total word count **without** validating the original TT source SHA against the existing parent document `source_sha256` feature. This allowed a different version of an identically numbered document to silently annotate the wrong Coptic parent TF.
+
+**RED:** `tests/test_issue82_streaming_modules.py` now modifies one source `source_sha256` while preserving commit string, record ID and word sequence and asserts rejection before publication. A second test asserts failure when the TF parent API does not load `source_sha256`.
+
+**Implementation:** record each source SHA in the temporary SQLite docs table; when entering each Coptic TF document during the streaming scan, require a unique actual parent `document` node, verify its `source_record_id` and loaded `F.source_sha256.v(docnode)` against the staged source hash. Missing/unloaded source hash, bad source SHA, or mismatch fails closed, leaving no output. This adds only one lookup per physical document (2,628), not per word. The full CI caller now loads `source_sha256`, and documentation explicitly requires it. Existing Coptic module fingerprint remains a second, separate consumer-side parent-identity gate.
+
+**Final review gates:** repeat exact-head test suite and real 2,628-document Coptic→Greek two-weft run on the updated implementation. Independent adversarial re-review of exact new head after all jobs finish, not a reuse of the prior provisional review. Reference candidates do not certify matching Greek/Coptic verses; versification and word alignment remain #75/#70.
