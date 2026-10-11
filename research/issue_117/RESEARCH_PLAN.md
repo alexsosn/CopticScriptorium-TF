@@ -5,7 +5,7 @@
 - Exact pinned Coptic source `CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`; exact read-only Greek NT TF parent `alexsosn/sblgnt@4dd0207bda66133fdfa9740ff0aae7de61228700`.
 - Directly checked physical `sahidica.mark/sahidica.mark_TT/Mark_01.tt` (and independent `coptic-treebank` copy). Mark1 has 45 `verse_n`, **zero `verse_vid`**, 45 `vid_n` of which **41 begin CTS URN, one is editor-like and three other**, and 45 `sbl_greek` literals, **10 shaped as editor references (`41N n:n`)**. This is evidence of multiple source markup regimes plus apparent column shift; not justification to blindly infer targets.
 - Directly checked `sahidica.1corinthians/sahidica.1corinthians_TT/1Cor_01.tt`: 31 `verse_vid` with 30 CTS-shaped `vid_n` and one other. The field anomalies are not limited to Mark.
-- Source-upstream TT and treebank files are distinct physical witnesses, even when source bytes are duplicated. No user-facing corpus text will be copied.
+- Canonical Mark1 and treebank Mark1 have **distinct upstream Git blob hashes** (`16947eede50e5bdc03a1394c9b4d4b697da63072` vs `a0da65bf1e656aa3b798fc4f50cebeb7f2ceb198`) despite identical observed raw annotation-tag-shape totals. Treat them as distinct physical witnesses; do not assume source bytes or readings are identical. No Greek or Coptic lexical source text will be copied.
 
 ## Research→plan→RED→implement→test→adversarial review
 1. Write fail-first test corpus of synthetic Coptic SBL references for raw malformed/missing CTS, missing/malformed editor label, fake Greek literal that looks like `41N 1:5`, no whole-word span and mixed source markers. Fail closed on unknown reason/status or duplicate physical occurrence.
