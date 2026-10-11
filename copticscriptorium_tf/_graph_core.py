@@ -748,6 +748,18 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
         for slot_id in _iter_ranges(node.slot_ranges):
             if slot_document[slot_id] != owner.id:
                 errors.append(f"{node.otype} node {node.id} crosses physical documents")
+        if node.source_attributes:
+            attrs = node.source_attributes
+            if (
+                node.otype not in {"gap", "supplied", "abbr"}
+                or attrs != tuple(sorted(attrs))
+                or any(not isinstance(k, str) or not k
+                       or not isinstance(v, str) for k, v in attrs)
+                or len(set(k for k, _ in attrs)) != len(attrs)
+            ):
+                errors.append(
+                    f"node {node.id} has invalid or duplicate original source attributes"
+                )
         if node.otype in {"translation", "arabic_translation"}:
             if not node.slot_ranges:
                 errors.append(f"{node.otype} node {node.id} lacks measured word locus")
