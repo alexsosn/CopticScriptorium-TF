@@ -19,7 +19,9 @@ BOHAIRIC_ZECH_CHAPTER_SHA: dict[int, str] = {
 }
 # An explicit *batch* of scoped, source-edition-specific verse-number rules.
 # Source Zech 1:18–21 → pinned Greek Zech 2:1–4.
-# Source Zech 2:1–13 → pinned Greek Zech 2:5–17, individually checked\n# against both literal source-verse English motifs and real pinned Greek\n# word motifs in issue #111; reference-numbering candidates ONLY.
+# Source Zech 2:1–13 → pinned Greek Zech 2:5–17, individually checked
+# against both literal source-verse English motifs and real pinned Greek
+# word motifs in issue #111; reference-numbering candidates ONLY.
 _RULES: tuple[tuple[int, range, int], ...] = (
     (1, range(18, 22), -17),
     (2, range(1, 14), 4),
