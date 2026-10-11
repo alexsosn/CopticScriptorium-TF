@@ -74,8 +74,8 @@ class NativeMultiwordContract(unittest.TestCase):
             self.assertEqual(api.F.value.v(nodes[0]), "ⲉⲓ  ⲉⲃⲟⲗ")
             self.assertEqual(api.F.source_ordinal.v(nodes[0]), 1)
             self.assertEqual(api.F.render_mode.v(nodes[0]), "multiword_span")
-            self.assertEqual(api.E.oslots.s(nodes[0]), (1, 2))
-            self.assertEqual(api.E.dependency_head.f(2), (1,))
+            self.assertEqual(tuple(api.E.oslots.s(nodes[0])), (1, 2))
+            self.assertEqual(tuple(api.E.dependency_head.f(2)), (1,))
 
     def test_crossed_edition_wrappers_are_not_forged_as_token_segments(self):
         doc = parse(source(
