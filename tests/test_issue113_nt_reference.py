@@ -4,7 +4,7 @@ import unittest
 
 from copticscriptorium_tf.parser import parse_tt_record
 from copticscriptorium_tf.nt_reference import (
-    GREEK_NT_EDITION, resolve_coptic_sbl_references,
+    GREEK_NT_EDITION, resolve_coptic_sbl_references, morphgnt_verse_is_absent,
 )
 
 PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
@@ -18,7 +18,8 @@ def make_doc(
     cts_verse = verse if cts_verse is None else cts_verse
     label_verse = verse if label_verse is None else label_verse
     word_verse = verse if word_verse is None else word_verse
-    meta = (f'<meta corpus="sahidica.mark" book="{book}" chapter="{chapter}" '
+    family = "sahidica.1corinthians" if book == "1Cor" else ("sahidica.john" if book == "John" else "sahidica.mark")
+    meta = (f'<meta corpus="{family}" book="{book}" chapter="{chapter}" '
             f'document_cts_urn="urn:cts:copticLit:nt.{work}.sahidica_ed:{chapter}" '
             f'Greek_source="{greek_source}">')
     annotation = (
@@ -31,8 +32,8 @@ def make_doc(
         annotation += '<norm_group norm_group="b"><norm xml:id="u2" func="root" norm="ⲃ">ⲃ</norm></norm_group>'
     annotation += f'</{annot_kind}></vid_n></verse_vid></verse_n>'
     return parse_tt_record((meta+annotation).encode("utf-8"),
-        source_record_id="sahidica.mark/sahidica.mark:Mark_02",
-        source_path="sahidica.mark/sahidica.mark_TT/Mark_02.tt",
+        source_record_id=f"{family}/{family}:Chapter_02",
+        source_path=f"{family}/{family}_TT/Chapter_02.tt",
         upstream_repository="CopticScriptorium/corpora",
         upstream_commit=PIN)
 
@@ -59,12 +60,16 @@ class GreekNtReferences(unittest.TestCase):
         self.assertEqual(c.target_book, "1_Corinthians")
         self.assertEqual(c.source_kind, "sbl_apparatus")
 
-    def test_missing_parent_passage_is_explicit_edition_unavailable(self):
+    def test_known_missing_edition_passage_never_maps_unreviewed_source(self):
+        self.assertTrue(morphgnt_verse_is_absent("John", 7, 53))
+        self.assertTrue(morphgnt_verse_is_absent("John", 8, 11))
+        self.assertFalse(morphgnt_verse_is_absent("John", 8, 12))
         d = make_doc(book="John",work="john",code="43N",chapter=7,verse=53)
-        c, = resolve_coptic_sbl_references(d,lookup=lambda *key: None)
-        self.assertEqual(c.status, "edition_unavailable")
+        calls=[]
+        c, = resolve_coptic_sbl_references(d,lookup=lambda *key: calls.append(key) or 10)
+        self.assertEqual(c.status, "unclassified_source")
         self.assertIsNone(c.shared_id)
-        self.assertIsNone(c.target_node)
+        self.assertEqual(calls, [])
 
     def test_noncanonical_missing_verse_is_unresolved_not_whitelisted(self):
         d = make_doc()
