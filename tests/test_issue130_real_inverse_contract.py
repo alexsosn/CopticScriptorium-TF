@@ -13,7 +13,7 @@ class NativeInverseQueryRealDataGate(unittest.TestCase):
     def test_real_parent_job_runs_with_both_exact_source_revisions(self):
         source = (ROOT / ".github/workflows/issue130-real-inverse-query.yml").read_text()
         for expected in (
-            "309",  # Must check source-code SHA dynamically, not hard-code PR head.
+            "git rev-parse HEAD",  # Resolve and assert the actual tested PR head.
             "CopticScriptorium/corpora",
             "3ac067f1709a0012daf39ea8da2fac79980176a5",
             "CenterBLC/LXX",
@@ -22,10 +22,7 @@ class NativeInverseQueryRealDataGate(unittest.TestCase):
             "text-fabric==13.1.0",
             "github.event.pull_request.head.sha || github.sha",
         ):
-            if expected == "309":
-                self.assertIn('git rev-parse HEAD', source)
-            else:
-                self.assertIn(expected, source)
+            self.assertIn(expected, source)
 
     def test_real_parent_smoke_uses_actual_tf_inverse_index_and_two_jonah_witnesses(self):
         source = (ROOT / "tests/live_issue130_real_witnesses.py").read_text()
