@@ -223,7 +223,15 @@ def parse_tt_record(
                 end_after = item["end_after_word_ordinal"]
                 if end_after < start_after:
                     raise ValueError(f"invalid sbl_ annotation bounds for {name} in {source_record_id}")
-                item["word_ordinals"] = tuple(range(start_after + 1, end_after + 1))
+                # If an annotation opens after some characters of the
+                # current word, that word is only partially covered. Keep the
+                # source offset but exclude that word from the *full-word*
+                # TF span; later fully contained words remain eligible.
+                first_full = start_after + (2 if (
+                    item["start_word_ordinal"] is not None and
+                    (item["start_char"] or 0) > 0
+                ) else 1)
+                item["word_ordinals"] = tuple(range(first_full, end_after + 1))
                 sbl_closed.append(item)
             elif name == "verse_n":
                 current_verse_n = None
