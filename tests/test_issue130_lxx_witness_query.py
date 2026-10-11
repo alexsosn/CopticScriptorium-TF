@@ -42,12 +42,12 @@ def fake_coptic(*, wrong_status=None, ref=None):
     )
 
 
-def fake_lxx(*, ref="CenterBLC/LXX:1935:Ruth:2:1", declared=2, otype="verse", node=700000):
+def fake_lxx(*, ref="CenterBLC/LXX:1935:Ruth:2:1", declared=2, otype="verse", node=663156):
     return SimpleNamespace(
         F=SimpleNamespace(
-            otype=Feature({700000: otype}),
-            coptic_lxx_ref_id=Feature({700000: ref}),
-            coptic_lxx_source_span_count=Feature({700000: declared}),
+            otype=Feature({663156: otype}),
+            coptic_lxx_ref_id=Feature({663156: ref}),
+            coptic_lxx_source_span_count=Feature({663156: declared}),
         ),
         T=SimpleNamespace(nodeFromSection=lambda address: node if address == ("Ruth", 2, 1) else None),
     )
@@ -56,7 +56,7 @@ def fake_lxx(*, ref="CenterBLC/LXX:1935:Ruth:2:1", declared=2, otype="verse", no
 class NativeCopticLxxInverseLookupTests(unittest.TestCase):
     def test_two_physical_witnesses_are_kept_distinct_and_sorted_by_source(self):
         result = find_coptic_witnesses(fake_coptic(), fake_lxx(), "Ruth", 2, 1)
-        self.assertEqual(result.lxx_node, 700000)
+        self.assertEqual(result.lxx_node, 663156)
         self.assertEqual(result.shared_id, "CenterBLC/LXX:1935:Ruth:2:1")
         self.assertEqual(result.declared_coptic_source_span_count, 2)
         self.assertEqual(len(result.spans), 2)
@@ -165,8 +165,8 @@ class NativeCopticLxxInverseLookupTests(unittest.TestCase):
                 module_root,
                 coptic_ref={1: shared, 2: shared},
                 coptic_status={1: "reference_candidate", 2: "reference_candidate"},
-                lxx_ref={700000: shared},
-                lxx_count={700000: 1},
+                lxx_ref={663156: shared},
+                lxx_count={663156: 1},
             )
             api = Fabric(
                 locations=[str(parent), str(module_root / "coptic")], silent="deep"
