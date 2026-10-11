@@ -38,6 +38,7 @@ def fake_coptic(*, wrong_status=None, ref=None):
                 21: "bohairic.ot/bohairic.ot:08_Ruth_02",
             }),
             source_word_ordinal=Feature({10: 1, 11: 2, 20: 8, 21: 9}),
+            verse_n=Feature({10: "1", 11: "1", 20: "1", 21: "1"}),
         ),
     )
 
@@ -114,6 +115,33 @@ class NativeCopticLxxInverseLookupTests(unittest.TestCase):
         result = find_coptic_witnesses(fake_coptic(), fake_lxx(declared=3), "Ruth", 2, 1)
         self.assertEqual(len(result.spans), 2)
         self.assertEqual(result.declared_coptic_source_span_count, 3)
+
+    def test_many_to_one_crosswalk_preserves_adjacent_distinct_coptic_verse_boundaries(self):
+        # Two different Coptic source verses may be mapped to one Greek
+        # verse. Same witness/status and consecutive ordinals must NOT
+        # collapse distinct source verse labels in an inverse verse query.
+        c = fake_coptic()
+        c.F.verse_n = Feature({10: "1", 11: "2", 20: "1", 21: "1"})
+        result = find_coptic_witnesses(c, fake_lxx(declared=3), "Ruth", 2, 1)
+        self.assertEqual(
+            [(span.source_record_id, span.source_verse_n, span.source_word_ordinals)
+             for span in result.spans],
+            [
+                ("bohairic.ot/bohairic.ot:08_Ruth_02", "1", (8, 9)),
+                ("sahidic.ruth/sahidic.ruth:Ruth_02", "1", (1,)),
+                ("sahidic.ruth/sahidic.ruth:Ruth_02", "2", (2,)),
+            ],
+        )
+
+    def test_source_verse_marker_feature_is_required_and_bad_literal_fails(self):
+        c = fake_coptic()
+        delattr(c.F, "verse_n")
+        with self.assertRaisesRegex(LxxWitnessQueryError, "verse_n"):
+            find_coptic_witnesses(c, fake_lxx(), "Ruth", 2, 1)
+        c = fake_coptic()
+        c.F.verse_n.data[11] = None
+        with self.assertRaisesRegex(LxxWitnessQueryError, "verse_n"):
+            find_coptic_witnesses(c, fake_lxx(), "Ruth", 2, 1)
 
     def test_discontinuous_word_runs_in_one_witness_stay_distinct(self):
         c = fake_coptic()
@@ -194,7 +222,7 @@ class NativeCopticLxxInverseLookupTests(unittest.TestCase):
             api = Fabric(
                 locations=[str(parent), str(module_root / "coptic")], silent="deep"
             ).load(
-                "source_record_id source_word_ordinal coptic_lxx_ref_id "
+                "source_record_id source_word_ordinal verse_n coptic_lxx_ref_id "
                 "coptic_lxx_ref_status", silent="deep"
             )
             self.assertTrue(api)
