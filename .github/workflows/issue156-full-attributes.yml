@@ -1,0 +1,76 @@
+name: issue156-full-original-attribute-parity
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue156-full-attributes.yml'
+      - 'copticscriptorium_tf/parser.py'
+      - 'copticscriptorium_tf/model.py'
+      - 'copticscriptorium_tf/_graph_core.py'
+      - 'copticscriptorium_tf/writer.py'
+      - 'tests/live_issue156_full_attributes.py'
+      - 'tests/test_issue156_wrapper_attributes.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/issue156-full-attributes.yml'
+      - 'tests/live_issue156_full_attributes.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue156-original-attributes-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-source-attribute-parity:
+    name: All 4647 original gap/supplied/abbr events → native TF
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Check out exact converter PR code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify immutable tested implementation
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Check out only TT source Git blobs at pinned Coptic commit
+        uses: actions/checkout@v4
+        timeout-minutes: 33
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-tt
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*/*_TT/**
+            /*/*_TT.zip
+
+      - name: Assert real source Git revision
+        run: test "$(git -C pinned-tt rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned native Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: Run TDD source annotation, malformed attribute and TF reload contracts
+        run: |
+          python -m unittest tests.test_issue156_wrapper_attributes -v
+          python -m unittest tests.test_issue153_editorial_wrappers -v
+
+      - name: Audit all 2628 source documents and 4647 original source tags
+        timeout-minutes: 18
+        run: /usr/bin/time -v python tests/live_issue156_full_attributes.py pinned-tt
