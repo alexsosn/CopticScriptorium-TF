@@ -69,6 +69,8 @@ without a parallel JSON/XML structure.
 | page | physical-layout segment |
 | column | physical-layout segment |
 | line | physical-layout segment |
+| ed_line_n / ed_lb_n | numbered edition line annotations; preserve literal page/line numbering |
+| ed_page_n / ed_pg_n | numbered edition page annotations, distinct from manuscript pagination |
 | verse_n_marker / vid_n_marker / verse_vid_marker | source reference marker inside an unsplit word, with exact character offset; not a whole-word verse membership |
 | entity | entity annotation spanning one or more words |
 | translation | English translation segment with its own text |
@@ -102,6 +104,38 @@ must have the same tokenization or characters.
 orig, norm_group, and orig_group nodes can also have source value features.
 Translation and layout nodes use their own text rather than borrowing the
 Coptic text of their anchor span.
+
+### Edition line/page annotations (source-only)
+
+The source `ed_line_n`, `ed_lb_n`, `ed_page_n` and `ed_pg_n`
+wrappers are native **non-slot** TF node types. Their `value` is the upstream
+literal (so `"0001"` stays `"0001"`), and `source_record_id` and
+`source_ordinal` identify the physical TT occurrence. An `edition_span`
+render mode means one or more **fully covered** Coptic words; an
+`edition_anchor` mode means only a positional association can be justified,
+with the exact source word/character bounds retained in `start_word_ordinal`,
+`start_char`, `start_after_word_ordinal`, `end_word_ordinal`,
+`end_char` and `end_after_word_ordinal`.
+
+~~~python
+edition_lines = api.F.otype.s("ed_line_n")
+for n in edition_lines[:5]:
+    print(
+        api.F.source_record_id.v(n),
+        api.F.value.v(n),             # edition's own literal
+        api.F.render_mode.v(n),       # edition_span / edition_anchor
+        api.F.start_char.v(n),        # None if opened between Coptic words
+        api.F.end_char.v(n),
+        tuple(api.E.oslots.s(n)),     # Coptic word span or positional anchor
+    )
+~~~
+
+These are the edition's line/page labels, **not** the existing physical
+manuscript `page/column/line` nodes, and not equivalent to Coptic biblical
+verses or Greek LXX/NT references. Do not interpret an anchor as entire-word
+coverage. On a partial corpus, a given edition node type or feature may be
+absent. The source inventory and validation assumptions are documented in
+`research/issue-140/RESEARCH_PLAN.md`.
 
 ## Words, morphology, and source IDs
 
