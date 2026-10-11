@@ -1,0 +1,17 @@
+# #159 — source entity/name qualifier conservation, research → RED-first plan
+
+Pinned source CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5, 565 TT blobs, 2,628 physical records. In original `research/issue-118/tag_matrix.csv`, 9 source wrappers were unmodeled: `entity_head_tok` 3677, `entity_text` 3677, `entity_identity` 901, `persName_type` 245, `placeName_type` 140, `placeName_ref` 85, `roleName_type` 80, `rs_type` 18, `org_type` 4 = **8,827 original opening events**. All source wrappers have one literal attribute keyed by tag name.
+
+Real pinned source evidence:
+- Proclus nativity TT: 502 entity_head_tok + 502 entity_text openers. The first `entity_text` and `entity_head_tok="#u2"` wrappers overlap original line, norm, Greek-language and entity identity evidence, and close across norm_head/norm_func in SGML order. They are **original spans**, not proof they equal the existing `<entity head_tok text>` attribute.
+- Life Aphou 01: `persName_type="monk"` inside norm, `roleName_type="religious"` around orig group, `placeName_ref="paths:places:32"` / `placeName_type="city_village"` nested/crossed within one norm and existing `entity` ancestor.
+- Shenoute Abraham YA525-530: `entity_identity="Sarah"` inside Coptic norm and Hebrew lang; this name is an *upstream source assertion*, not validated to Wikidata or cross-corpus ontology.
+
+### Research / TDD / release contract
+1. Independent primary-source plain TT and ZIP provenance audit of all 8,827 opening/closing pairs with original kind/literal/source ordinal + after-completed-norm word boundaries. Test midnorm exact char spans, nested/crossed original structures and empty/missing labels. Quantify abnormal/zero-locus annotations, nesting of `entity` vs type wrappers, and ambiguous head_tok/identity. Avoid global XML tree and do not infer entity identity from surface form.
+2. RED first: two existing Coptic words under `entity_text` and `entity_head_tok` retain original spans + lexical heads; Proclus-style crossing wrappers and separate ordinals; `entity_identity=Sarah` in lang+norm must be explicit source anchor, `placeName_ref=paths:places:32` must remain source literal, nested placeName_type, missing/orphan/unclosed checks. Real minimal TF serialization/reload, no new word slots, no tokenization change, original `entity` nodes remain independent.
+3. GREEN: nine appended native **non-slot TF otypes**, source literal `value`, physical `source_record_id`, independent opening ordinal and start/end word/char boundaries. Distinguish `entity_label_span` (complete word range) vs `entity_label_anchor` (source-only position). Do not synthesize new entity edges unless unambiguous source association proved by RED-backed tests. No JSON/XML blobs or inferred Wikidata/LXX/NT equivalence.
+4. Full pinned source release gate piggybacks one existing complete TT sparse checkout and Text-Fabric reload; 8,827 exact source kind/value/open ordinal/both after-norm word boundaries including original ZIP members, 2,628 physical TT, 2,394,354 Coptic slots, inherited source #135/#140/#143/#146/#153 and #156 attribute-preservation gates. CoNLL-U full parity, six-phase memory measurements.
+5. Final logically independent adversarial code/data review and all applicable exact-head CI SUCCESS before merge. Parent #118 remains open.
+
+**Stacked on currently draft #157.** Do not open a concurrent full-corpus PR until #157 release-gated. All wrapped place/ref/identity strings are source evidence only, never automatically vetted ontology IDs.
