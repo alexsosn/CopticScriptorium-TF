@@ -72,6 +72,31 @@ class GraphStorageCensusTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, serialized)
 
+    def test_forged_node_and_edge_type_cannot_exfiltrate_corpus_text(self):
+        graph = fixture_graph()
+        bad_node = GraphNode(
+            5, "PRIVATE_GREEK_PASSAGE_AS_FAKE_NODE_TYPE",
+            "private/corpus:PRIVATE_RECID", 3, ((1, 1),),
+        )
+        forged_node_graph = Graph(
+            graph.upstream_repository, graph.upstream_commit,
+            graph.section_types, graph.slots,
+            graph.nodes + (bad_node,), graph.edges, graph.node_ranges,
+        )
+        with self.assertRaises(ValueError) as caught:
+            graph_storage_census(forged_node_graph)
+        self.assertNotIn("PRIVATE_", str(caught.exception))
+
+        bad_edge = GraphEdge("PRIVATE_COPTIC_PASSAGE_AS_FAKE_EDGE_TYPE", 3, 2)
+        forged_edge_graph = Graph(
+            graph.upstream_repository, graph.upstream_commit,
+            graph.section_types, graph.slots, graph.nodes,
+            graph.edges + (bad_edge,), graph.node_ranges,
+        )
+        with self.assertRaises(ValueError) as caught:
+            graph_storage_census(forged_edge_graph)
+        self.assertNotIn("PRIVATE_", str(caught.exception))
+
     def test_empty_and_invalid_locus_types_are_categorized_or_rejected(self):
         graph = fixture_graph()
         empty = GraphNode(5, "lang", "private/corpus:PRIVATE_RECID", 3, ())
