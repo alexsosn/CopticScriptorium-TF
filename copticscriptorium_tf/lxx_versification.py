@@ -60,6 +60,20 @@ def propose_bohairic_zechariah(
         None,
     )
     if offset is None:
+        if source_chapter == 2 and source_verse >= 7:
+            # The same numbered Greek verse *exists* here, but this Bohairic
+            # source demonstrably uses a displaced chapter-2 reference
+            # system. Downstream unreviewed verses must never silently fall
+            # back to potentially false Greek same-number matches.
+            return VersificationCandidate(
+                lxx_book="Zech", lxx_chapter=2, lxx_verse=source_verse,
+                rule_id=BOHAIRIC_ZECH_CROSSWALK_VERSION,
+                blocked_reason=(
+                    "Bohairic Zechariah chapter 2 numbering differs from "
+                    "Rahlfs LXX; verse beyond reviewed 1–6 crosswalk "
+                    "requires further source-text adjudication"
+                ),
+            )
         return None
     candidate = VersificationCandidate(
         lxx_book="Zech",
