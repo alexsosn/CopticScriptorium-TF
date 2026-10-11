@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Iterable, Iterator, Sequence
 
-from .model import DocumentModel, LayoutEvent, SupplementalWord
+from .model import DocumentModel, LayoutEvent, SupplementalWord, TOKEN_WRAPPER_TYPES
 
 NODE_TYPE_ORDER = (
     "document", "sentence", "orig_group", "norm_group", "orig",
@@ -13,6 +13,7 @@ NODE_TYPE_ORDER = (
     "verse_n_marker", "vid_n_marker", "verse_vid_marker",
     "entity", "translation", "arabic_translation",
     "sbl_greek", "sbl_apparatus", "lang",
+    *TOKEN_WRAPPER_TYPES,
 )
 LAYOUT_TYPES = {"page", "column", "line"}
 VERSE_POSITION_TYPES = {"verse_n_marker", "vid_n_marker", "verse_vid_marker"}
@@ -247,12 +248,13 @@ def _check_document(document: DocumentModel) -> None:
     for annotation, expected_kind in (
         *((item, "sbl") for item in document.sbl_annotations),
         *((item, "lang") for item in document.language_annotations),
+        *((item, "token") for item in document.token_annotations),
     ):
-        if (
-            not isinstance(annotation.value, str)
-            or (annotation.kind != "lang" if expected_kind == "lang"
-                else annotation.kind not in {"sbl_greek", "sbl_apparatus"})
-        ):
+        accepted_kinds = (
+            TOKEN_WRAPPER_TYPES if expected_kind == "token" else
+            ("lang",) if expected_kind == "lang" else ("sbl_greek", "sbl_apparatus")
+        )
+        if not isinstance(annotation.value, str) or annotation.kind not in accepted_kinds:
             raise ValueError(f"invalid scholarly source annotation in {document.source_record_id}")
         start, end = annotation.start_after_word_ordinal, annotation.end_after_word_ordinal
         if not (0 <= start <= end <= word_count):
@@ -263,7 +265,21 @@ def _check_document(document: DocumentModel) -> None:
         ) else 1)
         expected_locus = tuple(range(start_full, end + 1))
         if annotation.word_ordinals != expected_locus:
-            raise ValueError(f"incorrect sbl_ complete-word locus in {document.source_record_id}")
+            raise ValueError(f"incorrect scholarly complete-word locus in {document.source_record_id}")
+        if expected_kind == "token":
+            # All five tags are source-attested inside a single norm, not
+            # whole-word coverage and never permission for additional slots.
+            ordinal = annotation.start_word_ordinal
+            if (
+                ordinal is None or ordinal != annotation.end_word_ordinal
+                or not 1 <= ordinal <= word_count
+                or annotation.start_after_word_ordinal != ordinal - 1
+                or annotation.end_after_word_ordinal != ordinal - 1
+                or annotation.start_char is None or annotation.end_char is None
+                or not 0 <= annotation.start_char <= annotation.end_char <= len(document.words[ordinal - 1].source_text)
+                or annotation.word_ordinals
+            ):
+                raise ValueError(f"invalid token-internal annotation locus in {document.source_record_id}")
         for ordinal, offset in (
             (annotation.start_word_ordinal, annotation.start_char),
             (annotation.end_word_ordinal, annotation.end_char),
@@ -480,9 +496,10 @@ def build_graph(
                     )
                     entity_ids[(record, item.ordinal)] = node.id
                     entity_heads.append((node.id, document, item.head_word_ordinal))
-            elif otype in {"sbl_greek", "sbl_apparatus", "lang"}:
+            elif otype in {"sbl_greek", "sbl_apparatus", "lang"} or otype in TOKEN_WRAPPER_TYPES:
                 source_items = (
-                    document.language_annotations if otype == "lang"
+                    document.token_annotations if otype in TOKEN_WRAPPER_TYPES
+                    else document.language_annotations if otype == "lang"
                     else document.sbl_annotations
                 )
                 for item in sorted(
@@ -503,9 +520,10 @@ def build_graph(
                         otype, source_record_id=record,
                         source_ordinal=item.ordinal, slot_ranges=_ranges(locus),
                         value=item.value,
-                        sbl_verse_n=item.source_verse_n if otype != "lang" else None,
+                        sbl_verse_n=item.source_verse_n if otype in {"sbl_greek", "sbl_apparatus"} else None,
                         render_mode=(
-                            ("lang_span" if whole_words else "lang_anchor")
+                            "token_annotation_anchor" if otype in TOKEN_WRAPPER_TYPES
+                            else ("lang_span" if whole_words else "lang_anchor")
                             if otype == "lang"
                             else ("sbl_span" if whole_words else "sbl_anchor")
                         ),
@@ -700,10 +718,12 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
                 errors.append(f"{node.otype} node {node.id} must render own text")
         if node.otype in LAYOUT_TYPES and (node.render_mode != "own_text" or node.text is None):
             errors.append(f"layout node {node.id} must render own text")
-        if node.otype in {"sbl_greek", "sbl_apparatus", "lang"}:
-            annotation = "lang" if node.otype == "lang" else "sbl_"
+        if node.otype in {"sbl_greek", "sbl_apparatus", "lang"} or node.otype in TOKEN_WRAPPER_TYPES:
+            annotation = ("token" if node.otype in TOKEN_WRAPPER_TYPES else
+                          "lang" if node.otype == "lang" else "sbl_")
             valid_modes = (
-                {"lang_span", "lang_anchor"} if node.otype == "lang"
+                {"token_annotation_anchor"} if node.otype in TOKEN_WRAPPER_TYPES
+                else {"lang_span", "lang_anchor"} if node.otype == "lang"
                 else {"sbl_span", "sbl_anchor"}
             )
             if node.value is None:
@@ -714,7 +734,7 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
                 errors.append(f"{annotation} annotation node {node.id} lacks boundary positions")
             elif node.start_after_word_ordinal > node.end_after_word_ordinal:
                 errors.append(f"{annotation} annotation node {node.id} has inverted bounds")
-            if node.render_mode in {"sbl_anchor", "lang_anchor"} and len(node.slots) != 1:
+            if node.render_mode in {"sbl_anchor", "lang_anchor", "token_annotation_anchor"} and len(node.slots) != 1:
                 errors.append(f"{annotation} anchor node {node.id} must link one source word")
         if node.otype in VERSE_POSITION_TYPES:
             if node.label is None or node.start_char is None or node.start_char <= 0:

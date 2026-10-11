@@ -18,6 +18,7 @@ from .model import (
     OrigGroup,
     Sentence,
     SblAnnotation,
+    TOKEN_WRAPPER_TYPES,
     Translation,
     Word,
 )
@@ -124,11 +125,14 @@ def parse_tt_record(
     # occurrences rather than imposing a fictional XML tree.
     sbl_open: dict[str, list[dict[str, Any]]] = {
         "sbl_greek": [], "sbl_apparatus": [], "lang": [],
+        **{kind: [] for kind in TOKEN_WRAPPER_TYPES},
     }
     sbl_closed: list[dict[str, Any]] = []
     lang_closed: list[dict[str, Any]] = []
+    token_closed: list[dict[str, Any]] = []
     sbl_open_count = 0
     lang_open_count = 0
+    token_open_count = 0
     layout_events: list[LayoutEvent] = []
     current_word: dict[str, Any] | None = None
     # Preserve upstream literal verse references. They are not claimed to
@@ -183,6 +187,8 @@ def parse_tt_record(
             if name == "norm":
                 if current_word is None:
                     raise ValueError(f"closing norm without open norm in {source_record_id}")
+                if any(sbl_open[kind] for kind in TOKEN_WRAPPER_TYPES):
+                    raise ValueError(f"unclosed token annotation inside norm in {source_record_id}")
                 close_linguistic("norm")
                 current_word["source_text"] = "".join(current_word["text_parts"])
                 raw_words.append(current_word)
@@ -215,8 +221,10 @@ def parse_tt_record(
                     raise ValueError(f"closing Arabic translation without open annotation in {source_record_id}")
                 arabic_raw.append(arabic_stack.pop())
             elif name in sbl_open:
+                if name in TOKEN_WRAPPER_TYPES and current_word is None:
+                    raise ValueError(f"token annotation {name} closing outside norm in {source_record_id}")
                 if not sbl_open[name]:
-                    kind = "lang" if name == "lang" else "sbl_"
+                    kind = "token" if name in TOKEN_WRAPPER_TYPES else ("lang" if name == "lang" else "sbl_")
                     raise ValueError(f"closing {kind} annotation without opening {name} in {source_record_id}")
                 item = sbl_open[name].pop()
                 item["end_word_ordinal"] = current_word["ordinal"] if current_word else None
@@ -237,6 +245,8 @@ def parse_tt_record(
                 item["word_ordinals"] = tuple(range(first_full, end_after + 1))
                 if name == "lang":
                     lang_closed.append(item)
+                elif name in TOKEN_WRAPPER_TYPES:
+                    token_closed.append(item)
                 else:
                     sbl_closed.append(item)
             elif name == "verse_n":
@@ -252,14 +262,19 @@ def parse_tt_record(
         if name == "meta":
             continue
         if name in sbl_open:
+            if name in TOKEN_WRAPPER_TYPES and current_word is None:
+                raise ValueError(f"token annotation {name} opening outside norm in {source_record_id}")
             if name not in attrs:
-                kind = "lang" if name == "lang" else "sbl_"
+                kind = "token" if name in TOKEN_WRAPPER_TYPES else ("lang" if name == "lang" else "sbl_")
                 raise ValueError(f"{kind} annotation {name} has no source value in {source_record_id}")
             # Preserve legacy SBL occurrence IDs. Source language wrappers
             # get a separate ordinal sequence and never renumber SBL nodes.
             if name == "lang":
                 lang_open_count += 1
                 occurrence = lang_open_count
+            elif name in TOKEN_WRAPPER_TYPES:
+                token_open_count += 1
+                occurrence = token_open_count
             else:
                 sbl_open_count += 1
                 occurrence = sbl_open_count
@@ -452,6 +467,8 @@ def parse_tt_record(
         raise ValueError(f"unclosed sbl_ annotation tag in {source_record_id}")
     if sbl_open["lang"]:
         raise ValueError(f"unclosed lang source annotation tag in {source_record_id}")
+    if any(sbl_open[kind] for kind in TOKEN_WRAPPER_TYPES):
+        raise ValueError(f"unclosed token annotation in {source_record_id}")
 
     if raw_words and (not sentence_starts or sentence_starts[0] != 1):
         raise ValueError(f"first word has no source sentence start in {source_record_id}")
@@ -572,6 +589,9 @@ def parse_tt_record(
         )),
         language_annotations=tuple(SblAnnotation(**item) for item in sorted(
             lang_closed, key=lambda a: a["ordinal"]
+        )),
+        token_annotations=tuple(SblAnnotation(**item) for item in sorted(
+            token_closed, key=lambda a: a["ordinal"]
         )),
     )
 
