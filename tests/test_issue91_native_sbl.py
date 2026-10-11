@@ -79,6 +79,19 @@ class SblAnnotationsTests(unittest.TestCase):
                          [("sbl_apparatus", "")])
         self.assertEqual(parse('<meta corpus="a">' + norm(1, "a", sentence=True)).sbl_annotations, ())
 
+    def test_present_empty_source_value_survives_native_tf_reload(self):
+        raw = ('<meta corpus="a"><sbl_apparatus sbl_apparatus="">'
+               + norm(1, "a", sentence=True) + '</sbl_apparatus>')
+        graph = build_graph([parse(raw)])
+        with TemporaryDirectory() as directory:
+            dest = Path(directory) / "tf"
+            write_graph(graph, dest)
+            api = Fabric(locations=[str(dest)], silent="deep").load(
+                "value source_ordinal render_mode", silent="deep")
+            self.assertTrue(api)
+            node, = api.F.otype.s("sbl_apparatus")
+            self.assertEqual(api.F.value.v(node), "")
+
     def test_split_midword_annotation_retains_boundary_offsets_without_extra_slot(self):
         raw = (
             '<meta corpus="a"><norm_group norm_group="abcd">'
