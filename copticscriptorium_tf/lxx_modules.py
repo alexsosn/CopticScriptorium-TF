@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory
 from typing import Any, Sequence
 
 from ._atomic import publish_path_no_clobber
-from .lxx_reference import resolve_coptic_lxx_references
+from .lxx_reference import CANDIDATE_STATUSES, resolve_coptic_lxx_references
 from .model import DocumentModel
 
 COPTIC_UPSTREAM = "3ac067f1709a0012daf39ea8da2fac79980176a5"
@@ -127,13 +127,13 @@ def write_reference_modules(
     if set(coptic_ref) - set(coptic_status):
         raise LxxModuleError("source word reference lacks a candidate status")
     for node in coptic_ref:
-        if coptic_status[node] != "reference_candidate":
+        if coptic_status[node] not in CANDIDATE_STATUSES:
             raise LxxModuleError(
                 f"source word {node} has candidate ID but noncandidate status"
             )
     for node, status in coptic_status.items():
         if status not in {
-            "reference_candidate", "unresolved", "ambiguous", "unclassified_corpus"
+            "reference_candidate", "versification_candidate", "unresolved", "ambiguous", "unclassified_corpus"
         }:
             raise LxxModuleError(f"unsupported Coptic reference status {node}/{status}")
     if set(lxx_ref) != set(lxx_count):
@@ -226,10 +226,10 @@ def project_reference_modules(
                 if node in statuses:
                     raise LxxModuleError(f"one Coptic word belongs to multiple source reference spans: {node}")
                 statuses[node] = ref.status
-                if ref.status == "reference_candidate":
+                if ref.status in CANDIDATE_STATUSES:
                     assert ref.shared_id is not None and ref.lxx_node is not None
                     refs_coptic[node] = ref.shared_id
-            if ref.status == "reference_candidate":
+            if ref.status in CANDIDATE_STATUSES:
                 assert ref.shared_id is not None and ref.lxx_node is not None
                 old = refs_lxx.setdefault(ref.lxx_node, ref.shared_id)
                 if old != ref.shared_id:
