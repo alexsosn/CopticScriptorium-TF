@@ -107,7 +107,7 @@ def _document_slot_windows(api) -> dict[str, tuple[int, int]]:
 def compare_source_to_tf(root: Path, tf_dir: Path) -> dict:
     """Independently scan every physical TT record, including archive members."""
     from tf.fabric import Fabric
-    from research.issue_91_source_census import records, expected_sbl
+    from .sbl_source_census import records, expected_sbl
 
     api = Fabric(locations=[str(tf_dir.resolve())], silent="deep").load(TF_FEATURES, silent="deep")
     if not api:
