@@ -104,7 +104,7 @@ jobs:
       - name: Check original chapter and Marcion/Petermann source examples
         run: PYTHONPATH=. python tests/live_issue146_source_examples.py pinned-coptic
 
-      - name: Check original editorial source samples on the pinned corpus
+      - name: Check original editorial source samples before native TF install
         run: PYTHONPATH=. python tests/live_issue153_source_examples.py pinned-coptic
 
       - name: Install pinned Text-Fabric for native conversion and reload

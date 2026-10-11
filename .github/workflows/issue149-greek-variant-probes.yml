@@ -1,0 +1,64 @@
+name: issue149-real-Greek-edition-address-probes
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue149-greek-variant-probes.yml'
+      - 'copticscriptorium_tf/ot_variant_probe.py'
+      - 'research/issue-149/**'
+      - 'tests/test_issue149_variant_probe.py'
+      - 'tests/live_issue149_variants.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/issue149-greek-variant-probes.yml'
+      - 'copticscriptorium_tf/ot_variant_probe.py'
+      - 'tests/test_issue149_variant_probe.py'
+      - 'tests/live_issue149_variants.py'
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-Greek-alternative-addresses:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out exact source probe head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact reviewed implementation
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Acquire pinned native Greek LXX edition pair candidates
+        uses: actions/checkout@v4
+        with:
+          repository: CenterBLC/LXX
+          ref: f32a98eddf7eb239aa73ab863d70381e416d5076
+          path: pinned-greek
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout: |
+            tf/1935
+
+      - name: Assert immutable Greek parent commit
+        run: test "$(git -C pinned-greek rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: Run RED-first source-provenance and ambiguous-edition tests
+        run: python -m unittest tests.test_issue149_variant_probe -v
+
+      - name: Probe all ten actual source-byte-qualified gap events on both Greek editions
+        run: python tests/live_issue149_variants.py pinned-greek/tf/1935
