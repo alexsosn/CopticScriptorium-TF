@@ -8,7 +8,8 @@ from research.issue_120.full_nt_wefts import (
 COUNTS = {
     "reference_candidate": 2301,
     "ambiguous": 437,
-    "unresolved": 9,
+    "unresolved": 8,
+    "edition_unavailable": 1,
     "coptic_annotated_sbl_nodes": 2747,
     "coptic_candidate_sbl_nodes": 2301,
     "greek_target_verse_nodes": 904,
@@ -43,6 +44,24 @@ class FullNtReleaseContracts(TestCase):
                    "coptic_annotated_sbl_nodes": 2301}
         with self.assertRaisesRegex(ValueError, "count"):
             validate_full_counts(altered, physical=2628, annotated=48)
+
+    def test_edition_unavailable_is_status_only_in_native_weft(self):
+        coptic = {
+            10: ("sbl_greek", "edition_unavailable", None),
+            11: ("sbl_greek", "reference_candidate", "edition:Mark:15:27"),
+        }
+        greek = {800: ("verse", "edition:Mark:15:27", 1)}
+        result = verify_native_feature_parity(
+            coptic, greek, word_max=9, greek_max_slot=400,
+        )
+        self.assertEqual(result["edition_unavailable"], 1)
+        self.assertEqual(result["total_greek_occurrences"], 1)
+        with self.assertRaisesRegex(ValueError, "status"):
+            verify_native_feature_parity(
+                {10: ("sbl_greek", "edition_unavailable", "edition:Mark:15:28")},
+                {800: ("verse", "edition:Mark:15:28", 1)},
+                word_max=9, greek_max_slot=400,
+            )
 
     def test_native_node_and_reference_multisets_must_match(self):
         coptic = {
