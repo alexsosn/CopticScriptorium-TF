@@ -11,15 +11,23 @@ class ReferenceSourceAdversarialTests(unittest.TestCase):
                 '<marcion_verse_n marcion_verse_n="21">'
                 '<norm norm="a">a</norm></chapter_n>'
                 '<norm norm="b">b</norm></marcion_verse_n>')
-        # Isolated synthetic audit needs to substitute expected census; the
-        # caller must reject incomplete real pinned-source counts.
-        with self.assertRaisesRegex(ValueError,"inventory"):
-            compare_source_reference_events([
-                ("fixture/fixture:one",src)
-            ],{
+        observed=compare_source_reference_events(
+            [("fixture/fixture:one",src)],
+            {
                 ("fixture/fixture:one",1):("chapter_n","148_postscript",0,1),
                 ("fixture/fixture:one",2):("marcion_verse_n","21",0,2),
-            })
+            },
+            expected_counts={"chapter_n":1,"marcion_verse_n":1},
+        )
+        self.assertEqual(observed,{"chapter_n":1,"marcion_verse_n":1})
+        with self.assertRaisesRegex(ValueError,"inventory"):
+            compare_source_reference_events(
+                [("fixture/fixture:one",src)],
+                {
+                    ("fixture/fixture:one",1):("chapter_n","148_postscript",0,1),
+                    ("fixture/fixture:one",2):("marcion_verse_n","21",0,2),
+                },
+            )
 
     def test_forged_literal_or_word_boundary_cannot_pass(self):
         raw_tt=raw('<chapter_n chapter_n="0"><norm>a</norm></chapter_n>')
