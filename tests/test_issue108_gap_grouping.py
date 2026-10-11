@@ -124,6 +124,37 @@ class GappedOtMarkerBatchTests(unittest.TestCase):
                          "source_reference_unclassified")
         self.assertEqual(unresolved["markers"][0]["greek_missing_intermediate"], [])
 
+    def test_large_numeric_jump_is_retained_without_forging_greek_address_checks(self):
+        audit = CopticOtVerseAnomalyBatch(source_commit=PIN)
+        source = (
+            '<meta chapter="8">'
+            '<verse_n verse_n="1"><norm norm="a">a</norm>'
+            '<verse_n verse_n="400"><norm norm="b">b</norm>'
+        )
+        audit.add(
+            source, "sahidic.ruth/sahidic.ruth:Ruth_08",
+            source_sha256=HASH_B, scope="ot_candidate",
+            corpus="sahidic.ruth", cts_work="ot.ruth",
+            chapter="8", edition="coptot_ed", lxx_book="Ruth",
+        )
+        looked_up = []
+        audit.inspect_greek(
+            verse_lookup=lambda *key: looked_up.append(key) or 1001,
+            subverse_lookup=lambda node: (),
+        )
+        self.assertEqual(looked_up, [])
+        report = audit.report()
+        self.assertEqual(report["counts"], {"gapped": 1})
+        self.assertEqual(report["gapped_greek_check_status_counts"],
+                         {"gap_too_large_for_automatic_crosscheck": 1})
+        marker = report["gapped_source_groups"][0]["markers"][0]
+        self.assertEqual(marker["previous_verse"], 1)
+        self.assertEqual(marker["current_verse"], 400)
+        self.assertEqual(marker["missing_count"], 398)
+        self.assertEqual(marker["missing_verse_numbers"], [])
+        self.assertEqual(marker["greek_missing_intermediate"], [])
+        self.assertEqual(report["gapped_intermediate_address_status_counts"], {})
+
     def test_reversed_ingestion_deterministic_and_not_checked_remains_explicit(self):
         normal, reversed_order = scan(), scan(reverse=True)
         self.assertEqual(normal.report()["gapped_source_groups"],
