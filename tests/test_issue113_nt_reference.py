@@ -26,8 +26,8 @@ def make_doc(
     annotation = (
         f'<verse_n verse_n="{word_verse if verse_literal is None else verse_literal}"><{annot_kind} {annot_kind}="{greek}">'
         f'<verse_vid verse_vid="{code} {chapter}:{label_verse}">'
-        (f'<vid_n vid_n="urn:cts:copticLit:nt.{work}.sahidica_ed:{chapter}.{cts_verse}">' if include_vid_n else "")
-        '<norm_group norm_group="a"><norm xml:id="u1" new_sent="true" func="root" norm="ⲁ">ⲁ</norm></norm_group>'
+        + (f'<vid_n vid_n="urn:cts:copticLit:nt.{work}.sahidica_ed:{chapter}.{cts_verse}">' if include_vid_n else "")
+        + '<norm_group norm_group="a"><norm xml:id="u1" new_sent="true" func="root" norm="ⲁ">ⲁ</norm></norm_group>'
     )
     if extra_word:
         annotation += '<norm_group norm_group="b"><norm xml:id="u2" func="root" norm="ⲃ">ⲃ</norm></norm_group>'
