@@ -31,12 +31,15 @@ The full 2,628-record/2,747-occurrence census passed against the read-only, pinn
 | --- | ---: |
 | `reference_candidate` | 2,301 |
 | `ambiguous` | 437 |
-| `unresolved` | 9 |
+| `unresolved` | 8 |
+| `edition_unavailable` | 1 |
 
-There are **904 distinct edition-qualified candidate Greek NT verse addresses**. By physical corpus: `sahidica.mark` 944 candidates, 237 ambiguous, 5 unresolved; `sahidica.1corinthians` 543 candidates, 114 ambiguous; `coptic-treebank` 814 candidates, 86 ambiguous, 4 unresolved.
+There are **904 distinct edition-qualified candidate Greek NT verse addresses**. By physical corpus: `sahidica.mark` 944 candidates, 237 ambiguous, 4 unresolved and 1 source-proven Greek edition absence; `sahidica.1corinthians` 543 candidates, 114 ambiguous; `coptic-treebank` 814 candidates, 86 ambiguous, 4 unresolved.
 
 Source research documented two legitimate variants: named `verse_n="1 Corinthians 3:1"` labels in 1Cor TT, and some Mark TT files which omit `vid_n` but retain concordant document CTS, editor `verse_vid` and `verse_n` references. The resolver accepts only exact book/chapter/verse agreement, recording reduced evidence when `vid_n` is absent. Five new negative tests guard against forged human-readable book names, shifted chapters, and conflicting editor labels.
 
-Other source data are genuinely suspect: pinned Mark 1 contains `sbl_greek` attributes whose values are editor address codes and `vid_n` fields whose values resemble Greek passage text, while `verse_vid` is missing. Preserve these as `ambiguous` until a researched source repair resolves them; see [issue #117](https://github.com/alexsosn/CopticScriptorium-TF/issues/117). The 9 `unresolved` occur where an SBL wrapper has no wholly enclosed Coptic word span or another insufficiency; no fake Coptic word footprint is assigned.
+Other source data are genuinely suspect: pinned Mark 1 contains `sbl_greek` attributes whose values are editor address codes and `vid_n` fields whose values resemble Greek passage text, while `verse_vid` is missing. Preserve these as `ambiguous` until a researched source repair resolves them; see [issue #117](https://github.com/alexsosn/CopticScriptorium-TF/issues/117). The 8 remaining `unresolved` occur where an SBL wrapper has no wholly enclosed Coptic word span or another insufficiency; no fake Coptic word footprint is assigned.
 
 This milestone is a **complete candidate-coverage audit**, not full mapping coverage, a bilateral TF weft, or a claim of Greek/Coptic word alignment. A subsequent PR must materialize Coptic-owned native TF modules using only source-proven reference candidates, preserving ambiguous/unresolved statuses and avoiding cross-warp node IDs.
+
+Pinned Coptic Mark 15:28 preserves the original SBL source absence annotation and is classified as **`edition_unavailable`** in the explicitly pinned MorphGNT edition. No Greek word, verse node, or cross-corpus reference ID is invented. Adjacent Mark 15:27/29 candidates remain unchanged.
