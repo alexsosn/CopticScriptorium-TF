@@ -59,7 +59,7 @@ def propose_bohairic_zechariah_target(
     if corpus != "bohairic.ot" or not source_cts:
         return None
     match = re.fullmatch(
-        r"urn:cts:copticLit:ot\\.zach\\.bohairic_ed:(0*[1-9][0-9]*)",
+        r"urn:cts:copticLit:ot\.zach\.bohairic_ed:(0*[1-9][0-9]*)",
         source_cts,
     )
     if match is None or int(match.group(1)) != chapter:
