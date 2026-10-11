@@ -6,11 +6,12 @@ attributes of the nearest entity; only their source positions are asserted.
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import replace
 from tempfile import TemporaryDirectory
 import unittest
 
 from copticscriptorium_tf.parser import parse_tt_record
-from copticscriptorium_tf.graph import build_graph
+from copticscriptorium_tf.graph import build_graph, validate_graph
 from copticscriptorium_tf.writer import write_graph
 from tf.fabric import Fabric
 
@@ -109,6 +110,26 @@ class EntityLabelsNativeTFTests(unittest.TestCase):
         node, = (n for n in g.nodes if n.otype == "roleName_type")
         self.assertEqual(node.render_mode, "entity_label_span")
         self.assertEqual(node.slots, (1, 2))
+
+    def test_adversarial_corrupt_entity_label_node_is_rejected_by_graph_validator(self):
+        raw = (
+            '<meta corpus="demo"><norm_group norm_group="one">'
+            '<norm xml:id="u1" new_sent="true" norm="a">'
+            '<entity_identity entity_identity="Sarah">a</entity_identity>'
+            '</norm></norm_group>'
+        )
+        graph = build_graph((parse(raw),))
+        target = next(n for n in graph.nodes if n.otype == "entity_identity")
+        bad = replace(
+            graph, nodes=tuple(
+                replace(n, render_mode="false_ontology_link")
+                if n.id == target.id else n for n in graph.nodes
+            )
+        )
+        self.assertTrue(any(
+            "entity label" in error and "precise span/anchor" in error
+            for error in validate_graph(bad)
+        ))
 
     def test_malformed_missing_unclosed_and_orphan_source_annotations_fail_closed(self):
         base = '<meta corpus="demo"><norm_group norm_group="x"><norm xml:id="u1" new_sent="true" norm="x">'
