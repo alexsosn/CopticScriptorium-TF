@@ -35,6 +35,12 @@ def require_pin(path: Path, revision: str) -> None:
     ).stdout.strip()
     if actual != revision:
         raise ValueError("wrong exact upstream repository revision")
+    dirty = subprocess.run(
+        ["git", "-C", str(path), "status", "--porcelain", "--untracked-files=all"],
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    if dirty:
+        raise ValueError("pinned upstream source checkout has local changes")
 
 def main(coptic_root: Path, greek_root: Path) -> None:
     require_pin(coptic_root, COPTIC_PIN)
