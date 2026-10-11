@@ -70,7 +70,7 @@ jobs:
         run: python tests/live_issue110_wrapper_census.py pinned-coptic
 
       - name: Check source token/morph events independently on pinned AP and Proclus TT
-        run: python tests/live_issue135_source_examples.py pinned-coptic
+        run: PYTHONPATH=. python tests/live_issue135_source_examples.py pinned-coptic
 
       - name: Install pinned Text-Fabric for native conversion and reload
         run: python -m pip install 'text-fabric==13.1.0'
