@@ -15,6 +15,7 @@ on:
       - 'tests/live_issue140_full_native.py'
       - 'tests/live_issue140_source_examples.py'
       - 'tests/test_issue140_edition_annotations.py'
+      - 'tests/test_issue140_value_parity.py'
       - 'tests/live_issue135_source_examples.py'
       - 'tests/test_issue135_token_wrappers.py'
       - 'copticscriptorium_tf/_graph_core.py'
@@ -95,7 +96,7 @@ jobs:
               --profile-memory
           python tests/live_issue110_full_native.py "$RUNNER_TEMP/issue110-full-native/tf"
           python tests/live_issue135_full_native.py "$RUNNER_TEMP/issue110-full-native/tf"
-          python tests/live_issue140_full_native.py "$RUNNER_TEMP/issue110-full-native/tf"
+          python tests/live_issue140_full_native.py "$RUNNER_TEMP/issue110-full-native/tf" pinned-coptic
           python tests/live_issue109_profile_gate.py "$RUNNER_TEMP/issue110-full-report.json"
 
       - name: Report full-source operational resource diagnostics
