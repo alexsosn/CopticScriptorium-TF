@@ -80,6 +80,11 @@ def paired_word_verses(document: DocumentModel) -> tuple[Pair | None, ...]:
         if word_open:
             invalid_word = True
         stack = human_stack if name == "verse" else editor_stack
+        # Real 1Cor14 structure is editor -> human -> Coptic word.
+        # The SBL wrappers may cross, but the two *verse* wrappers may not.
+        if ((name == "verse" and not editor_stack)
+            or (name == "verse_vid" and human_stack)):
+            raise ValueError("invalid paired source label nesting")
         if closing:
             if not stack:
                 raise ValueError("orphan paired TT verse label")
