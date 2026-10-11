@@ -79,7 +79,13 @@ def resolve_coptic_sbl_references(
     meta = document.metadata
     family = document.corpus
     physical_family = document.source_record_id.partition("/")[0]
+    # coptic-treebank is physical derivative packaging. The upstream meta
+    # corpus is the attested original family; both identities are preserved,
+    # never collapsed into one source record.
     source_info = REVIEWED_SOURCES.get(family)
+    if (family == "coptic-treebank" and document.dataset == "coptic.treebank"
+            and physical_family == "coptic-treebank"):
+        source_info = REVIEWED_SOURCES.get((meta.get("corpus") or "").strip())
     chapter = _positive(meta.get("chapter"))
     book = source_info[0] if source_info else None
     documented_work = source_info[1] if source_info else None
@@ -88,6 +94,9 @@ def resolve_coptic_sbl_references(
     attested = (
         source_info is not None
         and physical_family in REVIEWED_PACKAGES
+        and (physical_family == family)
+        and (family == "coptic-treebank"
+             or (meta.get("corpus") or "").strip() == family)
         and (meta.get("book") or "").strip() == documented_book_name
         and SOURCE_PROVENANCE_MARKER in (meta.get("Greek_source") or "")
     )
