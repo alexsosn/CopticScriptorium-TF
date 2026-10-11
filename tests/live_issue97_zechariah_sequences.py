@@ -35,6 +35,26 @@ CTS_WORK = re.compile(r"^urn:cts:copticLit:ot\.(zach\.bohairic_ed|zech\.coptot):
 WORDS = re.compile(r"[^\W_]+", flags=re.UNICODE)
 
 
+# Short *diagnostic* lexical motifs from the public-domain Brenton LXX
+# Zechariah 2:1–10. These are not proof of textual correspondence.
+LXX_2_MOTIFS: dict[int, tuple[str, ...]] = {
+    1: ("horn",), 2: ("angel", "horn"), 3: ("artific", "four"),
+    4: ("horn", "scatter"), 5: ("measur",),
+    6: ("measur", "jerusalem"), 7: ("angel",),
+    8: ("run", "young"), 9: ("wall", "fire"),
+    10: ("north", "wind"),
+}
+
+
+def motif_score(english_words: tuple[str, ...], greek_ch2_verse: int) -> float | None:
+    motifs = LXX_2_MOTIFS.get(greek_ch2_verse)
+    if motifs is None:
+        raise ValueError(f"no curated LXX Zech 2:{greek_ch2_verse} Brenton motif")
+    if not english_words:
+        return None
+    return round(sum(any(word.startswith(stem) for word in english_words) for stem in motifs) / len(motifs), 3)
+
+
 def classify_cts(cts: str | None) -> tuple[str, int] | None:
     match = CTS_WORK.fullmatch(cts or "")
     if match is None:
@@ -209,7 +229,25 @@ def run(coptic_root: Path, greek_root: Path) -> None:
     for verse in range(1, 5):
         pairs.append(_pair(verses, ("bohairic",1,verse+17), ("bohairic",2,verse),
                            hypothesis="Boh chapter-tail vs chapter-head internal duplication control"))
+    motif_evidence: list[dict[str, object]] = []
+    for (witness, chapter, verse), ev in sorted(verses.items()):
+        if witness != "bohairic":
+            continue
+        shifted = verse - 17 if chapter == 1 and 18 <= verse <= 21 else (
+            verse + 4 if chapter == 2 and 1 <= verse <= 6 else None
+        )
+        if shifted is None:
+            continue
+        motif_evidence.append({
+            "source": [witness, chapter, verse],
+            "proposed_greek": [2, shifted],
+            "source_translation_tokens": len(ev.english_words),
+            "shifted_motif_score": motif_score(ev.english_words, shifted),
+            "competing_same_number_score": motif_score(ev.english_words, verse) if chapter == 2 else None,
+            "note": "Brenton English lexical proxy; NOT proof of Greek/Coptic textual equivalence",
+        })
     summary = {
+        "motif_evidence": motif_evidence,
         "coptic_pin": COPTIC_PIN,
         "lxx_pin": LXX_PIN,
         "edition_cts_strict": True,
