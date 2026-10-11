@@ -153,7 +153,7 @@ def main(coptic_root: Path, lxx_path: Path) -> None:
         for word in fresh_coptic.F.otype.s("word"):
             status = fresh_coptic.F.coptic_lxx_ref_status.v(word)
             assert status is not None
-            if status != "reference_candidate":
+            if status not in {"reference_candidate", "versification_candidate"}:
                 assert fresh_coptic.F.coptic_lxx_ref_id.v(word) is None
         assert any(key.startswith("CenterBLC/LXX:1935:Gen:") for key in greek_keys)
         assert any(key.startswith("CenterBLC/LXX:1935:Ps:") for key in greek_keys)
