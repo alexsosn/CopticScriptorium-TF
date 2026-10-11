@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/issue69-full-verse-census.yml'
       - 'tests/live_issue69_full_verse_census.py'
+      - 'tests/live_issue110_wrapper_census.py'
       - 'copticscriptorium_tf/parser.py'
       - 'copticscriptorium_tf/model.py'
   workflow_dispatch:
@@ -58,3 +59,8 @@ jobs:
         timeout-minutes: 13
         run: |
           /usr/bin/time -v python tests/live_issue69_full_verse_census.py pinned-coptic
+
+      - name: Reuse pinned full-source checkout to inventory unmodeled scholarly TT wrappers
+        timeout-minutes: 10
+        run: python tests/live_issue110_wrapper_census.py pinned-coptic
+
