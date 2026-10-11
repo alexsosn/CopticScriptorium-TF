@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - 'research/issue_120/**'
+      - 'research/issue_109/**'
+      - 'research/issue-16/full_converter_smoke.py'
+      - 'copticscriptorium_tf/converter.py'
+      - 'tests/test_issue109_*.py'
       - 'research/issue_126/**'
       - 'tests/test_issue126_*.py'
       - 'tests/live_issue126_*.py'
@@ -23,7 +27,7 @@ permissions:
 
 jobs:
   full-native-nt-weft-gate:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'validate/issue120-full-native-nt-wefts' || github.event.pull_request.head.ref == 'validate/issue126-mark15-edition-absence'
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'validate/issue120-full-native-nt-wefts' || github.event.pull_request.head.ref == 'validate/issue126-mark15-edition-absence' || github.event.pull_request.head.ref == 'perf/issue109-rss-phase-instrumentation'
     runs-on: ubuntu-latest
     timeout-minutes: 100
     env:
@@ -45,6 +49,7 @@ jobs:
         run: python -m pip install 'text-fabric==13.1.0'
       - name: Run independent RED-first release invariants
         run: |
+          python -m unittest discover -s tests -p 'test_issue109_*.py' -v
           python -m unittest discover -s tests -p 'test_issue120_*.py' -v
           python -m unittest discover -s tests -p 'test_issue126_*.py' -v
       - name: Checkout exact Coptic TT directories and ZIP packages
