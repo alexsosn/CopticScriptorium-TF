@@ -746,7 +746,7 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
                 errors.append(f"{node.otype} node {node.id} must render own text")
         if node.otype in LAYOUT_TYPES and (node.render_mode != "own_text" or node.text is None):
             errors.append(f"layout node {node.id} must render own text")
-        if node.otype in {"sbl_greek", "sbl_apparatus", "lang"} or node.otype in TOKEN_WRAPPER_TYPES or node.otype in EDITION_WRAPPER_TYPES or node.otype in MULTIWORD_WRAPPER_TYPES or node.otype in REFERENCE_WRAPPER_TYPES or node.otype in EDITORIAL_WRAPPER_TYPES:
+        if node.otype in {"sbl_greek", "sbl_apparatus", "lang"} or node.otype in TOKEN_WRAPPER_TYPES or node.otype in EDITION_WRAPPER_TYPES or node.otype in MULTIWORD_WRAPPER_TYPES or node.otype in REFERENCE_WRAPPER_TYPES or node.otype in EDITORIAL_WRAPPER_TYPES or node.otype in ENTITY_LABEL_WRAPPER_TYPES:
             annotation = ("entity label" if node.otype in ENTITY_LABEL_WRAPPER_TYPES else
                           "editorial" if node.otype in EDITORIAL_WRAPPER_TYPES else
                           "reference" if node.otype in REFERENCE_WRAPPER_TYPES else
