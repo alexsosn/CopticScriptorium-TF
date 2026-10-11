@@ -6,6 +6,9 @@ on:
       - '.github/workflows/issue80-lxx-coverage.yml'
       - 'copticscriptorium_tf/lxx_coverage.py'
       - 'copticscriptorium_tf/verse_marker_topology.py'
+      - 'copticscriptorium_tf/ot_verse_anomalies.py'
+      - 'tests/test_issue108_ot_anomaly_batch.py'
+      - 'research/issue-108/**'
       - 'tests/test_issue105_verse_marker_topology.py'
       - 'research/issue-105/**'
       - 'copticscriptorium_tf/lxx_reference.py'
@@ -49,6 +52,7 @@ jobs:
         run: |
           python -m unittest tests.test_issue80_lxx_coverage -v
           python -m unittest tests.test_issue105_verse_marker_topology -v
+          python -m unittest tests.test_issue108_ot_anomaly_batch -v
           python -m unittest tests.test_issue78_cts_alias_batch -v
 
       - name: Acquire all immutable source TT blobs with sparse Git
