@@ -7,7 +7,8 @@ more matching addresses than the other. This is research, not a TF sidecar.
 from __future__ import annotations
 
 from dataclasses import dataclass
-import re
+from hashlib import sha256
+import json
 from typing import Callable, Mapping
 
 PINNED_COPTIC = "3ac067f1709a0012daf39ea8da2fac79980176a5"
@@ -15,6 +16,11 @@ PROVEN_SOURCE_REPORT_RUN = 38165316273
 PROVEN_SOURCE_REPORT_JOB = 114546559963
 PROVEN_SOURCE_HEAD = "8b02a2507b48b9e4f93ba5c1559d47cd69e4edfe"
 SCHEMA = "coptic_ot_unclassified_variant_gap_events_v1"
+# Independently derived from the 10 exact event tuples in the successful
+# run 38165316273 source-anomaly artifact, sorted by (record, chapter, ordinal)
+# and serialized with json.dumps(..., ensure_ascii=True, separators=(",", ":")).
+# A valid-looking TT SHA does not otherwise authenticate the *marker* fields.
+EXPECTED_EVENT_TUPLE_SHA256 = "dff2461419ca0088f353c9a89226d863b4aa59c50151f96d0047d513fedde49a"
 GREEK_VARIANTS = {
     "ot.dan": ("Dan", "DanTh"),
     "ot.tob": ("TobBA", "TobS"),
@@ -151,7 +157,13 @@ def _validate_fixture(data: Mapping[str, object]) -> list[tuple[str, str, str, i
         or sum(after - prior - 1 for _, _, _, _, _, prior, after in items) != 50
     ):
         raise EditionProbeError("full pinned source-gap cohort is missing or modified")
-    return sorted(items, key=lambda x: (x[0], x[3], x[4]))
+    sorted_items = sorted(items, key=lambda x: (x[0], x[3], x[4]))
+    digest = sha256(json.dumps(
+        sorted_items, ensure_ascii=True, separators=(",", ":")
+    ).encode("utf-8")).hexdigest()
+    if digest != EXPECTED_EVENT_TUPLE_SHA256:
+        raise EditionProbeError("forged or changed source marker ordinal/verse transition")
+    return sorted_items
 
 
 def probe_pinned_variant_gaps(
