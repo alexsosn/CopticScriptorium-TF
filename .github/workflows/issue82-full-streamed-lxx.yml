@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/issue82-full-streamed-lxx.yml'
       - 'copticscriptorium_tf/lxx_module.py'
+      - 'copticscriptorium_tf/lxx_versification.py'
       - 'tests/test_issue82_streaming_modules.py'
       - 'tests/live_issue82_full_modules.py'
       - 'research/issue-82/**'
