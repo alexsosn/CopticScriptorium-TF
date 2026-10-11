@@ -112,6 +112,25 @@ class PairedSourceVerseEvidence(unittest.TestCase):
         r,=resolve_coptic_sbl_references(d,lookup=lambda *args:23)
         self.assertNotEqual(r.status,"reference_candidate")
 
+    def test_reject_modified_raw_label_stream_without_matching_original_source_hash(self):
+        d=doc()
+        tampered=replace(
+            d,
+            source_text=d.source_text.replace(
+                '<verse verse="1 Corinthians 14:3">',
+                '<verse verse="1 Corinthians 14:4">',
+            ),
+        )
+        with self.assertRaisesRegex(ValueError,"source bytes"):
+            resolve_coptic_sbl_references(tampered,lookup=lambda *args:17)
+
+    def test_invalid_word_ordinal_fails_closed(self):
+        d=doc()
+        annotation=replace(d.sbl_annotations[0],word_ordinals=(True,))
+        r,=resolve_coptic_sbl_references(
+            replace(d,sbl_annotations=(annotation,)),lookup=lambda *args:17)
+        self.assertNotEqual(r.status,"reference_candidate")
+
     def test_missing_explicit_pair_does_not_fabricate_verse(self):
         d=doc()
         d=replace(d,source_text=d.source_text.replace('<verse verse="1 Corinthians 14:3">',
