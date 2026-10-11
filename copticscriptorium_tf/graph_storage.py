@@ -9,7 +9,8 @@ from __future__ import annotations
 from collections import Counter
 from sys import getsizeof
 
-from ._graph_core import Graph
+from ._graph_core import Graph, NODE_TYPE_ORDER
+from .writer import _EDGE_FEATURES
 
 
 def graph_storage_census(graph: Graph) -> dict[str, object]:
@@ -42,6 +43,8 @@ def graph_storage_census(graph: Graph) -> dict[str, object]:
     covered = 0
     max_segments = 0
     for node in graph.nodes:
+        if node.otype not in NODE_TYPE_ORDER:
+            raise ValueError("unrecognized graph node type")
         nodes[node.otype] += 1
         shallow["graph_node_objects"] += getsizeof(node)
         ranges = node.slot_ranges
@@ -63,6 +66,8 @@ def graph_storage_census(graph: Graph) -> dict[str, object]:
             shallow["node_range_segment_tuples"] += getsizeof(segment)
             covered += segment[1] - segment[0] + 1
     for edge in graph.edges:
+        if edge.kind not in _EDGE_FEATURES:
+            raise ValueError("unrecognized graph edge type")
         edges[edge.kind] += 1
         shallow["graph_edge_objects"] += getsizeof(edge)
 
