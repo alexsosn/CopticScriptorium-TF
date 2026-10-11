@@ -9,6 +9,10 @@ on:
       - 'tests/live_issue113_all_source_audit.py'
       - 'tests/test_issue113_all_source_audit.py'
       - 'copticscriptorium_tf/nt_reference_audit.py'
+      - 'copticscriptorium_tf/nt_modules.py'
+      - 'tests/test_issue113_nt_modules.py'
+      - 'tests/test_issue113_nt_projection.py'
+      - 'tests/live_issue113_nt_modules.py'
       - '.github/workflows/issue113-nt.yml'
   workflow_dispatch:
 
@@ -32,10 +36,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Run fail-closed NT resolver regressions
-        run: python -m unittest discover -s tests -p 'test_issue113_*.py' -v
       - name: Install pinned native Text-Fabric
         run: python -m pip install 'text-fabric==13.1.0'
+      - name: Run source and native weft regressions
+        run: python -m unittest discover -s tests -p 'test_issue113_*.py' -v
       - name: Checkout pinned complete physical TT evidence (sparse)
         uses: actions/checkout@v4
         with:
@@ -57,6 +61,8 @@ jobs:
           persist-credentials: false
       - name: Verify real Mark/1Cor Greek NT verse candidates
         run: python tests/live_issue113_nt_reference.py pinned-coptic pinned-greek
+      - name: Reload real bilateral native NT verse-address wefts
+        run: python tests/live_issue113_nt_modules.py pinned-coptic pinned-greek
       - name: Audit all 2628 source TT records and 2747 NT SBL annotations
         run: python tests/live_issue113_all_source_audit.py pinned-coptic pinned-greek > "$RUNNER_TEMP/nt-candidate-full-census.json"
       - name: Show source-free full-corpus result
