@@ -1,0 +1,76 @@
+name: issue110-real-source-language-conservation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue110-real-language.yml'
+      - 'copticscriptorium_tf/model.py'
+      - 'copticscriptorium_tf/parser.py'
+      - 'copticscriptorium_tf/_graph_core.py'
+      - 'copticscriptorium_tf/writer.py'
+      - 'tests/test_issue110_source_language.py'
+      - 'tests/live_issue110_real_mark_lang.py'
+      - 'research/issue-110/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/issue110-real-language.yml'
+      - 'copticscriptorium_tf/model.py'
+      - 'copticscriptorium_tf/parser.py'
+      - 'copticscriptorium_tf/_graph_core.py'
+      - 'tests/live_issue110_real_mark_lang.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  real-source-language-conservation:
+    name: Mark 2 real TT → 77 native lang nodes and SBL-preserving TF
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact Coptic converter head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checked-out head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Fetch real Coptic Mark chapter 2 at immutable upstream Git
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /sahidica.mark/sahidica.mark_TT/Mark_02.tt
+
+      - name: Verify upstream commit and source blob
+        run: |
+          test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C pinned-coptic hash-object sahidica.mark/sahidica.mark_TT/Mark_02.tt)" = "224415544df384cfa696e6d3c3210649d2e96b3b"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: RED-first boundary/identity/native-TF tests
+        run: python -m unittest tests.test_issue110_source_language -v
+
+      - name: Verify complete real Mark 2 wrapper and SBL conservation
+        run: python tests/live_issue110_real_mark_lang.py pinned-coptic
