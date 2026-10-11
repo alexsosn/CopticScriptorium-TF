@@ -17,6 +17,10 @@ on:
       - 'tests/live_issue146_full_native.py'
       - 'tests/live_issue153_full_native.py'
       - 'tests/live_issue156_full_native.py'
+      - 'tests/live_issue159_full_native.py'
+      - 'tests/live_issue159_source_samples.py'
+      - 'tests/test_issue159_entity_source_labels.py'
+      - 'tests/test_issue159_original_source_parity.py'
       - 'tests/live_issue156_source_examples.py'
       - 'tests/test_issue156_multiattribute.py'
       - 'tests/test_issue156_original_attribute_parity.py'
@@ -114,6 +118,9 @@ jobs:
       - name: Independently sample gap/supplied and OT abbr ZIP source evidence
         run: PYTHONPATH=. python tests/live_issue156_source_examples.py pinned-coptic
 
+      - name: Audit original entity/name TT source examples
+        run: PYTHONPATH=. python tests/live_issue159_source_samples.py pinned-coptic
+
       - name: Install pinned Text-Fabric for native conversion and reload
         run: python -m pip install 'text-fabric==13.1.0'
 
@@ -132,6 +139,7 @@ jobs:
           python tests/live_issue146_full_native.py "$RUNNER_TEMP/issue110-full-native/tf" pinned-coptic
           python tests/live_issue153_full_native.py "$RUNNER_TEMP/issue110-full-native/tf" pinned-coptic
           python tests/live_issue156_full_native.py "$RUNNER_TEMP/issue110-full-native/tf" pinned-coptic
+          python tests/live_issue159_full_native.py "$RUNNER_TEMP/issue110-full-native/tf" pinned-coptic
           python tests/live_issue109_profile_gate.py "$RUNNER_TEMP/issue110-full-report.json"
 
       - name: Report full-source operational resource diagnostics

@@ -224,6 +224,40 @@ UD dependency or Greek/LXX mapping follows merely from these tags.
 The original source constraints and coverage gates are in
 `research/issue-156/RESEARCH_PLAN.md`.
 
+### Original entity/name source labels
+
+Nine original TT tags are preserved as **native non-slot Text-Fabric node
+types**: `entity_head_tok`, `entity_text`, `entity_identity`,
+`persName_type`, `placeName_type`, `placeName_ref`, `roleName_type`,
+`rs_type` and `org_type`.
+
+~~~python
+for n in api.F.otype.s("placeName_ref")[:10]:
+    print(
+        api.F.source_record_id.v(n),
+        api.F.source_ordinal.v(n),
+        api.F.value.v(n),           # exact upstream ref, e.g. "paths:places:32"
+        api.F.render_mode.v(n),     # entity_label_span / entity_label_anchor
+        api.F.start_char.v(n),
+        api.F.end_char.v(n),
+        tuple(api.E.oslots.s(n)),
+    )
+~~~
+
+A `entity_label_span` encloses complete original Coptic norm words;
+`entity_label_anchor` denotes an exact source position inside or between
+words. **Neither implies an ontology equivalence.** An upstream
+`entity_identity="Sarah"` or `placeName_ref="paths:places:32"`
+is preserved literally, not automatically resolved to Wikidata, an LXX
+referent, or a verified scholarly authority. These nine original spans are
+also **not conflated with existing interpreted `entity` nodes**: any
+future association or head-word mapping requires demonstrable source
+provenance, never coincident surface forms. Crossed original TT tags need
+independent occurrence IDs rather than invented XML parent nesting.
+
+Primary source witnesses and restrictions are in
+`research/issue-159/RESEARCH_PLAN.md`.
+
 ## Normalized and diplomatic text
 
 The writer defines native TF text formats when the corresponding data exists:
