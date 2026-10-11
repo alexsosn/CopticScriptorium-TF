@@ -53,6 +53,22 @@ class EditionValueSourceParityTests(unittest.TestCase):
         )
         self.assertEqual(counts["ed_line_n"],1)
 
+    def test_original_html_entities_follow_parser_value_semantics(self):
+        source=b'<ed_page_n ed_page_n="A&amp;B"></ed_page_n>'
+        report=compare_pinned_edition_literals(
+            [("a/a:one",source)],
+            {("a/a:one",1):("ed_page_n","A&B")},
+        )
+        self.assertEqual(report["ed_page_n"],1)
+
+    def test_whitespace_around_source_equals_is_permitted(self):
+        source=b'<ed_pg_n ed_pg_n = "0001"></ed_pg_n>'
+        report=compare_pinned_edition_literals(
+            [("a/a:one",source)],
+            {("a/a:one",1):("ed_pg_n","0001")},
+        )
+        self.assertEqual(report["ed_pg_n"],1)
+
     def test_missing_or_duplicate_original_literal_is_an_error(self):
         for data in (
             b'<ed_page_n class="p"></ed_page_n>',
