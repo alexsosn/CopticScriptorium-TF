@@ -7,6 +7,7 @@ whole-word span and document CTS metadata. Source bytes are never edited.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
 import re
 
 from .model import DocumentModel
@@ -32,6 +33,8 @@ def paired_word_verses(document: DocumentModel) -> tuple[Pair | None, ...]:
     """
     if document.source_record_id != PHYSICAL_RECORD:
         return ()
+    if sha256(document.source_text.encode("utf-8")).hexdigest() != document.source_sha256:
+        raise ValueError("source bytes do not match the claimed Coptic TT SHA256")
     human_stack: list[str] = []
     editor_stack: list[str] = []
     word_open = False
@@ -98,7 +101,7 @@ def source_pair_for_sbl(
     """Require EVERY fully enclosed original Coptic word to share both labels."""
     if document.source_record_id != PHYSICAL_RECORD or not word_ordinals:
         return None
-    if any(not isinstance(i, int) or i < 1 or i > len(word_pairs)
+    if any(type(i) is not int or i < 1 or i > len(word_pairs)
            for i in word_ordinals):
         return None
     scoped = {word_pairs[i - 1] for i in word_ordinals}
