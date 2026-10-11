@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Iterable, Iterator, Sequence
 
-from .model import DocumentModel, LayoutEvent, SupplementalWord, TOKEN_WRAPPER_TYPES
+from .model import DocumentModel, LayoutEvent, SupplementalWord, TOKEN_WRAPPER_TYPES, EDITION_WRAPPER_TYPES
 
 NODE_TYPE_ORDER = (
     "document", "sentence", "orig_group", "norm_group", "orig",
@@ -14,6 +14,7 @@ NODE_TYPE_ORDER = (
     "entity", "translation", "arabic_translation",
     "sbl_greek", "sbl_apparatus", "lang",
     *TOKEN_WRAPPER_TYPES,
+    *EDITION_WRAPPER_TYPES,
 )
 LAYOUT_TYPES = {"page", "column", "line"}
 VERSE_POSITION_TYPES = {"verse_n_marker", "vid_n_marker", "verse_vid_marker"}
@@ -249,9 +250,11 @@ def _check_document(document: DocumentModel) -> None:
         *((item, "sbl") for item in document.sbl_annotations),
         *((item, "lang") for item in document.language_annotations),
         *((item, "token") for item in document.token_annotations),
+        *((item, "edition") for item in document.edition_annotations),
     ):
         accepted_kinds = (
             TOKEN_WRAPPER_TYPES if expected_kind == "token" else
+            EDITION_WRAPPER_TYPES if expected_kind == "edition" else
             ("lang",) if expected_kind == "lang" else ("sbl_greek", "sbl_apparatus")
         )
         if not isinstance(annotation.value, str) or annotation.kind not in accepted_kinds:
@@ -496,9 +499,10 @@ def build_graph(
                     )
                     entity_ids[(record, item.ordinal)] = node.id
                     entity_heads.append((node.id, document, item.head_word_ordinal))
-            elif otype in {"sbl_greek", "sbl_apparatus", "lang"} or otype in TOKEN_WRAPPER_TYPES:
+            elif otype in {"sbl_greek", "sbl_apparatus", "lang"} or otype in TOKEN_WRAPPER_TYPES or otype in EDITION_WRAPPER_TYPES:
                 source_items = (
-                    document.token_annotations if otype in TOKEN_WRAPPER_TYPES
+                    document.edition_annotations if otype in EDITION_WRAPPER_TYPES
+                    else document.token_annotations if otype in TOKEN_WRAPPER_TYPES
                     else document.language_annotations if otype == "lang"
                     else document.sbl_annotations
                 )
@@ -522,7 +526,9 @@ def build_graph(
                         value=item.value,
                         sbl_verse_n=item.source_verse_n if otype in {"sbl_greek", "sbl_apparatus"} else None,
                         render_mode=(
-                            "token_annotation_anchor" if otype in TOKEN_WRAPPER_TYPES
+                            ("edition_span" if whole_words else "edition_anchor")
+                            if otype in EDITION_WRAPPER_TYPES
+                            else "token_annotation_anchor" if otype in TOKEN_WRAPPER_TYPES
                             else ("lang_span" if whole_words else "lang_anchor")
                             if otype == "lang"
                             else ("sbl_span" if whole_words else "sbl_anchor")
@@ -718,11 +724,13 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
                 errors.append(f"{node.otype} node {node.id} must render own text")
         if node.otype in LAYOUT_TYPES and (node.render_mode != "own_text" or node.text is None):
             errors.append(f"layout node {node.id} must render own text")
-        if node.otype in {"sbl_greek", "sbl_apparatus", "lang"} or node.otype in TOKEN_WRAPPER_TYPES:
-            annotation = ("token" if node.otype in TOKEN_WRAPPER_TYPES else
+        if node.otype in {"sbl_greek", "sbl_apparatus", "lang"} or node.otype in TOKEN_WRAPPER_TYPES or node.otype in EDITION_WRAPPER_TYPES:
+            annotation = ("edition" if node.otype in EDITION_WRAPPER_TYPES else
+                          "token" if node.otype in TOKEN_WRAPPER_TYPES else
                           "lang" if node.otype == "lang" else "sbl_")
             valid_modes = (
-                {"token_annotation_anchor"} if node.otype in TOKEN_WRAPPER_TYPES
+                {"edition_span", "edition_anchor"} if node.otype in EDITION_WRAPPER_TYPES
+                else {"token_annotation_anchor"} if node.otype in TOKEN_WRAPPER_TYPES
                 else {"lang_span", "lang_anchor"} if node.otype == "lang"
                 else {"sbl_span", "sbl_anchor"}
             )
@@ -734,7 +742,7 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
                 errors.append(f"{annotation} annotation node {node.id} lacks boundary positions")
             elif node.start_after_word_ordinal > node.end_after_word_ordinal:
                 errors.append(f"{annotation} annotation node {node.id} has inverted bounds")
-            if node.render_mode in {"sbl_anchor", "lang_anchor", "token_annotation_anchor"} and len(node.slots) != 1:
+            if node.render_mode in {"sbl_anchor", "lang_anchor", "token_annotation_anchor", "edition_anchor"} and len(node.slots) != 1:
                 errors.append(f"{annotation} anchor node {node.id} must link one source word")
         if node.otype in VERSE_POSITION_TYPES:
             if node.label is None or node.start_char is None or node.start_char <= 0:
