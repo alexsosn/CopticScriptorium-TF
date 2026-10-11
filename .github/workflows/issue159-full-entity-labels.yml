@@ -1,0 +1,73 @@
+name: issue159-full-entity-name-label-conservation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue159-full-entity-labels.yml'
+      - 'copticscriptorium_tf/model.py'
+      - 'copticscriptorium_tf/parser.py'
+      - 'copticscriptorium_tf/_graph_core.py'
+      - 'copticscriptorium_tf/writer.py'
+      - 'tests/test_issue159_entity_label_conservation.py'
+      - 'tests/live_issue159_source_parity.py'
+      - 'research/issue-159/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  full-source-parity:
+    name: Full immutable 8827 native entity/name labels
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out exact Coptic candidate head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact reviewed head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Text-Fabric and run RED-first fixture tests
+        run: |
+          python -m pip install 'text-fabric==13.1.0'
+          python -m unittest tests.test_issue159_entity_label_conservation -v
+
+      - name: Acquire all and only immutable Coptic TT files
+        uses: actions/checkout@v4
+        timeout-minutes: 36
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*/*_TT/**
+            /*/*_TT.zip
+
+      - name: Validate pinned Coptic upstream Git revision
+        run: test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+
+      - name: Count all nine original source tag types and native parsed occurrences
+        timeout-minutes: 22
+        run: /usr/bin/time -v python tests/live_issue159_source_parity.py pinned-coptic
+
+      - name: Report scratch use without publishing copyrighted corpus
+        if: always()
+        run: df -h "$RUNNER_TEMP"
