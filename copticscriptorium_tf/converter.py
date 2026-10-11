@@ -6,7 +6,7 @@ It does not independently audit or certify upstream corpus data.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import gc
 import json
 from pathlib import Path
@@ -57,6 +57,8 @@ class ConversionResult:
     write_seconds: float
     peak_rss_mb: float
     missing_license_metadata_source_records: tuple[str, ...]
+    # Memory measurements are diagnostic, never a corpus certification.
+    phase_memory_mb: dict[str, dict[str, float | None]] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -75,6 +77,41 @@ def _peak_rss_mb() -> float:
     if sys.platform == "darwin":
         return value / (1024.0 * 1024.0)
     return value / 1024.0
+
+
+def _parse_linux_vmrss_kib(status: str) -> int | None:
+    """Instantaneous Linux RSS in KiB; neither VmHWM nor process peak.
+
+    A strict decimal range avoids propagating zero, malformed strings,
+    overflow-like values or source data into the operational summary.
+    """
+    if not isinstance(status, str):
+        return None
+    match = re.search(r"^VmRSS:[ \\t]+([0-9]{1,15})[ \\t]+kB[ \\t]*$", status, re.M)
+    if match is None:
+        return None
+    value = int(match.group(1))
+    return value if value > 0 else None
+
+
+def _current_rss_mb() -> float | None:
+    """Return current Linux VmRSS MiB, otherwise None (never fabricated 0)."""
+    if not sys.platform.startswith("linux"):
+        return None
+    try:
+        status = Path("/proc/self/status").read_text(encoding="ascii")
+    except (OSError, UnicodeError):
+        return None
+    kib = _parse_linux_vmrss_kib(status)
+    return None if kib is None else kib / 1024.0
+
+
+def _memory_checkpoint() -> dict[str, float | None]:
+    """Two different measurements: instantaneous RSS and RUSAGE high water."""
+    return {
+        "current_rss_mb": _current_rss_mb(),
+        "peak_rss_mb": _peak_rss_mb(),
+    }
 
 
 def convert_source_tree(
@@ -104,6 +141,7 @@ def convert_source_tree(
     )
     parse_seconds = monotonic() - parse_started
     source_records = len(documents)
+    phase_memory_mb = {"after_parse": _memory_checkpoint()}
     if not documents:
         raise ValueError(f"no supported TT source records found under {Path(source_root)}")
 
@@ -123,15 +161,18 @@ def convert_source_tree(
     slots = len(graph.slots)
     nodes = len(graph.nodes)
     edges = len(graph.edges)
+    phase_memory_mb["after_graph"] = _memory_checkpoint()
 
     # The graph is self-contained. Do not retain the complete parser model while
     # the writer constructs another large representation for Fabric.save().
     del documents
     gc.collect()
+    phase_memory_mb["after_release_source"] = _memory_checkpoint()
 
     write_started = monotonic()
     output_path = write_graph(graph, target)
     write_seconds = monotonic() - write_started
+    phase_memory_mb["after_write"] = _memory_checkpoint()
 
     tf_paths = tuple(output_path.glob("*.tf"))
     return ConversionResult(
@@ -147,6 +188,7 @@ def convert_source_tree(
         write_seconds=write_seconds,
         peak_rss_mb=_peak_rss_mb(),
         missing_license_metadata_source_records=missing_license_metadata_source_records,
+        phase_memory_mb=phase_memory_mb,
     )
 
 
