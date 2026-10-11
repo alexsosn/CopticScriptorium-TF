@@ -8,6 +8,9 @@ on:
       - 'tests/live_issue110_wrapper_census.py'
       - 'tests/live_issue110_full_native.py'
       - 'tests/live_issue135_full_native.py'
+      - 'tests/live_issue140_full_native.py'
+      - 'tests/live_issue140_source_examples.py'
+      - 'tests/test_issue140_edition_annotations.py'
       - 'tests/live_issue135_source_examples.py'
       - 'tests/test_issue135_token_wrappers.py'
       - 'copticscriptorium_tf/_graph_core.py'
@@ -72,6 +75,9 @@ jobs:
       - name: Check source token/morph events independently on pinned AP and Proclus TT
         run: PYTHONPATH=. python tests/live_issue135_source_examples.py pinned-coptic
 
+      - name: Independently audit edition layout sample sources before TF install
+        run: PYTHONPATH=. python tests/live_issue140_source_examples.py pinned-coptic
+
       - name: Install pinned Text-Fabric for native conversion and reload
         run: python -m pip install 'text-fabric==13.1.0'
 
@@ -84,6 +90,7 @@ jobs:
               --output "$RUNNER_TEMP/issue110-full-report.json"
           python tests/live_issue110_full_native.py "$RUNNER_TEMP/issue110-full-native/tf"
           python tests/live_issue135_full_native.py "$RUNNER_TEMP/issue110-full-native/tf"
+          python tests/live_issue140_full_native.py "$RUNNER_TEMP/issue110-full-native/tf"
 
       - name: Report full-source operational resource diagnostics
         if: always()
