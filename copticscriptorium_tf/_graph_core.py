@@ -742,6 +742,10 @@ def graph_fingerprint(graph: Graph) -> str:
              node.render_mode, node.event_ordinal, node.start_word_ordinal, node.start_char,
              node.start_after_word_ordinal, node.end_word_ordinal, node.end_char,
              node.end_after_word_ordinal)
+        # Keep hashes of unrelated legacy graphs unchanged. The additional
+        # provenance field must still contribute when it actually exists.
+        if node.sbl_verse_n is not None:
+            emit("sbl_verse_n", node.id, node.sbl_verse_n)
     for edge in graph.edges:
         emit("edge", edge.kind, edge.source, edge.target, edge.classification, edge.family,
              edge.witness_literal, edge.target_scholarly_id)
