@@ -6,7 +6,11 @@ on:
       - '.github/workflows/issue97-crosswalk.yml'
       - 'tests/live_issue97_crosswalk.py'
       - 'tests/test_issue97_edition_crosswalk.py'
-      - 'research/issue-97/**\n      - 'copticscriptorium_tf/lxx_versification.py'\n      - 'copticscriptorium_tf/lxx_reference.py'\n      - 'copticscriptorium_tf/lxx_module.py'\n      - 'copticscriptorium_tf/lxx_modules.py''
+      - 'research/issue-97/**'
+      - 'copticscriptorium_tf/lxx_versification.py'
+      - 'copticscriptorium_tf/lxx_reference.py'
+      - 'copticscriptorium_tf/lxx_module.py'
+      - 'copticscriptorium_tf/lxx_modules.py'
   workflow_dispatch:
 
 permissions:
