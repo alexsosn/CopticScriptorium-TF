@@ -305,6 +305,7 @@ def parse_tt_record(
                         "edition" if name in EDITION_WRAPPER_TYPES else
                         "multiword" if name in MULTIWORD_WRAPPER_TYPES else
                         "reference" if name in REFERENCE_WRAPPER_TYPES else
+                        "entity label" if name in ENTITY_LABEL_WRAPPER_TYPES else
                         "editorial" if name in EDITORIAL_WRAPPER_TYPES else
                         "lang" if name == "lang" else "sbl_")
                 raise ValueError(f"{kind} annotation {name} has no source value in {source_record_id}")
