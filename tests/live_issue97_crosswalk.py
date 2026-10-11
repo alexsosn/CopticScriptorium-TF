@@ -87,21 +87,21 @@ def run(upstream: Path, lxx_dir: Path) -> None:
             (1, 18): 1, (1, 19): 2, (1, 20): 3, (1, 21): 4,
             (2, 1): 5, (2, 2): 6, (2, 3): 7,
             (2, 4): 8, (2, 5): 9, (2, 6): 10,
+            **{(2, v): v + 4 for v in range(7, 14)},
         }
         candidates = []
         for chapter, doc in enumerate(docs[:2], 1):
             refs = resolve_coptic_lxx_references(doc, lookup=greek_verse)
             focus = [r for r in refs if (chapter, int(r.source_verse_n or "0")) in expected_by_source]
-            assert len(focus) == (4 if chapter == 1 else 6), (chapter, len(focus))
+            assert len(focus) == (4 if chapter == 1 else 13), (chapter, len(focus))
             if chapter == 2:
-                # Real unreviewed remainder must stay visible but unlinked:
-                # same-number Greek references exist yet would be misleading.
-                unreviewed = [r for r in refs if r.source_verse_n and
-                              r.source_verse_n.isascii() and r.source_verse_n.isdecimal()
-                              and int(r.source_verse_n) >= 7]
-                assert unreviewed, "pinned Bohairic Zech 2 has no boundary-control verses"
+                # Remap only the 13 *individually source-evidenced* chapter-2
+                # verses. An unreviewed future source 2:14+ remains ambiguous.
+                tail = [r for r in refs if r.source_verse_n and
+                        r.source_verse_n.isascii() and r.source_verse_n.isdecimal()
+                        and int(r.source_verse_n) >= 14]
                 assert all(r.status == "ambiguous" and r.shared_id is None
-                           and r.lxx_node is None for r in unreviewed)
+                           and r.lxx_node is None for r in tail)
             for ref in focus:
                 source_verse = int(ref.source_verse_n)
                 target = expected_by_source[(chapter, source_verse)]
@@ -120,7 +120,7 @@ def run(upstream: Path, lxx_dir: Path) -> None:
             docs, coptic_api=coptic, lxx_api=greek,
             lxx_tf_dir=lxx_dir, destination=output,
         )
-        assert summary["versification_candidate"] == 10, summary
+        assert summary["versification_candidate"] == 17, summary
         assert not any(output.rglob("otype.tf"))
         assert not any(output.rglob("oslots.tf"))
         assert not any(output.rglob("*.json"))
@@ -134,7 +134,7 @@ def run(upstream: Path, lxx_dir: Path) -> None:
         assert coptic_added and greek_added
         assert coptic_added.F.otype.maxSlot == coptic.F.otype.maxSlot
         assert greek_added.F.otype.maxSlot == 623693
-        for target in range(1, 11):
+        for target in range(1, 18):
             node = greek_added.T.nodeFromSection(("Zech", 2, target))
             assert greek_added.F.coptic_lxx_ref_id.v(node) == f"CenterBLC/LXX:1935:Zech:2:{target}"
         for doc in docs[:2]:
@@ -153,19 +153,18 @@ def run(upstream: Path, lxx_dir: Path) -> None:
                            for n in verse_words)
                 raw_tail = [n for n in source_words if
                             (coptic_added.F.verse_n.v(n) or "").isdecimal() and
-                            int(coptic_added.F.verse_n.v(n)) >= 7]
-                assert raw_tail
+                            int(coptic_added.F.verse_n.v(n)) >= 14]
                 assert all(coptic_added.F.coptic_lxx_ref_status.v(n) == "ambiguous" and
                            coptic_added.F.coptic_lxx_ref_id.v(n) is None
                            for n in raw_tail)
         print(json.dumps({
             "result": "PASS pinned byte-qualified edition-local Bohairic Zechariah crosswalk",
-            "status": "ten versification candidates, not verified translation pairs",
+            "status": "seventeen versification candidates, not verified translation pairs",
             "version": BOHAIRIC_ZECH_CROSSWALK_VERSION,
             "source_chapter_sha256": BOHAIRIC_ZECH_CHAPTER_SHA,
             "coptic_source_documents": len(docs),
             "crosswalk_candidate_source_spans": len(candidates),
-            "pinned_greek_target_verses": 10,
+            "pinned_greek_target_verses": 17,
             "summary": summary,
             "coptic_git": COPTIC_PIN,
             "lxx_git": LXX_PIN,

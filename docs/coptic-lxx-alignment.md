@@ -80,7 +80,7 @@ not to all published Coptic biblical witnesses or a new critical edition.
 
 ## Edition-qualified Zechariah numbering candidates — #97
 
-The source-byte-locked v1 policy `bohairic-zach-lxx1935-v1` addresses
+The source-byte-locked v2 policy `bohairic-zach-lxx1935-v2` addresses
 a concrete Greek/Coptic versification mismatch. It is **not** a global Zechariah
 chapter shift, nor a certified bilingual/word alignment.
 
@@ -88,6 +88,7 @@ chapter shift, nor a certified bilingual/word alignment.
 | --- | --- |
 | Bohairic `ot.zach.bohairic_ed` 1:18–21 | LXX Zech 2:1–4 |
 | Bohairic `ot.zach.bohairic_ed` 2:1–6 | LXX Zech 2:5–10 |
+| Bohairic `ot.zach.bohairic_ed` 2:7–13 | LXX Zech 2:11–17 |
 
 The positive candidate rules apply only to `bohairic.ot` Zechariah chapter
 1 and 2 with their exact 2 physical source-record IDs, upstream Git commit
@@ -95,7 +96,7 @@ and **per-record TT SHA-256**. A mismatched source-byte identity is not
 silently accepted as a same-number reference. Sahidic `ot.zech.coptot`
 and unrelated works/chapters are never shifted.
 
-**Measured post-crosswalk source/Greek coverage.** The real pinned full-corpus
+**Historical v1 crosswalk census (before v2's seven-verse extension).** The real pinned full-corpus
 audit (CI run `38122380197`, job `114419601027`, exact Coptic/LXX
 upstream Git revisions) reports **21,117 distinct Greek verse-address IDs**
 and preserves all **2,394,354 Coptic word slots**. This is three fewer
@@ -109,11 +110,12 @@ translation alignment. Full native TF reload acceptance is a separate CI
 gate.
 
 **Fail-closed remainder:** Because Bohairic Zechariah chapter 2 has
-source-specific numbering, **verses 2:7 onward remain `ambiguous`**
-until independently audited; they must not silently map to existing
-identically numbered Rahlfs verses. Those words retain original Coptic
+source-specific numbering, **verses 2:14 onward remain `ambiguous`**
+until individually audited; they must not silently map to existing
+identically numbered Rahlfs verses. Such words retain original Coptic
 verse markers and a native mapping reason, but no Greek reference ID.
-This prevents speculative extrapolation of the 10 reviewed candidates.
+The v2 addition reviews 7 consecutive pairs individually, rather than
+assuming that any unexamined chapter or edition obeys an arithmetic offset.
 
 The source's `verse_n`, `vid_n`, `verse_vid`, original CTS, and
 `source_record_id` stay unchanged. Only the derived native cross-reference
@@ -125,7 +127,12 @@ carry the versioned rule and its caution.
 **Evidence limits:** pinned real CI found 4/4 source Brenton English
 lexical motifs consistent with the 1:18–21 → 2:1–4 correspondence and 6/6
 for 2:1–6 → 2:5–10, versus 0/6 matches for the competing same-number
-Bohairic chapter-2 addresses. Real parent-Coptic/Greece tests reload two
+Bohairic chapter-2 addresses. Issue #111's real pinned CI subsequently
+confirmed Bohairic 2:7–13 ↔ Greek 2:11–17 as seven distinct source-byte-
+qualified *numbering candidates*: all 14/14 curated source-English and
+Greek lexical motifs were present at shifted targets (2/2 per verse), while
+the same-number Greek controls scored 0/14. This is an annotation-aided
+reference-numbering hypothesis, not source-language translation proof. Real parent-Coptic/Greece tests reload two
 native weft-only TF modules on their own warps. Because the English source
 annotations themselves cite Brenton 1851 and Sahidic translations may be
 missing, this evidence justifies a **reviewable edition-qualified reference

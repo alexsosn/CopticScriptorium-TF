@@ -9,6 +9,7 @@ on:
       - 'tests/test_issue105_verse_marker_topology.py'
       - 'research/issue-105/**'
       - 'copticscriptorium_tf/lxx_reference.py'
+      - 'copticscriptorium_tf/lxx_versification.py'
       - 'copticscriptorium_tf/ot_inventory.py'
       - 'tests/test_issue80_lxx_coverage.py'
       - 'tests/live_issue80_full_lxx_coverage.py'

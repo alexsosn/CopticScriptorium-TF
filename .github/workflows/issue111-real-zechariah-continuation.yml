@@ -1,0 +1,73 @@
+name: issue111-pinned-Coptic-LXX-Zechariah-continuation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue111-real-zechariah-continuation.yml'
+      - 'tests/live_issue111_zechariah_remainder.py'
+      - 'research/issue-111/**'
+      - 'copticscriptorium_tf/lxx_versification.py'
+      - 'tests/test_issue111_zechariah_continuation.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-source-seven-verse-batch:
+    name: Bohairic Zech2:7-13 vs real LXX Zech2:11-17 candidates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact Coptic research head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact tested source head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+      - name: RED-first seven-verse production mapping and negative tests
+        run: |
+          python -m unittest tests.test_issue111_zechariah_continuation -v
+          python -m unittest tests.test_issue97_edition_crosswalk -v
+      - name: Fetch only immutable Bohairic Zechariah TT ZIP
+        uses: actions/checkout@v4
+        timeout-minutes: 15
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /bohairic.ot/bohairic.ot_TT.zip
+      - name: Fetch immutable Greek Text-Fabric parent
+        uses: actions/checkout@v4
+        timeout-minutes: 12
+        with:
+          repository: CenterBLC/LXX
+          ref: f32a98eddf7eb239aa73ab863d70381e416d5076
+          path: pinned-lxx
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout: |
+            tf/1935
+      - name: Verify both exact pinned parent commits
+        run: |
+          test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C pinned-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
+      - name: Independently check all seven remainder pairs against source and Greek
+        timeout-minutes: 8
+        run: python tests/live_issue111_zechariah_remainder.py pinned-coptic pinned-lxx/tf/1935
+      - name: Show scratch capacity; do not publish source corpus
+        if: always()
+        run: df -h "$RUNNER_TEMP"
