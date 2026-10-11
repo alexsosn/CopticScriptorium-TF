@@ -91,14 +91,23 @@ def resolve_coptic_sbl_references(
     documented_work = source_info[1] if source_info else None
     documented_label = source_info[2] if source_info else None
     documented_book_name = source_info[3] if source_info else None
+    physical_dataset_matches = (
+        document.dataset == "coptic.treebank"
+        if family == "coptic-treebank"
+        else document.dataset == family
+    )
     attested = (
         source_info is not None
         and physical_family in REVIEWED_PACKAGES
-        and (physical_family == family)
+        and physical_family == family
+        and physical_dataset_matches
         and (family == "coptic-treebank"
              or (meta.get("corpus") or "").strip() == family)
         and (meta.get("book") or "").strip() == documented_book_name
         and SOURCE_PROVENANCE_MARKER in (meta.get("Greek_source") or "")
+    )
+    duplicated_identity = frozenset(document.metadata_duplicates) & frozenset(
+        ("book", "chapter", "corpus", "document_cts_urn", "Greek_source")
     )
     doc_cts = CTS_DOCUMENT.fullmatch((meta.get("document_cts_urn") or "").strip())
 
@@ -118,7 +127,9 @@ def resolve_coptic_sbl_references(
         label = next(iter(raw_label)) if len(raw_label) == 1 else None
         evidence = "book+chapter+document_cts_urn+verse_n+vid_n+verse_vid+" + annotation.kind
 
-        if not attested:
+        if duplicated_identity:
+            status, reason = "ambiguous", "duplicate source identity or provenance metadata"
+        elif not attested:
             status, reason = "unclassified_source", "unreviewed NT source or missing Greek provenance"
         elif not indices or len(words) != len(indices):
             status, reason = "unresolved", "SBL occurrence has no fully enclosed Coptic word span"
