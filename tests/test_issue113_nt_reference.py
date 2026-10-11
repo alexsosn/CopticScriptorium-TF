@@ -71,6 +71,24 @@ class GreekNtReferences(unittest.TestCase):
         self.assertEqual(c.status,"unclassified_source")
         self.assertEqual(calls,[])
 
+    def test_duplicate_conflicting_identity_metadata_not_accepted(self):
+        d=make_doc()
+        d=replace(d,metadata_duplicates={
+            **d.metadata_duplicates,"book":("Mark","John")
+        })
+        calls=[]
+        c,=resolve_coptic_sbl_references(d,lookup=lambda *key:calls.append(key) or 111)
+        self.assertEqual(c.status,"ambiguous")
+        self.assertEqual(calls,[])
+
+    def test_wrong_physical_dataset_not_trusted_as_reviewed_source(self):
+        d=make_doc()
+        d=replace(d,dataset="forged",source_record_id="sahidica.mark/forged:Mark_02")
+        calls=[]
+        c,=resolve_coptic_sbl_references(d,lookup=lambda *key:calls.append(key) or 111)
+        self.assertEqual(c.status,"unclassified_source")
+        self.assertEqual(calls,[])
+
     def test_1cor_real_alias_uses_parent_canonical_book(self):
         d = make_doc(book="1Cor",work="1cor",code="46N",annot_kind="sbl_apparatus")
         c, = resolve_coptic_sbl_references(d,lookup=lambda b,c,v: 19 if (b,c,v)==("1_Corinthians",2,1) else None)
