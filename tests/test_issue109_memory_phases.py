@@ -64,7 +64,14 @@ class MemoryPhaseResearchTests(TestCase):
             self.assertTrue((Path(tmp)/"tf"/"otype.tf").is_file())
 
     def test_smoke_reloader_checkpoint_has_distinct_label(self):
-        from research.issue_16.full_converter_smoke import run
+        import importlib.util
+        module_path=Path(__file__).resolve().parents[1]/"research"/"issue-16"/"full_converter_smoke.py"
+        spec=importlib.util.spec_from_file_location("_issue16_memory_smoke",module_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        run=module.run
         with TemporaryDirectory() as tmp:
             source=Path(tmp)/"source"
             source.mkdir()
