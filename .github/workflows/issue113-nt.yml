@@ -1,0 +1,57 @@
+name: issue113-Coptic-NT-reference-candidates
+
+on:
+  pull_request:
+    paths:
+      - 'copticscriptorium_tf/nt_reference.py'
+      - 'tests/test_issue113_nt_reference.py'
+      - 'tests/live_issue113_nt_reference.py'
+      - '.github/workflows/issue113-nt.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue113-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nt-pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run fail-closed NT resolver regressions
+        run: python -m unittest discover -s tests -p 'test_issue113_*.py' -v
+      - name: Install pinned native Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+      - name: Checkout pinned Coptic Mark / 1Cor TT evidence
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /sahidica.mark/sahidica.mark_TT/Mark_02.tt
+            /sahidica.1corinthians/sahidica.1corinthians_TT/1Cor_02.tt
+            /coptic-treebank/coptic.treebank_TT/Mark_02.tt
+          persist-credentials: false
+      - name: Checkout independent exact pinned Greek NT parent
+        uses: actions/checkout@v4
+        with:
+          repository: alexsosn/sblgnt
+          ref: 4dd0207bda66133fdfa9740ff0aae7de61228700
+          path: pinned-greek
+          persist-credentials: false
+      - name: Verify real Coptic SBL wrappers against Greek verse nodes
+        run: python tests/live_issue113_nt_reference.py pinned-coptic pinned-greek
