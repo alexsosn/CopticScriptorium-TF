@@ -26,7 +26,7 @@ REVIEWED_PACKAGES = frozenset((*REVIEWED_SOURCES, "coptic-treebank"))
 CTS_DOCUMENT = re.compile(r"^urn:cts:copticLit:nt\.([a-z0-9]+)\.sahidica_ed:([1-9][0-9]*)$")
 CTS_VERSE = re.compile(r"^urn:cts:copticLit:nt\.([a-z0-9]+)\.sahidica_ed:([1-9][0-9]*)\.([1-9][0-9]*)$")
 VERSE_LABEL = re.compile(r"^(41N|46N) ([1-9][0-9]*):([1-9][0-9]*)$")
-MORPHGNT_ABSENT = frozenset({("John", 7, 53)} | {("John", 8, n) for n in range(1, 12)})
+MORPHGNT_ABSENT = frozenset({("Mark", 15, 28), ("John", 7, 53)} | {("John", 8, n) for n in range(1, 12)})
 
 Status = Literal["reference_candidate", "unresolved", "ambiguous",
                  "edition_unavailable", "unclassified_source"]
@@ -53,7 +53,7 @@ class CopticSblReference:
 
 
 def morphgnt_verse_is_absent(book: str, chapter: int, verse: int) -> bool:
-    """Explicitly reviewed Faithlife-v1.2 additions missing from MorphGNT."""
+    """Only documented absent verse addresses in the exact pinned MorphGNT parent."""
     return (book, chapter, verse) in MORPHGNT_ABSENT
 
 

@@ -90,7 +90,8 @@ def audit(coptic_root: Path, greek_root: Path) -> dict:
         expected_statuses={
             "reference_candidate": 2301,
             "ambiguous": 437,
-            "unresolved": 9,
+            "unresolved": 8,
+            "edition_unavailable": 1,
         },
         expected_annotated=EXPECTED_ANNOTATED,
         expected_total=sum(EXPECTED_KINDS.values()),
