@@ -97,6 +97,16 @@ class NativeLanguageSourceSpanTests(unittest.TestCase):
             '<lang lang="">a</lang></norm></norm_group>'
         )
         self.assertEqual(doc.language_annotations[0].value, "")
+        # Present-empty evidence must not collapse into a missing TF feature.
+        with TemporaryDirectory() as root:
+            target = Path(root) / "tf"
+            write_graph(build_graph((doc,)), target)
+            api = Fabric(locations=[str(target)], silent="deep").load(
+                "value", silent="deep"
+            )
+            self.assertTrue(api)
+            self.assertEqual(len(api.F.otype.s("lang")), 1)
+            self.assertEqual(api.F.value.v(api.F.otype.s("lang")[0]), "")
 
     def test_native_tf_reload_has_source_lang_nodes_and_char_positions(self):
         doc = parse(
