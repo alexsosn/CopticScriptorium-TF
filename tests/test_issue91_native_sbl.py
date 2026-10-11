@@ -98,6 +98,25 @@ class SblAnnotationsTests(unittest.TestCase):
         self.assertEqual(node.slots, (1,))
         self.assertEqual((node.start_char, node.end_char), (1, 3))
 
+    def test_midword_open_excludes_partial_first_word_from_span(self):
+        raw = (
+            '<meta corpus="a"><norm_group norm_group="abc">'
+            '<norm xml:id="u1" new_sent="true" func="root" norm="abc">'
+            'a<sbl_greek sbl_greek="Greek">bc</norm></norm_group>'
+            '<norm_group norm_group="d">'
+            '<norm xml:id="u2" func="root" norm="d">d</norm></norm_group>'
+            '</sbl_greek>'
+        )
+        doc = parse(raw)
+        annotation, = doc.sbl_annotations
+        self.assertEqual(annotation.start_char, 1)
+        self.assertEqual(annotation.word_ordinals, (2,))
+        graph = build_graph([doc])
+        self.assertEqual(validate_graph(graph), ())
+        node, = [n for n in graph.nodes if n.otype == "sbl_greek"]
+        self.assertEqual(node.render_mode, "sbl_span")
+        self.assertEqual(node.slots, (2,))
+
     def test_two_repeated_greek_annotations_preserve_order_and_distinct_values(self):
         raw = ('<meta corpus="a"><sbl_greek sbl_greek="first">'
                + norm(1, "a", sentence=True) +
