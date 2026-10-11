@@ -2,7 +2,7 @@
 from dataclasses import replace
 import unittest
 
-from tests.test_issue113_nt_reference import make_doc
+from test_issue113_nt_reference import make_doc
 from copticscriptorium_tf.nt_reference import (
     MORPHGNT_ABSENT, morphgnt_verse_is_absent, resolve_coptic_sbl_references,
 )
