@@ -188,7 +188,7 @@ def assert_native(doc):
             for key, _ in item.attributes:
                 feature = _source_attr_feature_name(item.kind, key)
                 raw_feature = (directory / f"{feature}.tf").read_text(encoding="utf-8")
-                header = raw_feature.split("\\n\\n", 1)[0]
+                header = raw_feature.split("\n\n", 1)[0]
                 assert f"@sourceTag={item.kind}" in header, (doc.source_record_id, feature)
                 assert f"@sourceKey={key}" in header, (doc.source_record_id, feature)
         api = Fabric(locations=[str(directory)], silent="deep").load(
