@@ -1,0 +1,84 @@
+name: issue97-source-byte-locked-Coptic-LXX-verse-crosswalk
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue97-crosswalk.yml'
+      - 'tests/live_issue97_crosswalk.py'
+      - 'tests/test_issue97_edition_crosswalk.py'
+      - 'research/issue-97/**'
+      - 'copticscriptorium_tf/lxx_versification.py'
+      - 'copticscriptorium_tf/lxx_reference.py'
+      - 'copticscriptorium_tf/lxx_module.py'
+      - 'copticscriptorium_tf/lxx_modules.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-zechariah-cts-and-greek:
+    name: Pinned Bohairic Zechariah byte-locked native Coptic↔LXX TF modules
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out exact Coptic diagnostic source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact tested diagnostic head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned native Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: RED-first constrained source identity and diagnostic tests
+        run: python -m unittest tests.test_issue97_edition_crosswalk -v
+
+      - name: Fetch only two immutable Coptic OT ZIPs
+        uses: actions/checkout@v4
+        timeout-minutes: 15
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /sahidic.ot/sahidic.ot_TT.zip
+            /bohairic.ot/bohairic.ot_TT.zip
+
+      - name: Fetch exact CenterBLC/LXX TF 1935 parent
+        uses: actions/checkout@v4
+        timeout-minutes: 12
+        with:
+          repository: CenterBLC/LXX
+          ref: f32a98eddf7eb239aa73ab863d70381e416d5076
+          path: pinned-lxx
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout: |
+            tf/1935
+
+      - name: Fail closed on mismatched upstream Git commits
+        run: |
+          test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C pinned-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
+
+      - name: Verify 10 edition-qualified real Bohairic verse remaps and reload both native TF modules
+        timeout-minutes: 8
+        run: python tests/live_issue97_crosswalk.py pinned-coptic pinned-lxx/tf/1935
+
+      - name: Report scratch capacity only, no text artifacts
+        if: always()
+        run: df -h "$RUNNER_TEMP"

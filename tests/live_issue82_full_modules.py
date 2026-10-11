@@ -24,6 +24,7 @@ from copticscriptorium_tf.lxx_module import (
     verify_coptic_module_parent, verify_lxx_parent_feature_blobs,
 )
 from copticscriptorium_tf.parser import parse_tt_record
+from copticscriptorium_tf.lxx_reference import CANDIDATE_STATUSES
 
 DIRECT = re.compile(r"^[^/]+/[^/]+_TT/[^/]+\.tt$")
 ARCHIVE = re.compile(r"^[^/]+/[^/]+_TT\.zip$")
@@ -100,7 +101,7 @@ def run(coptic_source: Path, greek_tf: Path, scratch: Path) -> None:
     )
     if result.source_documents != 2628 or result.coptic_status_words != 2394354:
         raise ValueError(f"incomplete source→Coptic parent mapping: {result}")
-    if result.lxx_candidate_verses != 21120:
+    if result.lxx_candidate_verses != 21117:
         raise ValueError(f"distinct Greek verse-address coverage regression: {result}")
     verify_coptic_module_parent(output_modules / "coptic", coptic_tf)
 
@@ -127,8 +128,8 @@ def run(coptic_source: Path, greek_tf: Path, scratch: Path) -> None:
             raise ValueError(f"missing Coptic alignment status for physical word {w}")
         key = coptic_overlay.F.coptic_lxx_ref_id.v(w)
         if key:
-            if status != "reference_candidate":
-                raise ValueError("unresolved/unclassified word has fabricated Greek ID")
+            if status not in CANDIDATE_STATUSES:
+                raise ValueError("noncandidate Coptic word has fabricated Greek ID")
             coptic_keys.add(key)
         statuses[status] += 1
     greek_keys: set[str] = set()
@@ -138,12 +139,18 @@ def run(coptic_source: Path, greek_tf: Path, scratch: Path) -> None:
             if key in greek_keys:
                 raise ValueError("duplicate Greek verse for a shared Coptic reference")
             greek_keys.add(key)
-    if coptic_keys != greek_keys or len(greek_keys) != 21120:
+    if coptic_keys != greek_keys or len(greek_keys) != 21117:
         raise ValueError("native Coptic/LXX reference modules disagree on Greek target set")
     if sum(statuses.values()) != 2394354:
         raise ValueError("missing Coptic word status after fresh TF overlay load")
     if statuses["unclassified_corpus"] <= 0 or statuses["unresolved"] <= 0:
         raise ValueError("incomplete unresolved/unclassified candidate provenance")
+    if statuses["versification_candidate"] != 344 or statuses["ambiguous"] != 257:
+        raise ValueError(
+            "pinned post-crosswalk source-status coverage drift: "
+            f"versification={statuses['versification_candidate']}, "
+            f"ambiguous={statuses['ambiguous']}"
+        )
     print(json.dumps({
         "stage": "full-pinned-streamed-dual-native-TF-modules",
         "coptic_source_records": result.source_documents,

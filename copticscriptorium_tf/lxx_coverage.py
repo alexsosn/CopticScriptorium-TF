@@ -9,14 +9,14 @@ from __future__ import annotations
 from collections import Counter
 from typing import Callable
 
-from .lxx_reference import resolve_coptic_lxx_references
+from .lxx_reference import CANDIDATE_STATUSES, resolve_coptic_lxx_references
 from .model import DocumentModel
 from .ot_inventory import classify_biblical_record
 
 COPTIC_SOURCE_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
 SCHEMA = "coptic_lxx_reference_coverage_v1"
 REFERENCE_STATUSES = frozenset({
-    "reference_candidate", "unresolved", "ambiguous", "unclassified_corpus",
+    "reference_candidate", "versification_candidate", "unresolved", "ambiguous", "unclassified_corpus",
 })
 
 
@@ -123,7 +123,7 @@ class CopticLxxCoverageAudit:
             for ref in refs:
                 if ref.status not in REFERENCE_STATUSES:
                     raise ValueError(f"unknown LXX mapping status {ref.status!r}")
-                if ref.status == "reference_candidate":
+                if ref.status in CANDIDATE_STATUSES:
                     if ref.lxx_node is None or ref.shared_id is None:
                         raise ValueError("positive reference candidate lacks a verified LXX node")
                     previous_node = self._candidate_greek_verses.setdefault(

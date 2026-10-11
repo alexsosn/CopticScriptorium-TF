@@ -10,6 +10,7 @@ import re
 from typing import Callable, Literal
 
 from .model import DocumentModel, Word
+from .lxx_versification import propose_bohairic_zechariah
 
 # All families below occur in the immutable full-source OT profile; this is
 # a reviewed evidence gate, not a guess from a filename or an NT verse marker.
@@ -66,8 +67,10 @@ LXX_REFERENCE_EDITION = "CenterBLC/LXX:1935"
 VERSE_VID = re.compile(r"^([A-Za-z][A-Za-z ]*) (\d+):(\d+)$")
 
 MappingStatus = Literal[
-    "reference_candidate", "unresolved", "ambiguous", "unclassified_corpus"
+    "reference_candidate", "versification_candidate",
+    "unresolved", "ambiguous", "unclassified_corpus"
 ]
+CANDIDATE_STATUSES = frozenset({"reference_candidate", "versification_candidate"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,6 +176,8 @@ def resolve_coptic_lxx_references(
         status: MappingStatus = "unresolved"
         target: int | None = None
         shared: str | None = None
+        lxx_chapter = chapter
+        lxx_verse = verse
         evidence = "+".join(
             x for x, found in (
                 ("verse_n", raw_verse is not None),
@@ -208,16 +213,38 @@ def resolve_coptic_lxx_references(
             ):
                 status, reason = "ambiguous", "source verse label contradicts book/chapter/verse"
             else:
-                target = lookup(book, chapter, verse)
-                if target is None:
-                    status, reason = "unresolved", "exact address absent in provided LXX verse index"
-                elif not isinstance(target, int) or isinstance(target, bool) or target <= 0:
-                    raise ValueError("LXX verse lookup must return a positive parent node or None")
+                proposal = propose_bohairic_zechariah(
+                    document, lxx_book=book,
+                    source_chapter=chapter, source_verse=verse,
+                )
+                if proposal is not None and proposal.blocked_reason is not None:
+                    # Source drift is a blocker, *not* permission to return to a
+                    # known false-positive same-number reference candidate.
+                    status, reason = "ambiguous", proposal.blocked_reason
                 else:
-                    status, reason = "reference_candidate", (
-                        "matching LXX reference address exists; textual equivalence not established"
-                    )
-                    shared = f"{LXX_REFERENCE_EDITION}:{book}:{chapter}:{verse}"
+                    if proposal is not None:
+                        lxx_chapter, lxx_verse = proposal.lxx_chapter, proposal.lxx_verse
+                    target = lookup(book, lxx_chapter, lxx_verse)
+                    if target is None:
+                        status, reason = "unresolved", (
+                            "crosswalk target Greek verse address absent"
+                            if proposal else "exact address absent in provided LXX verse index"
+                        )
+                    elif not isinstance(target, int) or isinstance(target, bool) or target <= 0:
+                        raise ValueError("LXX verse lookup must return a positive parent node or None")
+                    elif proposal is not None:
+                        status = "versification_candidate"
+                        evidence = f"{evidence}+{proposal.rule_id}"
+                        reason = (
+                            "edition-qualified Brenton-source reference-numbering crosswalk; "
+                            "Coptic/Greek lexical equivalence not independently verified"
+                        )
+                        shared = f"{LXX_REFERENCE_EDITION}:{book}:{lxx_chapter}:{lxx_verse}"
+                    else:
+                        status, reason = "reference_candidate", (
+                            "matching LXX reference address exists; textual equivalence not established"
+                        )
+                        shared = f"{LXX_REFERENCE_EDITION}:{book}:{lxx_chapter}:{lxx_verse}"
 
         result.append(CopticLxxReference(
             source_record_id=document.source_record_id,
@@ -226,8 +253,8 @@ def resolve_coptic_lxx_references(
             source_vid_n=cts,
             source_verse_vid=label,
             lxx_book=book,
-            lxx_chapter=chapter,
-            lxx_verse=verse,
+            lxx_chapter=lxx_chapter,
+            lxx_verse=lxx_verse,
             lxx_node=target,
             shared_id=shared,
             status=status,
