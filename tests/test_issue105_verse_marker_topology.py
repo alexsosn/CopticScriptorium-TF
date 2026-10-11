@@ -1,0 +1,179 @@
+"""RED-first tests: source verse-tag *occurrences* can differ from word-group keys."""
+from __future__ import annotations
+
+import json
+import unittest
+
+from copticscriptorium_tf.verse_marker_topology import VerseMarkerTopologyAudit
+from copticscriptorium_tf.lxx_coverage import CopticLxxCoverageAudit
+from copticscriptorium_tf.parser import parse_tt_record
+
+PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+
+
+def doc(body: str, name: str = "test"):
+    raw = '<meta chapter="2" corpus="sahidic.ruth">' + body
+    return parse_tt_record(
+        raw.encode("utf-8"),
+        source_record_id=f"sahidic.ruth/sahidic.ruth:{name}",
+        source_path=f"sahidic.ruth/sahidic.ruth_TT/{name}.tt",
+        upstream_repository="CopticScriptorium/corpora",
+        upstream_commit=PIN,
+    )
+
+
+def token(n: int) -> str:
+    return (
+        f'<norm_group norm_group="w{n}">'
+        f'<norm xml:id="u{n}" new_sent="true" func="root" norm="w{n}">'
+        f'w{n}</norm></norm_group>'
+    )
+
+
+class VerseMarkerTopologyContractTests(unittest.TestCase):
+    def test_real_scanner_counts_duplicate_gap_decrease_zero_word_and_missing_number(self):
+        source = (
+            '<meta chapter="2">'
+            '<verse_n verse_n="1">' + token(1)
+            + '<verse_n verse_n="1">' + token(2)
+            + '<verse_n verse_n="3">'
+            + '<verse_n verse_n="2">' + token(3)
+            + '<verse_n verse_n="2">' + token(4)
+            + '<verse_n verse_n="">' + token(5)
+        )
+        audit = VerseMarkerTopologyAudit()
+        audit.add(source, "sahidic.ruth/sahidic.ruth:case")
+        report = audit.report()
+        self.assertEqual(report["source_records"], 1)
+        self.assertEqual(report["opening_verse_n_tags"], 6)
+        self.assertEqual(report["categories"], {
+            "duplicate_same_number": 2,
+            "nonmonotonic": 1,
+            "gapped": 1,
+            "no_word_start_between_markers": 1,
+            "missing_or_nonpositive_literal": 1,
+        })
+        self.assertEqual(report["examples"]["duplicate_same_number"], [
+            "sahidic.ruth/sahidic.ruth:case"
+        ])
+        self.assertEqual(report["source_records_with_verse_n"], 1)
+        self.assertNotIn("norm_group", json.dumps(report))
+
+    def test_closing_tags_are_not_new_verse_occurrences(self):
+        audit = VerseMarkerTopologyAudit()
+        audit.add('<verse_n verse_n="1"><norm norm="a">x</norm></verse_n>', "q/q:a")
+        self.assertEqual(audit.report()["opening_verse_n_tags"], 1)
+        self.assertEqual(audit.report()["categories"], {})
+
+    def test_real_ap_chapter_boundary_resets_numeric_verse_sequence(self):
+        # Source-grounded from AP.017.n148.cellar TT: chapter 1 verse
+        # 1..7, then chapter 2 starts verse 1. This is not a drop.
+        source = (
+            '<chapter_n chapter_n="1">'
+            + ''.join(f'<verse_n verse_n="{n}">' + token(n) for n in range(1, 8))
+            + '<chapter_n chapter_n="2">'
+            + '<verse_n verse_n="1">' + token(8)
+            + '<verse_n verse_n="2">' + token(9)
+        )
+        audit = VerseMarkerTopologyAudit()
+        audit.add(source, "AP/apophthegmata.patrum:AP.017.n148.cellar")
+        report = audit.report()
+        self.assertEqual(report["opening_verse_n_tags"], 9)
+        self.assertEqual(report["chapter_resets"], 1)
+        self.assertEqual(report["chapter_markers"], 2)
+        self.assertNotIn("nonmonotonic", report["categories"])
+
+    def test_repeated_same_chapter_label_does_not_hide_backwards_verse_numbering(self):
+        source = (
+            '<chapter_n chapter_n="2">'
+            '<verse_n verse_n="3">' + token(1)
+            + '<chapter_n chapter_n="2">'
+            '<verse_n verse_n="2">' + token(2)
+        )
+        audit = VerseMarkerTopologyAudit()
+        audit.add(source, "sample/sample:repeat")
+        report = audit.report()
+        self.assertEqual(report["chapter_resets"], 0)
+        self.assertEqual(report["categories"]["nonmonotonic"], 1)
+
+    def test_intra_word_marker_does_not_falsely_claim_an_empty_textual_verse(self):
+        source = (
+            '<verse_n verse_n="1">'
+            '<norm_group norm_group="x">'
+            '<norm xml:id="u1" new_sent="true" norm="ab">'
+            'a<verse_n verse_n="2">b</norm></norm_group>'
+        )
+        audit = VerseMarkerTopologyAudit()
+        audit.add(source, "sahidic.ruth/sahidic.ruth:inside")
+        report = audit.report()
+        self.assertEqual(report["opening_verse_n_tags"], 2)
+        self.assertEqual(report["categories"]["no_word_start_between_markers"], 1)
+        self.assertIn("internal-word boundary", report["interpretation"])
+        self.assertNotIn("empty verse", report["interpretation"])
+
+    def test_source_identity_examples_bounded_and_order_independent(self):
+        raw = '<verse_n verse_n="1"><verse_n verse_n="1">' + token(1)
+        audit = VerseMarkerTopologyAudit()
+        for name in ("z", "c", "a", "b", "a"):
+            audit.add(raw, f"test/test:{name}")
+        self.assertEqual(audit.report()["examples"]["duplicate_same_number"], [
+            "test/test:a", "test/test:b", "test/test:c"
+        ])
+        self.assertEqual(audit.report()["categories"]["duplicate_same_number"], 5)
+
+    def test_word_scoped_resolver_can_hide_duplicate_marker_event_but_audit_reports_it(self):
+        raw = ('<verse_n verse_n="1">' + token(1)
+               + '<verse_n verse_n="1">' + token(2))
+        d = doc(raw)
+        self.assertEqual([word.verse_n for word in d.words], ["1", "1"])
+        audit = CopticLxxCoverageAudit(source_commit=PIN, lookup=lambda *_: 42)
+        audit.add(d)
+        report = audit.report()
+        self.assertEqual(report["ot_reference_statuses"], {"reference_candidate": 1})
+        self.assertEqual(report["marker_topology"]["categories"]["duplicate_same_number"], 1)
+        self.assertEqual(report["marker_topology"]["opening_verse_n_tags"], 2)
+        self.assertEqual(report["marker_topology"]["source_records"], 1)
+        self.assertEqual(report["ot_word_statuses"], {"reference_candidate": 2})
+
+    def test_topology_categories_are_partitioned_by_actual_biblical_scope(self):
+        audit = VerseMarkerTopologyAudit()
+        first = ('<verse_n verse_n="1">' + token(1)
+                 + '<verse_n verse_n="1">' + token(2))
+        second = ('<verse_n verse_n="2">' + token(1)
+                  + '<verse_n verse_n="1">' + token(2))
+        audit.add(first, "sahidic.ruth/sahidic.ruth:ruth", scope="ot_candidate")
+        audit.add(second, "sahidica.nt/sahidica.nt:nt", scope="nt_candidate")
+        report = audit.report()
+        self.assertEqual(report["categories"], {
+            "duplicate_same_number": 1, "nonmonotonic": 1
+        })
+        self.assertEqual(report["by_scope"]["ot_candidate"]["categories"], {
+            "duplicate_same_number": 1
+        })
+        self.assertEqual(report["by_scope"]["nt_candidate"]["categories"], {
+            "nonmonotonic": 1
+        })
+        self.assertEqual(report["by_scope"]["ot_candidate"]["opening_verse_n_tags"], 2)
+        self.assertEqual(report["by_scope"]["nt_candidate"]["source_records"], 1)
+        self.assertEqual(report["by_scope"]["nt_candidate"]["examples"]["nonmonotonic"], [
+            "sahidica.nt/sahidica.nt:nt"
+        ])
+
+    def test_nonbiblical_audited_without_promoting_to_greek(self):
+        d = parse_tt_record(
+            ('<meta>' + '<verse_n verse_n="1">' + token(1)).encode(),
+            source_record_id="pachomius/pachomius:test",
+            source_path="pachomius/pachomius_TT/test.tt",
+            upstream_repository="CopticScriptorium/corpora",
+            upstream_commit=PIN,
+        )
+        called = []
+        audit = CopticLxxCoverageAudit(source_commit=PIN, lookup=lambda *key: called.append(key) or 55)
+        audit.add(d)
+        self.assertEqual(audit.report()["marker_topology"]["opening_verse_n_tags"], 1)
+        self.assertEqual(audit.report()["source_scopes"], {"undetermined": 1})
+        self.assertEqual(called, [])
+
+
+if __name__ == "__main__":
+    unittest.main()

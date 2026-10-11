@@ -106,6 +106,23 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         raise ValueError("unexpected Coptic undetermined source denominator")
     if report["totals"]["verse_position_events"] != 29:
         raise ValueError("missing or reclassified source-internal verse markers")
+    topology = report["marker_topology"]
+    if topology["source_records"] != 2628:
+        raise ValueError("missing source documents in verse-tag topology audit")
+    if topology["source_records_with_verse_n"] != 2571:
+        raise ValueError("missing source verse marker documents")
+    if topology["opening_verse_n_tags"] != 73844:
+        raise ValueError("source verse marker occurrence census has drifted")
+    if sum(row["source_records"] for row in topology["by_scope"].values()) != 2628:
+        raise ValueError("biblical-scope marker audit lost physical TT records")
+    if sum(row["opening_verse_n_tags"] for row in topology["by_scope"].values()) != 73844:
+        raise ValueError("biblical-scope marker audit lost verse tag occurrences")
+    if sum(row["chapter_resets"] for row in topology["by_scope"].values()) != topology["chapter_resets"]:
+        raise ValueError("chapter-boundary reset partition lost source occurrences")
+    for category, count in topology["categories"].items():
+        if sum(row["categories"].get(category, 0)
+               for row in topology["by_scope"].values()) != count:
+            raise ValueError(f"biblical-scope marker audit differs for {category}")
     report["sparse_git_blobs"] = len(files)
     report["lxx_feature_blobs_verified"] = True
     report["lxx_git_commit_checked_by_ci"] = LXX_GIT_PIN
@@ -122,6 +139,17 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         "ot_reference_statuses": report["ot_reference_statuses"],
         "ot_word_statuses": report["ot_word_statuses"],
         "verse_position_events": report["totals"]["verse_position_events"],
+        "marker_topology_categories": topology["categories"],
+        "marker_topology_by_scope": {
+            scope: {"source_records": row["source_records"],
+                    "opening_verse_n_tags": row["opening_verse_n_tags"],
+                    "chapter_resets": row["chapter_resets"],
+                    "categories": row["categories"]}
+            for scope, row in topology["by_scope"].items()
+        },
+        "opening_verse_n_tags": topology["opening_verse_n_tags"],
+        "chapter_markers": topology["chapter_markers"],
+        "chapter_resets": topology["chapter_resets"],
         "book_profiles": len(report["candidate_lxx_books"]),
         "work_profiles": len(report["cts_works"]),
         "family_profiles": len(report["families"]),
