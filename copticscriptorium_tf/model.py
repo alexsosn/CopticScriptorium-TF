@@ -24,6 +24,8 @@ EDITORIAL_WRAPPER_TYPES = (
     "hi_rend", "note", "gap_reason", "supplied_reason", "note_note",
     "gap_unit", "supplied_source", "gap_quantity", "gap_extent",
     "supplied_evidence", "unclear_reason", "unclear",
+    # Exact original source wrapper tags, not the similarly named qualifiers.
+    "gap", "supplied", "abbr",
 )
 
 
@@ -114,6 +116,9 @@ class SblAnnotation:
     end_word_ordinal: int | None
     end_char: int | None
     end_after_word_ordinal: int
+    # Exact decoded (source key, literal value) pairs. Empty literal differs
+    # from an absent key; no JSON/XML blob or editorial reconstruction.
+    attributes: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
