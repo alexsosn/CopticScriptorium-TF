@@ -293,7 +293,11 @@ def parse_tt_record(
         if name in sbl_open:
             if name in TOKEN_WRAPPER_TYPES and current_word is None:
                 raise ValueError(f"token annotation {name} opening outside norm in {source_record_id}")
-            if name not in attrs:
+            # Original gap/supplied/abbr wrappers have *independent* source
+            # attributes (e.g. abbr type, not abbr abbr). The older single-
+            # value qualifier tags still require their literal name key.
+            exact_attribute_wrappers = {"gap", "supplied", "abbr"}
+            if name not in attrs and name not in exact_attribute_wrappers:
                 kind = ("token" if name in TOKEN_WRAPPER_TYPES else
                         "edition" if name in EDITION_WRAPPER_TYPES else
                         "multiword" if name in MULTIWORD_WRAPPER_TYPES else
@@ -327,7 +331,8 @@ def parse_tt_record(
             sbl_open[name].append({
                 "ordinal": occurrence,
                 "kind": name,
-                "value": attrs[name],  # empty string is present, not missing
+                "value": attrs.get(name, "") if name in exact_attribute_wrappers else attrs[name],
+                "attributes": tuple(sorted(attrs.items())) if name in exact_attribute_wrappers else (),
                 "source_verse_n": current_verse_n,
                 "start_word_ordinal": current_word["ordinal"] if current_word else None,
                 "start_char": current_offset() if current_word else None,
