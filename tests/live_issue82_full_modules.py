@@ -24,6 +24,7 @@ from copticscriptorium_tf.lxx_module import (
     verify_coptic_module_parent, verify_lxx_parent_feature_blobs,
 )
 from copticscriptorium_tf.parser import parse_tt_record
+from copticscriptorium_tf.lxx_reference import CANDIDATE_STATUSES
 
 DIRECT = re.compile(r"^[^/]+/[^/]+_TT/[^/]+\.tt$")
 ARCHIVE = re.compile(r"^[^/]+/[^/]+_TT\.zip$")
@@ -127,8 +128,8 @@ def run(coptic_source: Path, greek_tf: Path, scratch: Path) -> None:
             raise ValueError(f"missing Coptic alignment status for physical word {w}")
         key = coptic_overlay.F.coptic_lxx_ref_id.v(w)
         if key:
-            if status != "reference_candidate":
-                raise ValueError("unresolved/unclassified word has fabricated Greek ID")
+            if status not in CANDIDATE_STATUSES:
+                raise ValueError("noncandidate Coptic word has fabricated Greek ID")
             coptic_keys.add(key)
         statuses[status] += 1
     greek_keys: set[str] = set()
@@ -144,6 +145,8 @@ def run(coptic_source: Path, greek_tf: Path, scratch: Path) -> None:
         raise ValueError("missing Coptic word status after fresh TF overlay load")
     if statuses["unclassified_corpus"] <= 0 or statuses["unresolved"] <= 0:
         raise ValueError("incomplete unresolved/unclassified candidate provenance")
+    if statuses["versification_candidate"] <= 0:
+        raise ValueError("real byte-locked Zechariah crosswalk missing from full Coptic TF output")
     print(json.dumps({
         "stage": "full-pinned-streamed-dual-native-TF-modules",
         "coptic_source_records": result.source_documents,
