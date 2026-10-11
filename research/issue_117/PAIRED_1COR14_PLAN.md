@@ -1,0 +1,16 @@
+# Issue #117 — Reviewed paired source verse labels in pinned 1 Corinthians 14
+
+## Research (actual pinned TT, not inferred alignment)
+- Existing full source audit: 2,747 SBL annotations, 2,301 candidate addresses / 437 ambiguous / 8 unresolved / 1 Greek-edition-unavailable. All 61 annotations in `sahidica.1corinthians/sahidica.1corinthians:1Cor_14` are ambiguous under current `verse_n`/`vid_n` rules.
+- Independently fetched `CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5` original `.../1Cor_14.tt`. It has **40 `<verse>` labels `1 Corinthians 14:1…14:40`**, **40 independent `<verse_vid>` labels `46N 14:1…14:40`**, **40 `<sbl_greek>` and 21 `<sbl_apparatus>` original occurrences, but no `<verse_n>` and no `<vid_n>`**. Document CTS and metadata independently name `nt.1cor ... :14`. Both verse series agree one-to-one by index. Unlike Mark 10/11 and 1Cor 10, this chapter has TWO source verse-level markers.
+- Original TT is SGML-like, with SBL Greek/apparatus source wrappers crossing verse labels in non-LIFO order. Do not treat nested tags as ordinary XML or assign Greek tokens. The current Coptic parser handles SBL crossings; the additional pair reader must enumerate *whole Coptic word spans* only, reject ambiguous partially crossed verse ownership and compare original annotation kind/order and source provenance.
+
+## Plan/gates
+1. **RED before code**: regression tests with synthetic source TT for matching independent editor and human-readable verse tags, apparatus, wrong book/chapter/verse, forged physical record or provenance, mixed two-verse SBL spans and missing/changed source labels. No Greek lookup on disagreement.
+2. Implement a **read-only, source-scoped TT label evidence reader**, independent of core converter/TF schema. It reads `DocumentModel.source_text` exact pinned bytes and matches `<verse>` plus `<verse_vid>` values at complete-word boundaries to existing `SblAnnotation.word_ordinals`. It can propose **only** `sahidica.1corinthians:1Cor_14` whose documented physical source provenance is trusted and whose source `verse_n` is genuinely absent. Never synthesize Coptic `verse_n`, alter physical TT or store Greek word IDs.
+3. Run source-only exact-pinned single-document CI to measure supported vs ambiguous source occurrences and inspect any edge cases, then update pinned reference candidate total and noncandidate audit baseline **only** to what the actual real-source gate confirms.
+4. Trigger the existing full **2,394,354-word/2,628-document Coptic TF native conversion** and independent original 2,747 SBL parity check; regenerate both Coptic-owned additive native NT reference wefts; reload each side independently and require equal occurrence counts and Greek parent reverse-section address identities.
+5. Full applicable exact-head CI and genuinely logically independent skeptical review grounded in TT source structure, paired markers and native wefts before exact-head merge; no Coptic alignment code enters `alexsosn/sblgnt`, and historic SBL prose is **not** Greek/Coptic token correspondence.
+
+## Explicit non-goals
+No promotion of Mark1/Mark10/Mark11/1Cor10 source labels lacking two agreeing complete-verse independent markers; Mark15:28 remains `edition_unavailable`. No restricted Coptic/Greek source text or combined TF corpus redistribution.

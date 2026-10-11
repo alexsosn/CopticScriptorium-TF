@@ -14,7 +14,7 @@ import re
 import sys
 from tempfile import NamedTemporaryFile
 from time import monotonic
-from typing import Any
+from typing import Any, Callable
 
 from ._atomic import publish_path_no_clobber as _publish_summary_no_clobber
 from .conllu import attach_conllu_supplements
@@ -92,6 +92,7 @@ def convert_source_tree(
     *,
     upstream_repository: str,
     upstream_commit: str,
+    phase_probe: Callable[[str], None] | None = None,
 ) -> ConversionResult:
     """Convert one supported TT source tree to a native local TF dataset.
 
@@ -105,6 +106,8 @@ def convert_source_tree(
     if target.exists() or target.is_symlink():
         raise FileExistsError(f"refusing to overwrite existing TF dataset: {target}")
 
+    if phase_probe is not None:
+        phase_probe("start")
     parse_started = monotonic()
     documents = parse_source_tree(
         source_root,
@@ -117,6 +120,8 @@ def convert_source_tree(
     # TT stays canonical; validated CoNLL-U only adds separately named values.
     documents, conllu_report = attach_conllu_supplements(documents, source_root)
     parse_seconds = monotonic() - parse_started
+    if phase_probe is not None:
+        phase_probe("parsed_and_supplemented")
 
     # Preserve literal per-document license metadata as TF features. Surface only
     # absence/blank values in the operational report, without assigning an
@@ -134,15 +139,21 @@ def convert_source_tree(
     slots = len(graph.slots)
     nodes = len(graph.nodes)
     edges = len(graph.edges)
+    if phase_probe is not None:
+        phase_probe("graph_built")
 
     # The graph is self-contained. Do not retain the complete parser model while
     # the writer constructs another large representation for Fabric.save().
     del documents
     gc.collect()
+    if phase_probe is not None:
+        phase_probe("models_released")
 
     write_started = monotonic()
     output_path = write_graph(graph, target)
     write_seconds = monotonic() - write_started
+    if phase_probe is not None:
+        phase_probe("writer_complete")
 
     tf_paths = tuple(output_path.glob("*.tf"))
     return ConversionResult(

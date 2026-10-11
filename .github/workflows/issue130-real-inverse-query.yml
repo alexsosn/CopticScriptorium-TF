@@ -1,0 +1,93 @@
+name: issue130-real-pinned-LXX-Coptic-inverse-witness-query
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue130-real-inverse-query.yml'
+      - 'copticscriptorium_tf/lxx_query.py'
+      - 'tests/test_issue130_lxx_witness_query.py'
+      - 'tests/test_issue130_real_inverse_contract.py'
+      - 'tests/live_issue130_real_witnesses.py'
+      - 'research/issue-130/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/issue130-real-inverse-query.yml'
+      - 'copticscriptorium_tf/lxx_query.py'
+      - 'tests/live_issue130_real_witnesses.py'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  source-locked-inverse-lookup:
+    name: Real immutable Coptic/Greek native TF modules to inverse witness spans
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact tested code commit
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Check out immutable Coptic Ruth Jonah and Bohairic Habakkuk TT records
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: real-coptic
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /sahidic.ruth/sahidic.ruth_TT/Ruth_02.tt
+            /sahidic.jonah/sahidic.jonah_TT/Jonah_02.tt
+            /bohairic-jonah/bohairic.jonah_TT/bohairic.Jonah_02.tt
+            /bohairic-habakkuk/bohairic.habakkuk_TT/bohairic.Habakkuk_02.tt
+
+      - name: Check out exact CATSS-compatible CenterBLC/LXX parent release
+        uses: actions/checkout@v4
+        with:
+          repository: CenterBLC/LXX
+          ref: f32a98eddf7eb239aa73ab863d70381e416d5076
+          path: real-lxx
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout: |
+            tf/1935
+
+      - name: Assert both input Git commits
+        run: |
+          test "$(git -C real-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C real-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned Text-Fabric dependencies
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: Run RED-first native inverse query contracts
+        run: |
+          python -m unittest tests.test_issue130_real_inverse_contract -v
+          python -m unittest tests.test_issue130_lxx_witness_query -v
+
+      - name: Execute real pinned parent TF and weft inverse witness test
+        timeout-minutes: 12
+        run: /usr/bin/time -v python tests/live_issue130_real_witnesses.py real-coptic real-lxx/tf/1935
+
+      - name: Show remaining scratch disk without uploading source corpora
+        if: always()
+        run: df -h "$RUNNER_TEMP"
