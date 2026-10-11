@@ -93,6 +93,15 @@ def run(upstream: Path, lxx_dir: Path) -> None:
             refs = resolve_coptic_lxx_references(doc, lookup=greek_verse)
             focus = [r for r in refs if (chapter, int(r.source_verse_n or "0")) in expected_by_source]
             assert len(focus) == (4 if chapter == 1 else 6), (chapter, len(focus))
+            if chapter == 2:
+                # Real unreviewed remainder must stay visible but unlinked:
+                # same-number Greek references exist yet would be misleading.
+                unreviewed = [r for r in refs if r.source_verse_n and
+                              r.source_verse_n.isascii() and r.source_verse_n.isdecimal()
+                              and int(r.source_verse_n) >= 7]
+                assert unreviewed, "pinned Bohairic Zech 2 has no boundary-control verses"
+                assert all(r.status == "ambiguous" and r.shared_id is None
+                           and r.lxx_node is None for r in unreviewed)
             for ref in focus:
                 source_verse = int(ref.source_verse_n)
                 target = expected_by_source[(chapter, source_verse)]
@@ -142,6 +151,13 @@ def run(upstream: Path, lxx_dir: Path) -> None:
                 assert any(coptic_added.F.verse_n.v(n) == "1" and
                            coptic_added.F.coptic_lxx_ref_id.v(n) == "CenterBLC/LXX:1935:Zech:2:5"
                            for n in verse_words)
+                raw_tail = [n for n in source_words if
+                            (coptic_added.F.verse_n.v(n) or "").isdecimal() and
+                            int(coptic_added.F.verse_n.v(n)) >= 7]
+                assert raw_tail
+                assert all(coptic_added.F.coptic_lxx_ref_status.v(n) == "ambiguous" and
+                           coptic_added.F.coptic_lxx_ref_id.v(n) is None
+                           for n in raw_tail)
         print(json.dumps({
             "result": "PASS pinned byte-qualified edition-local Bohairic Zechariah crosswalk",
             "status": "ten versification candidates, not verified translation pairs",
