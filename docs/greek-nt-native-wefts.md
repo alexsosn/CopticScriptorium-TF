@@ -21,7 +21,7 @@ Publication is atomic no-overwrite. Both projections' reference/count multisets 
 
 ## Research → RED → actual native TF tests
 
-The original 2,628-record audit has **2,301** address candidates, **437** ambiguous and **9** unresolved annotations across 48 physical annotated TT records. The native module writer/projection TDD covers fake node IDs, wrong target parent verse, incorrect source literals, duplicate/extra Coptic native annotations, altered parent fingerprints, empty or inconsistent modules and atomic no-clobber publication.
+The original 2,628-record audit has **2,301** address candidates, **437** ambiguous, **8** unresolved and **1** source-proven `edition_unavailable` annotations across 48 physical annotated TT records. The native module writer/projection TDD covers fake node IDs, wrong target parent verse, incorrect source literals, duplicate/extra Coptic native annotations, altered parent fingerprints, empty or inconsistent modules and atomic no-clobber publication.
 
 The exact-pinned real-data CI pilot converts **only three source TT records** (Mark 2, 1 Corinthians 2, independent treebank Mark 2), reloads their native Coptic TF plus the unchanged historical Greek NT TF, projects weft features to existing Coptic SBL nodes and Greek verse nodes, reloads each side with its module, and verifies the candidate-count crosswalk. The heavy 2.394M-slot full native TF build is deliberately **not** repeated on each weft-code PR; full-corpus projection and consumer qualification remain a separate integration/release gate.
 
