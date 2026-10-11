@@ -17,7 +17,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from copticscriptorium_tf.converter import convert_source_tree
+from copticscriptorium_tf.converter import convert_source_tree, _peak_rss_mb
 
 UPSTREAM_REPOSITORY = "CopticScriptorium/corpora"
 UPSTREAM_COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
@@ -103,25 +103,61 @@ def _reload_and_check(tf_dir: Path, result) -> dict[str, object]:
     }
 
 
-def run(source_root: Path, work_root: Path) -> dict[str, object]:
+def _live_linux_rss_mb() -> float | None:
+    """Read process *current* RSS (not lifetime peak) from Linux procfs.
+
+    Return None on other operating systems and unavailable/malformed procfs;
+    never pass off the high-water ru_maxrss as a phase-local live measurement.
+    """
+    status = Path("/proc/self/status")
+    if not sys.platform.startswith("linux") or not status.is_file():
+        return None
+    try:
+        for line in status.read_text(encoding="ascii").splitlines():
+            if line.startswith("VmRSS:"):
+                parts = line.split()
+                if len(parts) == 3 and parts[2] == "kB":
+                    return round(int(parts[1]) / 1024.0, 3)
+    except (OSError, UnicodeError, ValueError):
+        return None
+    return None
+
+
+def run(source_root: Path, work_root: Path, *, profile_memory: bool = False) -> dict[str, object]:
     tf_dir = work_root / "tf"
     if work_root.exists():
         shutil.rmtree(work_root)
     work_root.mkdir(parents=True)
+
+    snapshots: list[dict[str, object]] = []
+    started = monotonic()
+
+    def measure(phase: str) -> None:
+        snapshots.append({
+            "phase": phase,
+            "elapsed_seconds": round(monotonic() - started, 3),
+            "current_rss_mb": _live_linux_rss_mb(),
+            "peak_rss_mb": round(_peak_rss_mb(), 3),
+        })
 
     result = convert_source_tree(
         source_root,
         tf_dir,
         upstream_repository=UPSTREAM_REPOSITORY,
         upstream_commit=UPSTREAM_COMMIT,
+        phase_probe=measure if profile_memory else None,
     )
     reload_report = _reload_and_check(tf_dir, result)
+    if profile_memory:
+        measure("reload_complete")
 
     report = result.to_dict()
     report.update(reload_report)
     report["upstream_repository"] = UPSTREAM_REPOSITORY
     report["upstream_commit"] = UPSTREAM_COMMIT
     report["purpose"] = "converter/resource regression; not corpus certification"
+    if profile_memory:
+        report["memory_profile"] = snapshots
     return report
 
 
@@ -130,10 +166,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("source_root", type=Path)
     parser.add_argument("--work-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--profile-memory", action="store_true",
+                        help="capture opt-in RSS/peak at conversion phase boundaries")
     args = parser.parse_args(argv)
 
     try:
-        report = run(args.source_root, args.work_root)
+        report = run(args.source_root, args.work_root,
+                     profile_memory=args.profile_memory)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(
             json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
