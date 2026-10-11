@@ -20,6 +20,10 @@ on:
       - 'copticscriptorium_tf/writer.py'
       - 'tests/live_issue69_pinned_verses.py'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
