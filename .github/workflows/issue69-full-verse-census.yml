@@ -6,6 +6,7 @@ on:
       - '.github/workflows/issue69-full-verse-census.yml'
       - 'tests/live_issue69_full_verse_census.py'
       - 'tests/live_issue110_wrapper_census.py'
+      - 'tests/live_issue110_full_native.py'
       - 'copticscriptorium_tf/parser.py'
       - 'copticscriptorium_tf/model.py'
   workflow_dispatch:
@@ -63,4 +64,20 @@ jobs:
       - name: Reuse pinned full-source checkout to inventory unmodeled scholarly TT wrappers
         timeout-minutes: 10
         run: python tests/live_issue110_wrapper_census.py pinned-coptic
+
+      - name: Full pinned source native TF schema/reload release regression
+        timeout-minutes: 16
+        run: |
+          /usr/bin/time -v -o "$RUNNER_TEMP/issue110-full-time.txt" \
+            python research/issue-16/full_converter_smoke.py pinned-coptic \
+              --work-root "$RUNNER_TEMP/issue110-full-native" \
+              --output "$RUNNER_TEMP/issue110-full-report.json"
+          python tests/live_issue110_full_native.py "$RUNNER_TEMP/issue110-full-native/tf"
+
+      - name: Report full-source operational resource diagnostics
+        if: always()
+        run: |
+          test ! -f "$RUNNER_TEMP/issue110-full-time.txt" || cat "$RUNNER_TEMP/issue110-full-time.txt"
+          test ! -f "$RUNNER_TEMP/issue110-full-report.json" || cat "$RUNNER_TEMP/issue110-full-report.json"
+          df -h "$RUNNER_TEMP"
 
