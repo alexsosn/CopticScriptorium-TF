@@ -49,6 +49,59 @@ def compare_pinned_multiword_literals(source_records, native: dict) -> int:
     return len(seen)
 
 
+_POSITION_TAG = re.compile(rb"<(/?)(norm|multiword)\\b([^<>]*)>")
+
+
+def compare_pinned_multiword_spans(source_records, native: dict) -> int:
+    """Independent raw TT event scanner: literal and exact word-close bounds.
+
+    This uses neither parse_tt_record nor the graph builder or TF writer.
+    Crossing layout, translation, and edition tags are ignored deliberately;
+    each original closing norm represents one completed source Coptic word.
+    """
+    seen: set[tuple[str, int]] = set()
+    physical: set[str] = set()
+    for rid, raw in source_records:
+        if not isinstance(rid, str) or not rid:
+            raise ValueError("multiword source identity missing")
+        if rid.casefold() in physical:
+            raise ValueError("duplicate multiword physical source record")
+        physical.add(rid.casefold())
+        closed_norms = 0
+        opening = 0
+        stack: list[tuple[tuple[str, int], str, int]] = []
+        for m in _POSITION_TAG.finditer(raw):
+            closing, kind, attrs = m.groups()
+            if kind == b"norm":
+                if closing:
+                    closed_norms += 1
+                continue
+            if not closing:
+                opening += 1
+                values = _MULTIWORD_VALUE.findall(attrs)
+                if len(values) != 1:
+                    raise ValueError("multiword missing/duplicated source literal")
+                literal = html.unescape(values[0].decode("utf-8"))
+                stack.append(((rid, opening), literal, closed_norms))
+                continue
+            if not stack:
+                raise ValueError("multiword closing without opening")
+            key, literal, start_after = stack.pop()
+            if key in seen:
+                raise ValueError("duplicate multiword opening ordinal")
+            seen.add(key)
+            expected = (literal, start_after, closed_norms)
+            if native.get(key) != expected:
+                raise ValueError(
+                    f"multiword source literal/boundary differs from native TF at {key!r}"
+                )
+        if stack:
+            raise ValueError(f"multiword unclosed source event in {rid}")
+    if seen != set(native):
+        raise ValueError("multiword source/native opening count differs")
+    return len(seen)
+
+
 def main(tf_root: Path, source_root: Path) -> None:
     api = Fabric(locations=[str(tf_root)], silent="deep").load(
         "value render_mode source_record_id source_ordinal "
@@ -70,6 +123,7 @@ def main(tf_root: Path, source_root: Path) -> None:
     assert len(nodes) == EXPECTED, (len(nodes), EXPECTED)
     by_mode = Counter()
     native: dict[tuple[str, int], str] = {}
+    native_spans: dict[tuple[str, int], tuple[str, int, int]] = {}
     for n in nodes:
         rid = api.F.source_record_id.v(n)
         ordinal = api.F.source_ordinal.v(n)
@@ -81,6 +135,11 @@ def main(tf_root: Path, source_root: Path) -> None:
         key = (rid, ordinal)
         assert key not in native, f"duplicate multiword native occurrence {key!r}"
         native[key] = literal
+        native_spans[key] = (
+            literal,
+            api.F.start_after_word_ordinal.v(n),
+            api.F.end_after_word_ordinal.v(n),
+        )
         slots = api.E.oslots.s(n)
         assert len(slots) >= 1
         if mode == "multiword_anchor":
@@ -96,8 +155,8 @@ def main(tf_root: Path, source_root: Path) -> None:
         ):
             assert (word is None) == (char is None), (key, word, char)
         by_mode[mode] += 1
-    assert compare_pinned_multiword_literals(
-        ((ident, raw) for ident, _path, raw, _pack in records(source_root)), native
+    assert compare_pinned_multiword_spans(
+        ((ident, raw) for ident, _path, raw, _pack in records(source_root)), native_spans
     ) == EXPECTED
     print(json.dumps({
         "status": "PASS exact native multiword grouping source conservation",
@@ -106,6 +165,7 @@ def main(tf_root: Path, source_root: Path) -> None:
         "physical_source_records": 2628,
         "multiword_nodes": EXPECTED,
         "opening_kind_literal_ordinal_parity": True,
+        "independent_original_tt_start_end_word_boundary_parity": True,
         "modes": dict(sorted(by_mode.items())),
     }, sort_keys=True), flush=True)
 

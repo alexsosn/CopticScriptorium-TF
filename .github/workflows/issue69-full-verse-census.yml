@@ -17,6 +17,7 @@ on:
       - 'tests/live_issue143_source_examples.py'
       - 'tests/test_issue143_multiword.py'
       - 'tests/test_issue143_value_parity.py'
+      - 'tests/test_issue143_source_boundaries.py'
       - 'tests/live_issue140_source_examples.py'
       - 'tests/test_issue140_edition_annotations.py'
       - 'tests/live_issue135_source_examples.py'
