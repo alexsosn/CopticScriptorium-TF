@@ -109,9 +109,12 @@ def audit(source: Path, greek_parent: Path) -> dict:
             ):
                 raise ValueError("Mark1 candidate does not have two exact original marker proofs")
             accepted.append((r.source_ordinal, r.source_kind, r.target_verse))
-        if not (statuses.get("reference_candidate", 0) > 0
-                and statuses.get("ambiguous", 0) > 0):
-            raise ValueError("Mark1 dual-marker pilot did not preserve both accepted and rejected cases")
+        # Measured from BOTH exact pinned physical witnesses, independently
+        # checked against 7,927 Greek TF verse nodes and their reverse sections.
+        # Fail closed if a new rule accidentally promotes extra source rows.
+        if (dict(statuses) != {"reference_candidate": 66, "ambiguous": 15}
+                or len(set(v for _, _, v in accepted)) != 39):
+            raise ValueError("Mark1 source-backed 66/15/39 candidate invariant changed")
         identities.append((original_git_blob, tuple(accepted), statuses))
         witnesses[record] = {
             "status_counts": dict(sorted(statuses.items())),
