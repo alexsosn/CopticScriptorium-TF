@@ -76,12 +76,17 @@ def audit(root: Path) -> dict:
             raise ValueError(f"pinned TT source attribute-shape drift: {source}")
         observations[source] = dict(sorted(found.items()))
     paths = list(SOURCES)
-    if hashes[paths[0]] != hashes[paths[1]]:
-        raise ValueError("Mark1 canonical and treebank TT bytes are no longer identical")
+    # The two files have the same observed annotation-shape counts but
+    # DIFFERENT actual Git blob hashes. Never treat the physical treebank
+    # witness as byte-identical or collapse its source occurrence identity.
+    relation = "identical_bytes" if hashes[paths[0]] == hashes[paths[1]] else "distinct_bytes"
+    if relation != "distinct_bytes":
+        raise ValueError("source witness byte-relationship changed from researched baseline")
     return {
         "status": "pass", "upstream_commit": PIN,
         "physical_documents_examined": len(SOURCES),
-        "treebank_mark1_exact_byte_duplicate": True,
+        "treebank_mark1_witness_relationship": relation,
+        "physical_source_sha256": dict(sorted(hashes.items())),
         "source_shape_counts": observations,
         "scope": "Untrusted original XML-like label shapes; no source contents, normalization or cross-corpus mapping",
     }
