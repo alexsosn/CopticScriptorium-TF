@@ -20,3 +20,9 @@
 - No new word slots / section hierarchy change / JSON XML blobs
 - Exact-head CI real pinned Mark 2 green
 - Logically independent adverse review and merge
+
+## Follow-up real CI failure / RED gate (2026-10-11)
+- Exact PR head ba6a2e773a514bc9726453bbe07be0374aac1c45: source census and real Mark tests passed, but GitHub Actions run 38132112506/job 114448411135 failed at full native TF writer/reload after 183 seconds with `full converter smoke failed: No module named 'tf'`.
+- Root cause: `.github/workflows/issue69-full-verse-census.yml` upgraded its purely source-based audit into a full-conversion gate but omitted the project's declared `text-fabric==13.1.0` dependency. Other workflows install it, but independent jobs do not share Python packages.
+- RED-first `tests/test_issue110_full_census_dependencies.py` requires pinned installation to precede the actual full converter command; fix the workflow alone, preserve exact-source sparse checkout and no corpus upload.
+- Rerun exact-head census+native TF CI and check that 2,394,354 slots/2,628 physical documents/110,148 `lang` source nodes actually match independently measured corpus data. Merge only after independent adversarial review, including possible `main` merge conflicts.
