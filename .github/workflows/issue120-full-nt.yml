@@ -1,0 +1,107 @@
+name: issue120-full-native-NT-wefts
+
+on:
+  pull_request:
+    paths:
+      - 'research/issue_120/**'
+      - 'tests/test_issue120_*.py'
+      - 'copticscriptorium_tf/nt_modules.py'
+      - 'copticscriptorium_tf/nt_reference.py'
+      - '.github/workflows/issue120-full-nt.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  full-native-nt-weft-gate:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'validate/issue120-full-native-nt-wefts'
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout exact Coptic conversion code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact tested code commit
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+      - name: Run independent RED-first release invariants
+        run: python -m unittest discover -s tests -p 'test_issue120_*.py' -v
+      - name: Checkout exact Coptic TT directories and ZIP packages
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: upstream
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*/*_TT/**
+            /*/*_TT.zip
+      - name: Checkout exact read-only Greek NT Text-Fabric parent
+        uses: actions/checkout@v4
+        with:
+          repository: alexsosn/sblgnt
+          ref: 4dd0207bda66133fdfa9740ff0aae7de61228700
+          path: pinned-greek
+          persist-credentials: false
+      - name: Verify immutable parent revisions
+        run: |
+          test "$(git -C upstream rev-parse HEAD)" = '3ac067f1709a0012daf39ea8da2fac79980176a5'
+          test "$(git -C pinned-greek rev-parse HEAD)" = '4dd0207bda66133fdfa9740ff0aae7de61228700'
+      - name: Run existing full 2628-document converter and clean native reload
+        run: |
+          /usr/bin/time -v -o "$RUNNER_TEMP/issue120-converter-memory.txt" \
+            python research/issue-16/full_converter_smoke.py upstream \
+              --work-root "$RUNNER_TEMP/issue120-full-tf" \
+              --output "$RUNNER_TEMP/issue120-converter-report.json"
+      - name: Independently verify all 2747 original SBL source nodes in full TF
+        run: |
+          python research/issue-91/full_native_recheck.py upstream \
+            --tf-dir "$RUNNER_TEMP/issue120-full-tf/tf" \
+            --output "$RUNNER_TEMP/issue120-source-conservation.json"
+      - name: Project all Coptic-owned SBL and Greek verse reference wefts
+        run: |
+          /usr/bin/time -v -o "$RUNNER_TEMP/issue120-projection-memory.txt" \
+            python research/issue_120/full_nt_wefts.py project upstream pinned-greek \
+              --coptic-tf "$RUNNER_TEMP/issue120-full-tf/tf" \
+              --wefts "$RUNNER_TEMP/issue120-native-wefts" \
+              --output "$RUNNER_TEMP/issue120-full-project.json"
+      - name: Independently reload and reconcile full native bilateral wefts
+        run: |
+          /usr/bin/time -v -o "$RUNNER_TEMP/issue120-reload-memory.txt" \
+            python research/issue_120/full_nt_wefts.py verify upstream pinned-greek \
+              --coptic-tf "$RUNNER_TEMP/issue120-full-tf/tf" \
+              --wefts "$RUNNER_TEMP/issue120-native-wefts" \
+              --output "$RUNNER_TEMP/issue120-full-verification.json"
+      - name: Show source-free operational results
+        if: always()
+        run: |
+          for file in "$RUNNER_TEMP"/issue120-*.json "$RUNNER_TEMP"/issue120-*-memory.txt; do
+            if test -f "$file"; then echo "=== $(basename "$file") ==="; cat "$file"; fi
+          done
+      - name: Upload source-free JSON and resource evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue120-full-NT-native-weft-review-evidence
+          path: |
+            ${{ runner.temp }}/issue120-*.json
+            ${{ runner.temp }}/issue120-*-memory.txt
+          if-no-files-found: warn
+          retention-days: 14
