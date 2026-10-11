@@ -193,7 +193,14 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
     }):
         raise ValueError("OT gap physical source record total does not reconcile")
     if sum(anomalies["gapped_work_edition_counts"].values()) != 309:
-        raise ValueError("OT gap work/edition total does not reconcile")
+        raise ValueError("OT gap work/edition display total does not reconcile")
+    structured_work_counts = anomalies["gapped_work_edition_groups"]
+    if (
+        sum(row["event_count"] for row in structured_work_counts) != 309
+        or len({(row["source_cts_work"], row["source_edition"])
+                for row in structured_work_counts}) != len(structured_work_counts)
+    ):
+        raise ValueError("OT gap typed work/edition aggregate lost source identities")
     status_counts = Counter(
         c["greek_status"] for c in anomalies["cases"]
         if c["kind"] == "gapped"
