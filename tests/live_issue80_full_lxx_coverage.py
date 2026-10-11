@@ -106,6 +106,13 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         raise ValueError("unexpected Coptic undetermined source denominator")
     if report["totals"]["verse_position_events"] != 29:
         raise ValueError("missing or reclassified source-internal verse markers")
+    topology = report["marker_topology"]
+    if topology["source_records"] != 2628:
+        raise ValueError("missing source documents in verse-tag topology audit")
+    if topology["source_records_with_verse_n"] != 2571:
+        raise ValueError("missing source verse marker documents")
+    if topology["opening_verse_n_tags"] != 73844:
+        raise ValueError("source verse marker occurrence census has drifted")
     report["sparse_git_blobs"] = len(files)
     report["lxx_feature_blobs_verified"] = True
     report["lxx_git_commit_checked_by_ci"] = LXX_GIT_PIN
@@ -122,6 +129,8 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         "ot_reference_statuses": report["ot_reference_statuses"],
         "ot_word_statuses": report["ot_word_statuses"],
         "verse_position_events": report["totals"]["verse_position_events"],
+        "marker_topology_categories": topology["categories"],
+        "opening_verse_n_tags": topology["opening_verse_n_tags"],
         "book_profiles": len(report["candidate_lxx_books"]),
         "work_profiles": len(report["cts_works"]),
         "family_profiles": len(report["families"]),
