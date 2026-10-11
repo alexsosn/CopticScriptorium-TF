@@ -29,7 +29,7 @@ OT_ZIPS = (
 )
 # Exact metadata CTS namespace/work, *not* a permissive filename match.
 ZACH_CTS = re.compile(
-    rb'document_cts_urn="urn:cts:copticLit:ot\.(?:zach|zech)\.[^"]+"',
+    rb'document_cts_urn="urn:cts:copticLit:ot\.(?:zach|zech)\.[A-Za-z0-9_-]+:[0-9]+"',
     re.IGNORECASE,
 )
 
