@@ -95,6 +95,7 @@ def main(coptic_source: Path, greek_parent: Path) -> None:
         assert jonah.lxx_node == 679992
         assert jonah.declared_coptic_source_span_count is None
         assert len(jonah.spans) == 2
+        assert all(span.source_verse_n == "1" for span in jonah.spans)
         assert {s.source_record_id for s in jonah.spans} == {
             "sahidic.jonah/sahidic.jonah:Jonah_02",
             "bohairic-jonah/bohairic.jonah:bohairic.Jonah_02",
@@ -109,6 +110,7 @@ def main(coptic_source: Path, greek_parent: Path) -> None:
             result = find_coptic_witnesses(coptic, greek, book, 2, 1)
             assert result.lxx_node == expected_node
             assert len(result.spans) == 1, (book, result)
+            assert result.spans[0].source_verse_n == "1", (book, result)
             assert result.spans[0].source_word_ordinals[0] >= 1
 
         print(json.dumps({
