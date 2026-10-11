@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'research/issue_120/**'
+      - 'research/issue-126/**'
+      - 'tests/test_issue126_*.py'
       - 'tests/test_issue120_*.py'
       - 'copticscriptorium_tf/nt_modules.py'
       - 'copticscriptorium_tf/nt_reference.py'
@@ -19,7 +21,7 @@ permissions:
 
 jobs:
   full-native-nt-weft-gate:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'validate/issue120-full-native-nt-wefts'
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'validate/issue120-full-native-nt-wefts' || github.event.pull_request.head.ref == 'fix/issue126-mark15-edition-unavailable'
     runs-on: ubuntu-latest
     timeout-minutes: 100
     env:
