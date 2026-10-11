@@ -1,6 +1,7 @@
 """#156: RED-first source-literal gap/supplied/abbr multi-attribute model."""
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -113,6 +114,21 @@ class ExactSourceAttributes(unittest.TestCase):
             self.assertEqual(api.F.tt_attr_gap_unit.v(api.F.otype.s("gap")[0]), "character")
             self.assertEqual(api.F.tt_attr_abbr_type.v(api.F.otype.s("abbr")[0]), "nomina_sacra")
             self.assertIsNone(api.F.tt_attr_gap_extent.v(api.F.otype.s("abbr")[0]))
+
+    def test_public_graph_validator_rejects_forged_duplicate_attributes(self):
+        doc = parse('<gap reason="lost">'+norm(1,"a")+'</gap>')
+        graph = build_graph([doc])
+        original = next(node for node in graph.nodes if node.otype == "gap")
+        corrupt = replace(
+            original, source_attributes=(("reason", "lost"), ("reason", "forged"))
+        )
+        forged = replace(
+            graph,
+            nodes=tuple(corrupt if n.id == original.id else n for n in graph.nodes),
+        )
+        self.assertTrue(
+            any("source attributes" in message for message in validate_graph(forged))
+        )
 
     def test_attributes_change_graph_fingerprint(self):
         one = build_graph([parse('<gap reason="lost">'+norm(1,"a")+'</gap>')])
