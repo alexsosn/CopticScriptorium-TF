@@ -23,6 +23,7 @@ on:
       - 'tests/test_issue143_multiword.py'
       - 'tests/test_issue143_value_parity.py'
       - 'tests/test_issue143_source_boundaries.py'
+      - 'tests/test_issue143_runner_import.py'
       - 'tests/live_issue140_source_examples.py'
       - 'tests/test_issue140_edition_annotations.py'
       - 'tests/test_issue140_value_parity.py'
@@ -96,7 +97,7 @@ jobs:
       - name: Check raw TT multiword source sample parity before TF install
         run: PYTHONPATH=. python tests/live_issue143_source_examples.py pinned-coptic
 
-      - name: Audit original Marcion/Petermann and chapter source examples
+      - name: Check original chapter and Marcion/Petermann source examples
         run: PYTHONPATH=. python tests/live_issue146_source_examples.py pinned-coptic
 
       - name: Install pinned Text-Fabric for native conversion and reload

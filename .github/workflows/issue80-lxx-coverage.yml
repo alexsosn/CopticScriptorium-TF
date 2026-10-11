@@ -9,6 +9,7 @@ on:
       - 'copticscriptorium_tf/ot_verse_anomalies.py'
       - 'tests/test_issue108_ot_anomaly_batch.py'
       - 'tests/test_issue108_zero_grouping.py'
+      - 'tests/test_issue108_gap_grouping.py'
       - 'research/issue-108/**'
       - 'tests/test_issue105_verse_marker_topology.py'
       - 'research/issue-105/**'
@@ -55,6 +56,7 @@ jobs:
           python -m unittest tests.test_issue105_verse_marker_topology -v
           python -m unittest tests.test_issue108_ot_anomaly_batch -v
           python -m unittest tests.test_issue108_zero_grouping -v
+          python -m unittest tests.test_issue108_gap_grouping -v
           python -m unittest tests.test_issue78_cts_alias_batch -v
 
       - name: Acquire all immutable source TT blobs with sparse Git
