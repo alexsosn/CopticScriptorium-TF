@@ -6,6 +6,8 @@ on:
       - '.github/workflows/issue95-zechariah.yml'
       - 'tests/live_issue95_zechariah.py'
       - 'tests/test_issue95_zechariah.py'
+      - 'tests/test_issue97_bohairic_zechariah.py'
+      - 'research/issue-97/**'
       - 'research/issue-95/**'
   workflow_dispatch:
 
@@ -38,7 +40,9 @@ jobs:
         run: python -m pip install 'text-fabric==13.1.0'
 
       - name: RED-first constrained source identity and diagnostic tests
-        run: python -m unittest tests.test_issue95_zechariah -v
+        run: |
+          python -m unittest tests.test_issue95_zechariah -v
+          python -m unittest tests.test_issue97_bohairic_zechariah -v
 
       - name: Fetch only two immutable Coptic OT ZIPs
         uses: actions/checkout@v4
