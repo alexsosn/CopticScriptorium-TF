@@ -46,6 +46,11 @@ from tf.fabric import Fabric
 SOURCE_COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
 KINDS = {"gap", "supplied", "abbr"}
 EXPECTED = {"gap": 1162, "supplied": 1865, "abbr": 1620}
+EXPECTED_KEYS = {
+    "gap.extent", "gap.gap", "gap.reason", "gap.unit",
+    "supplied.reason", "supplied.source", "supplied.supplied",
+    "abbr.type",
+}
 EXPECTED_RECORDS = 2628
 EXPECTED_BLOBS = 565
 
@@ -139,6 +144,25 @@ def assert_parity(doc, events):
                 doc.source_record_id, seen.ordinal, field,
                 getattr(seen, field), expected[field],
             )
+    if not events:
+        return
+    # This extra phase is essential: matching raw bytes to a parser model
+    # does not prove that the graph kept every annotation node/attribute.
+    graph = build_graph([doc])
+    observed = {
+        (node.otype, node.source_ordinal): node
+        for node in graph.nodes if node.otype in KINDS
+    }
+    assert len(observed) == len(events), (doc.source_record_id, "native graph node loss")
+    for ann in actual:
+        node = observed.get((ann.kind, ann.ordinal))
+        assert node is not None, (doc.source_record_id, ann.kind, ann.ordinal)
+        assert node.source_attributes == ann.attributes, (
+            doc.source_record_id, ann.kind, ann.ordinal,
+        )
+        assert node.start_char == ann.start_char and node.end_char == ann.end_char
+        assert node.start_after_word_ordinal == ann.start_after_word_ordinal
+        assert node.end_after_word_ordinal == ann.end_after_word_ordinal
 
 
 def assert_native(doc):
@@ -158,6 +182,15 @@ def assert_native(doc):
             for item in doc.editorial_annotations if item.kind in KINDS
             for key, _ in item.attributes
         })
+        for item in doc.editorial_annotations:
+            if item.kind not in KINDS:
+                continue
+            for key, _ in item.attributes:
+                feature = _source_attr_feature_name(item.kind, key)
+                raw_feature = (directory / f"{feature}.tf").read_text(encoding="utf-8")
+                header = raw_feature.split("\\n\\n", 1)[0]
+                assert f"@sourceTag={item.kind}" in header, (doc.source_record_id, feature)
+                assert f"@sourceKey={key}" in header, (doc.source_record_id, feature)
         api = Fabric(locations=[str(directory)], silent="deep").load(
             "source_record_id source_ordinal " + " ".join(feature_names),
             silent="deep",
@@ -196,20 +229,32 @@ def main(root: Path) -> None:
             counters[item["kind"]] += 1
             for key, _ in item["attributes"]:
                 keys[f'{item["kind"]}.{key}'] += 1
-            if item["kind"] not in examples:
-                examples[item["kind"]] = doc
+            examples.setdefault((item["kind"], None), doc)
+            for key, _ in item["attributes"]:
+                examples.setdefault((item["kind"], key), doc)
     assert records == EXPECTED_RECORDS, (records, EXPECTED_RECORDS)
     assert dict(counters) == EXPECTED, (counters, EXPECTED)
-    assert set(examples) == KINDS, set(examples)
-    for kind, doc in sorted(examples.items()):
-        assert_native(doc)
+    assert set(keys) == EXPECTED_KEYS, (set(keys), EXPECTED_KEYS)
+    assert all((tag, None) in examples for tag in KINDS)
+    assert all((tag, key) in examples
+               for tag, key in (item.split(".", 1) for item in EXPECTED_KEYS))
+    # A native TF reload is required for each *distinct original source key*
+    # (plus a type sample). Cache repeated documents, not generated corpora.
+    seen_records = set()
+    for (_kind, _key), doc in sorted(
+        examples.items(), key=lambda pair: (pair[0][0], pair[0][1] or "")
+    ):
+        if doc.source_record_id not in seen_records:
+            assert_native(doc)
+            seen_records.add(doc.source_record_id)
     print(json.dumps({
         "source_commit": SOURCE_COMMIT,
         "source_records": records,
         "source_tt_git_blobs": EXPECTED_BLOBS,
         "original_wrappers": dict(counters),
         "attribute_key_occurrences": dict(sorted(keys.items())),
-        "native_sample_kinds": sorted(examples),
+        "native_sample_source_records": len(seen_records),
+        "verified_original_source_attribute_keys": sorted(keys),
         "interpretation": "exact original attribute and boundary parity; not reconstructed text",
     }, sort_keys=True), flush=True)
     print("PASS all 4647 original gap/supplied/abbr attributes and source positions preserved", flush=True)
