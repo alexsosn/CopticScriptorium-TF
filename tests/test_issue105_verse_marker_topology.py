@@ -104,6 +104,30 @@ class VerseMarkerTopologyContractTests(unittest.TestCase):
         self.assertEqual(report["marker_topology"]["source_records"], 1)
         self.assertEqual(report["ot_word_statuses"], {"reference_candidate": 2})
 
+    def test_topology_categories_are_partitioned_by_actual_biblical_scope(self):
+        audit = VerseMarkerTopologyAudit()
+        first = ('<verse_n verse_n="1">' + token(1)
+                 + '<verse_n verse_n="1">' + token(2))
+        second = ('<verse_n verse_n="2">' + token(1)
+                  + '<verse_n verse_n="1">' + token(2))
+        audit.add(first, "sahidic.ruth/sahidic.ruth:ruth", scope="ot_candidate")
+        audit.add(second, "sahidica.nt/sahidica.nt:nt", scope="nt_candidate")
+        report = audit.report()
+        self.assertEqual(report["categories"], {
+            "duplicate_same_number": 1, "nonmonotonic": 1
+        })
+        self.assertEqual(report["by_scope"]["ot_candidate"]["categories"], {
+            "duplicate_same_number": 1
+        })
+        self.assertEqual(report["by_scope"]["nt_candidate"]["categories"], {
+            "nonmonotonic": 1
+        })
+        self.assertEqual(report["by_scope"]["ot_candidate"]["opening_verse_n_tags"], 2)
+        self.assertEqual(report["by_scope"]["nt_candidate"]["source_records"], 1)
+        self.assertEqual(report["by_scope"]["nt_candidate"]["examples"]["nonmonotonic"], [
+            "sahidica.nt/sahidica.nt:nt"
+        ])
+
     def test_nonbiblical_audited_without_promoting_to_greek(self):
         d = parse_tt_record(
             ('<meta>' + '<verse_n verse_n="1">' + token(1)).encode(),
