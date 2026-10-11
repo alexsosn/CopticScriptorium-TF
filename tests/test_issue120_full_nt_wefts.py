@@ -6,13 +6,13 @@ from research.issue_120.full_nt_wefts import (
 )
 
 COUNTS = {
-    "reference_candidate": 2362,
-    "ambiguous": 376,
+    "reference_candidate": 2494,
+    "ambiguous": 244,
     "unresolved": 8,
     "edition_unavailable": 1,
     "coptic_annotated_sbl_nodes": 2747,
-    "coptic_candidate_sbl_nodes": 2362,
-    "greek_target_verse_nodes": 944,
+    "coptic_candidate_sbl_nodes": 2494,
+    "greek_target_verse_nodes": 983,
 }
 
 
