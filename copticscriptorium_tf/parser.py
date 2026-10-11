@@ -216,7 +216,8 @@ def parse_tt_record(
                 arabic_raw.append(arabic_stack.pop())
             elif name in sbl_open:
                 if not sbl_open[name]:
-                    raise ValueError(f"closing source annotation without opening {name} in {source_record_id}")
+                    kind = "lang" if name == "lang" else "sbl_"
+                    raise ValueError(f"closing {kind} annotation without opening {name} in {source_record_id}")
                 item = sbl_open[name].pop()
                 item["end_word_ordinal"] = current_word["ordinal"] if current_word else None
                 item["end_char"] = current_offset() if current_word else None
@@ -252,7 +253,8 @@ def parse_tt_record(
             continue
         if name in sbl_open:
             if name not in attrs:
-                raise ValueError(f"source annotation {name} has no source value in {source_record_id}")
+                kind = "lang" if name == "lang" else "sbl_"
+                raise ValueError(f"{kind} annotation {name} has no source value in {source_record_id}")
             # Preserve legacy SBL occurrence IDs. Source language wrappers
             # get a separate ordinal sequence and never renumber SBL nodes.
             if name == "lang":
@@ -446,8 +448,10 @@ def parse_tt_record(
         raise ValueError(f"unclosed translation tag in {source_record_id}")
     if arabic_stack:
         raise ValueError(f"unclosed Arabic translation tag in {source_record_id}")
-    if any(sbl_open.values()):
-        raise ValueError(f"unclosed source annotation tag including lang/sbl in {source_record_id}")
+    if sbl_open["sbl_greek"] or sbl_open["sbl_apparatus"]:
+        raise ValueError(f"unclosed sbl_ annotation tag in {source_record_id}")
+    if sbl_open["lang"]:
+        raise ValueError(f"unclosed lang source annotation tag in {source_record_id}")
 
     if raw_words and (not sentence_starts or sentence_starts[0] != 1):
         raise ValueError(f"first word has no source sentence start in {source_record_id}")
