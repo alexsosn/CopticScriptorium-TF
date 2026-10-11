@@ -49,7 +49,7 @@ def compare_pinned_multiword_literals(source_records, native: dict) -> int:
     return len(seen)
 
 
-_POSITION_TAG = re.compile(rb"<(/?)(norm|multiword)\\b([^<>]*)>")
+_POSITION_TAG = re.compile(rb"<(/?)(norm|multiword)\b([^<>]*)>")
 
 
 def compare_pinned_multiword_spans(source_records, native: dict) -> int:
