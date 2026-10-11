@@ -11,6 +11,7 @@ import re
 from typing import Callable, Literal
 
 from .model import DocumentModel
+from .nt_paired_verse import paired_word_verses, source_pair_for_sbl
 
 COPTIC_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
 GREEK_NT_EDITION = "morphgnt/sblgnt:6.12:aaed91e57c8e4a8dc9a2383e129ca5e75fe6393d"
@@ -130,6 +131,12 @@ def resolve_coptic_sbl_references(
         ("book", "chapter", "corpus", "document_cts_urn", "Greek_source")
     )
     doc_cts = CTS_DOCUMENT.fullmatch((meta.get("document_cts_urn") or "").strip())
+    paired_words = (
+        paired_word_verses(document)
+        if (attested and not duplicated_identity and source_info is not None
+            and book == "1_Corinthians" and chapter == 14)
+        else ()
+    )
 
     for annotation in document.sbl_annotations:
         status: Status = "unresolved"
@@ -145,11 +152,24 @@ def resolve_coptic_sbl_references(
         raw_label = {w.verse_vid for w in words}
         vid = next(iter(raw_vid)) if len(raw_vid) == 1 else None
         label = next(iter(raw_label)) if len(raw_label) == 1 else None
+        source_pair = (
+            source_pair_for_sbl(document, paired_words, indices)
+            if (paired_words and annotation.source_verse_n is None
+                and raw_verse == {None} and raw_vid == {None})
+            else None
+        )
+        if source_pair is not None and label == source_pair.editor:
+            verse = source_pair.number
+        else:
+            source_pair = None
         evidence = (
             "book+chapter+document_cts_urn+verse_n+"
             + ("vid_n+" if vid is not None else "")
             + "verse_vid+" + annotation.kind
         )
+
+        if source_pair is not None:
+            evidence = "book+chapter+document_cts_urn+verse+verse_vid+" + annotation.kind
 
         if duplicated_identity:
             status, reason = "ambiguous", "duplicate source identity or provenance metadata"
