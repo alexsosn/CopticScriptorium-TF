@@ -14,6 +14,11 @@ TOKEN_WRAPPER_TYPES = (
 EDITION_WRAPPER_TYPES = ("ed_line_n", "ed_lb_n", "ed_page_n", "ed_pg_n")
 # Source grouping over multiple normalized words; not new word slots.
 MULTIWORD_WRAPPER_TYPES = ("multiword",)
+# Textual edition reference labels, never inferred Coptic biblical/LXX mapping.
+REFERENCE_WRAPPER_TYPES = (
+    "chapter_n", "marcion_chapter_n", "marcion_verse_n",
+    "petermann_chapter_n", "petermann_verse_n",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,3 +169,5 @@ class DocumentModel:
     edition_annotations: tuple[SblAnnotation, ...] = ()
     # Source-exact multiword wrappers over existing canonical norm tokens.
     multiword_annotations: tuple[SblAnnotation, ...] = ()
+    # Literal source edition chapter and verse wrapper occurrences.
+    reference_annotations: tuple[SblAnnotation, ...] = ()

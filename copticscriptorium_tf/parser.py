@@ -21,6 +21,7 @@ from .model import (
     TOKEN_WRAPPER_TYPES,
     EDITION_WRAPPER_TYPES,
     MULTIWORD_WRAPPER_TYPES,
+    REFERENCE_WRAPPER_TYPES,
     Translation,
     Word,
 )
@@ -130,17 +131,20 @@ def parse_tt_record(
         **{kind: [] for kind in TOKEN_WRAPPER_TYPES},
         **{kind: [] for kind in EDITION_WRAPPER_TYPES},
         **{kind: [] for kind in MULTIWORD_WRAPPER_TYPES},
+        **{kind: [] for kind in REFERENCE_WRAPPER_TYPES},
     }
     sbl_closed: list[dict[str, Any]] = []
     lang_closed: list[dict[str, Any]] = []
     token_closed: list[dict[str, Any]] = []
     edition_closed: list[dict[str, Any]] = []
     multiword_closed: list[dict[str, Any]] = []
+    reference_closed: list[dict[str, Any]] = []
     sbl_open_count = 0
     lang_open_count = 0
     token_open_count = 0
     edition_open_count = 0
     multiword_open_count = 0
+    reference_open_count = 0
     layout_events: list[LayoutEvent] = []
     current_word: dict[str, Any] | None = None
     # Preserve upstream literal verse references. They are not claimed to
@@ -235,6 +239,7 @@ def parse_tt_record(
                     kind = ("token" if name in TOKEN_WRAPPER_TYPES else
                             "edition" if name in EDITION_WRAPPER_TYPES else
                             "multiword" if name in MULTIWORD_WRAPPER_TYPES else
+                            "reference" if name in REFERENCE_WRAPPER_TYPES else
                             "lang" if name == "lang" else "sbl_")
                     raise ValueError(f"closing {kind} annotation without opening {name} in {source_record_id}")
                 item = sbl_open[name].pop()
@@ -262,6 +267,8 @@ def parse_tt_record(
                     edition_closed.append(item)
                 elif name in MULTIWORD_WRAPPER_TYPES:
                     multiword_closed.append(item)
+                elif name in REFERENCE_WRAPPER_TYPES:
+                    reference_closed.append(item)
                 else:
                     sbl_closed.append(item)
             elif name == "verse_n":
@@ -283,6 +290,7 @@ def parse_tt_record(
                 kind = ("token" if name in TOKEN_WRAPPER_TYPES else
                         "edition" if name in EDITION_WRAPPER_TYPES else
                         "multiword" if name in MULTIWORD_WRAPPER_TYPES else
+                        "reference" if name in REFERENCE_WRAPPER_TYPES else
                         "lang" if name == "lang" else "sbl_")
                 raise ValueError(f"{kind} annotation {name} has no source value in {source_record_id}")
             # Preserve legacy SBL occurrence IDs. Source language wrappers
@@ -299,6 +307,9 @@ def parse_tt_record(
             elif name in MULTIWORD_WRAPPER_TYPES:
                 multiword_open_count += 1
                 occurrence = multiword_open_count
+            elif name in REFERENCE_WRAPPER_TYPES:
+                reference_open_count += 1
+                occurrence = reference_open_count
             else:
                 sbl_open_count += 1
                 occurrence = sbl_open_count
@@ -497,6 +508,8 @@ def parse_tt_record(
         raise ValueError(f"unclosed edition annotation in {source_record_id}")
     if any(sbl_open[kind] for kind in MULTIWORD_WRAPPER_TYPES):
         raise ValueError(f"unclosed multiword annotation in {source_record_id}")
+    if any(sbl_open[kind] for kind in REFERENCE_WRAPPER_TYPES):
+        raise ValueError(f"unclosed reference annotation in {source_record_id}")
 
     if raw_words and (not sentence_starts or sentence_starts[0] != 1):
         raise ValueError(f"first word has no source sentence start in {source_record_id}")
@@ -626,6 +639,9 @@ def parse_tt_record(
         )),
         multiword_annotations=tuple(SblAnnotation(**item) for item in sorted(
             multiword_closed, key=lambda a: a["ordinal"]
+        )),
+        reference_annotations=tuple(SblAnnotation(**item) for item in sorted(
+            reference_closed, key=lambda a: a["ordinal"]
         )),
     )
 
