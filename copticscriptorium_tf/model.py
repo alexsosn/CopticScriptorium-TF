@@ -140,3 +140,5 @@ class DocumentModel:
     arabic_translations: tuple[Translation, ...]
     source_text: str = field(repr=False)
     sbl_annotations: tuple[SblAnnotation, ...] = ()
+    # Separate upstream language wrapper occurrences; not SBL Greek text.
+    language_annotations: tuple[SblAnnotation, ...] = ()
