@@ -75,6 +75,7 @@ without a parallel JSON/XML structure.
 | chapter_n / marcion_chapter_n / marcion_verse_n / petermann_chapter_n / petermann_verse_n | original source edition reference labels, never inferred canonical Bible alignments |
 | hi_rend / note / gap_reason / supplied_reason / note_note / gap_unit / supplied_source / gap_quantity / gap_extent / supplied_evidence / unclear_reason / unclear | literal editorial witness annotation spans/anchors over existing Coptic word slots |
 | gap / supplied / abbr | intervention/abbreviation wrappers with all original attributes in separate native scalar features |
+| entity_head_tok / entity_text / entity_identity / persName_type / placeName_type / placeName_ref / roleName_type / rs_type / org_type | source-attested entity/name labels with literal values and positions; no automatically verified ontology equivalence |
 | verse_n_marker / vid_n_marker / verse_vid_marker | source reference marker inside an unsplit word, with exact character offset; not a whole-word verse membership |
 | entity | entity annotation spanning one or more words |
 | translation | English translation segment with its own text |
