@@ -1,8 +1,8 @@
 """RED-first workflow contract for issue #101: superseded heads are cancelled.
 
-Cancel PR heads of the *same* workflow and PR only. Do not cancel a verified
-push-to-main or manually dispatched full-source acceptance just because another
-run started on the same ref.
+Cancel PR heads of the *same* workflow and PR only. Never share a group for
+non-PR runs: GitHub also replaces older pending runs on group collisions even
+when cancel-in-progress is false. A unique run_id fallback is required.
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ PREVIOUSLY_UNCANCELLED = (
     "issue97-zechariah-sequences.yml",
 )
 
-EXPECTED_GROUP = "  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
+EXPECTED_GROUP = "  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}"
 EXPECTED_CANCEL = "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}"
 
 
