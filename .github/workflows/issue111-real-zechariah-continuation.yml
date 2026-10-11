@@ -10,6 +10,8 @@ on:
       - 'tests/test_issue111_zechariah_continuation.py'
   workflow_dispatch:
 
+# Prevent a stale PR head from competing for pinned TT/LXX source runners.
+# Non-PR runs have unique identities and never cancel each other.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
