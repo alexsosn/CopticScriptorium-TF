@@ -65,6 +65,21 @@ class VerseMarkerTopologyContractTests(unittest.TestCase):
         self.assertEqual(audit.report()["opening_verse_n_tags"], 1)
         self.assertEqual(audit.report()["categories"], {})
 
+    def test_intra_word_marker_does_not_falsely_claim_an_empty_textual_verse(self):
+        source = (
+            '<verse_n verse_n="1">'
+            '<norm_group norm_group="x">'
+            '<norm xml:id="u1" new_sent="true" norm="ab">'
+            'a<verse_n verse_n="2">b</norm></norm_group>'
+        )
+        audit = VerseMarkerTopologyAudit()
+        audit.add(source, "sahidic.ruth/sahidic.ruth:inside")
+        report = audit.report()
+        self.assertEqual(report["opening_verse_n_tags"], 2)
+        self.assertEqual(report["categories"]["no_word_start_between_markers"], 1)
+        self.assertIn("internal-word boundary", report["interpretation"])
+        self.assertNotIn("empty verse", report["interpretation"])
+
     def test_source_identity_examples_bounded_and_order_independent(self):
         raw = '<verse_n verse_n="1"><verse_n verse_n="1">' + token(1)
         audit = VerseMarkerTopologyAudit()
