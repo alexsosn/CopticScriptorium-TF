@@ -80,11 +80,18 @@ def paired_word_verses(document: DocumentModel) -> tuple[Pair | None, ...]:
         if word_open:
             invalid_word = True
         stack = human_stack if name == "verse" else editor_stack
-        # Real 1Cor14 structure is editor -> human -> Coptic word.
-        # The SBL wrappers may cross, but the two *verse* wrappers may not.
-        if ((name == "verse" and not editor_stack)
-            or (name == "verse_vid" and human_stack)):
-            raise ValueError("invalid paired source label nesting")
+        # In the real 1Cor14 TT layer, editor -> human tags *open*
+        # before each word, but close editor -> human (not XML nesting).
+        # These independent concurrent markup layers may overlap at a
+        # between-word boundary. The only admissible evidence is that BOTH
+        # open scopes cover every complete Coptic word and agree on verse.
+        # Never accept a start of human without editor or a new editor
+        # while the previous human scope is still open.
+        if not closing and (
+            (name == "verse" and not editor_stack)
+            or (name == "verse_vid" and human_stack)
+        ):
+            raise ValueError("invalid paired source label opening order")
         if closing:
             if not stack:
                 raise ValueError("orphan paired TT verse label")
