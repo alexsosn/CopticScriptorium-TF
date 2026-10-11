@@ -65,6 +65,9 @@ jobs:
         timeout-minutes: 10
         run: python tests/live_issue110_wrapper_census.py pinned-coptic
 
+      - name: Install pinned Text-Fabric for native conversion and reload
+        run: python -m pip install 'text-fabric==13.1.0'
+
       - name: Full pinned source native TF schema/reload release regression
         timeout-minutes: 16
         run: |
