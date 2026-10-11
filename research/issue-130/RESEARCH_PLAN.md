@@ -1,0 +1,14 @@
+# Issue #130: native bilateral Coptic↔LXX inverse-query API
+
+## Actual repository research
+CopticScriptorium-TF main already publishes **two additive native TF modules** over separately owned Text-Fabric warps: source Coptic word features `coptic_lxx_ref_id`, `coptic_lxx_ref_status`; pinned CenterBLC/LXX Greek verse features `coptic_lxx_ref_id`, `coptic_lxx_source_span_count`. The edition-qualified string `CenterBLC/LXX:1935:<book>:<chapter>:<verse>` is the **only** cross-warp key; integer node IDs must never cross warp boundaries. The production source/Greek module authors validate byte-pinned parent corpora and map source reference candidates, not textual equivalence. No researcher-facing inverse query exists in `examples/query_cookbook.py` as of this ticket.
+
+## Research → RED → implementation → tests/review
+1. RED-first API test with two genuine-structure Coptic witnesses and one LXX verse node, using mock Text-Fabric `F.feature.v` + inverted `F.feature.s`, `T.nodeFromSection`. Assert original source-local record/word identity, distinct witness grouping, source candidate status, and no foreign node arithmetic.
+2. Validate exact Greek verse `otype`, expected edition-qualified ref ID and positive declared source-span count; lookup candidate Coptic nodes via `F.coptic_lxx_ref_id.s(shared_id)`, not manual scan of 2.4 million words. Sort by physical source record and source word ordinal; detect duplicate ordinals, invalid source node identity, invalid status and wrong ref before returning. Do not claim the Coptic run count equals source annotation occurrence count when word runs are adjacent.
+3. Publish small immutable dataclasses for verse result and source spans, with Greek native node integer separately named, Coptic native integers confined to span tuples. No sidecars/no generated source data.
+4. Expose a runnable documented notebook/cookbook query that loads each TF parent plus its own additive native module. For byte-level parent validation, refer users to existing `lxx_module.verify_coptic_module_parent` and `lxx_modules.validate_lxx_release`; pure query is not a substitute for provenance verification or scholarly versification adjudication.
+5. Exact-head CI, independent skeptical review against real module writer schema and code. No merge while queued or failed.
+
+## Boundary
+**Reference-address candidates** only: same numbered source Coptic verse and Greek LXX passage might have different contents or edition-dependent numbering. Already documented Zechariah and Psalm cases remain open #70/#108/#92. No word alignment or fabricated textual equivalence.
