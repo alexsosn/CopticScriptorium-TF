@@ -1,0 +1,51 @@
+name: issue91-native-SBL-annotations
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: issue91-native-SBL-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  native-sbl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact source-code revision
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+      - name: Run source/graph/native TF regressions
+        run: python -m unittest discover -s tests -p 'test_issue91_*.py' -v
+      - name: Checkout pinned Mark TT evidence (no redistribution)
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: upstream
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /sahidica.mark/sahidica.mark_TT/Mark_02.tt
+            /sahidica.mark/sahidica.mark_TT/Mark_16.tt
+          persist-credentials: false
+      - name: Verify pinned TT source revision and fixture paths
+        run: |
+          test "$(git -C upstream rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test -f upstream/sahidica.mark/sahidica.mark_TT/Mark_02.tt
+          test -f upstream/sahidica.mark/sahidica.mark_TT/Mark_16.tt
+      - name: Preserve and clean-reload both real Greek-annotated Mark chapters
+        run: python research/issue-91/live_sbl_annotations.py upstream --output "$RUNNER_TEMP/issue91-mark-tf"
