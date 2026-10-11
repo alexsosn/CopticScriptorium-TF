@@ -100,6 +100,17 @@ class BohairicZechariahEditionCrosswalkTests(unittest.TestCase):
                 got = resolve_coptic_lxx_references(doc, lookup=lambda *_: 54)[0]
                 self.assertNotEqual(got.status, "versification_candidate")
 
+    def test_unreviewed_remaining_bohairic_chapter_2_fails_closed_not_false_same_number(self):
+        doc = source_document(2, (7, 8, 9, 10))
+        calls = []
+        got = resolve_coptic_lxx_references(
+            doc, lookup=lambda *args: calls.append(args) or 123
+        )
+        self.assertEqual([m.status for m in got], ["ambiguous"] * 4)
+        self.assertTrue(all(m.shared_id is None and m.lxx_node is None for m in got))
+        self.assertEqual(calls, [], "uncertified source numbering must not claim Greek same-address candidates")
+        self.assertEqual([m.source_verse_n for m in got], ["7", "8", "9", "10"])
+
     def test_crosswalk_missing_lxx_target_is_unresolved_not_fabricated(self):
         got = resolve_coptic_lxx_references(
             source_document(1, (18,)), lookup=lambda *key: None
