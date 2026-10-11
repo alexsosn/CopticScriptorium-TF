@@ -194,7 +194,53 @@ class CopticOtVerseAnomalyBatch:
         )
         groups: Counter[str] = Counter()
         invalid_classes: Counter[str] = Counter()
+        zero_groups: dict[tuple[str, str, str, str, str], dict[str, object]] = {}
+        zero_work_counts: Counter[str] = Counter()
         for case in cases:
+            if case["invalid_literal_class"] == "zero_literal":
+                # Group *source* events for batch philological review, never
+                # assume verse zero is a Greek verse or Psalm superscription.
+                key = (
+                    str(case["source_record_id"]),
+                    str(case["source_sha256"]),
+                    str(case["source_cts_work"] or "<unknown>"),
+                    str(case["source_edition"] or "<unknown>"),
+                    str(case["source_chapter"] or "<unknown>"),
+                )
+                row = zero_groups.get(key)
+                if row is None:
+                    row = {
+                        "source_record_id": case["source_record_id"],
+                        "source_sha256": case["source_sha256"],
+                        "source_corpus": case["source_corpus"],
+                        "source_cts_work": case["source_cts_work"],
+                        "source_edition": case["source_edition"],
+                        "source_chapter": case["source_chapter"],
+                        "lxx_book": case["lxx_book"],
+                        "marker_count": 0,
+                        "markers": [],
+                        "interpretation": "source literal zero; no Greek verse/passage inferred",
+                    }
+                    zero_groups[key] = row
+                else:
+                    for field in ("source_corpus", "lxx_book"):
+                        if row[field] != case[field]:
+                            raise ValueError(f"source zero group has conflicting {field}")
+                marker = {
+                    "source_marker_ordinal": case["source_marker_ordinal"],
+                    "source_tag_offset": case["source_tag_offset"],
+                    "source_word_starts_before": case["source_word_starts_before"],
+                    "literal": case["literal"],
+                    "previous_verse": case["previous_verse"],
+                }
+                if any(
+                    old["source_marker_ordinal"] == marker["source_marker_ordinal"]
+                    for old in row["markers"]
+                ):
+                    raise ValueError("duplicate source verse-zero marker ordinal")
+                row["markers"].append(marker)
+                row["marker_count"] += 1
+                zero_work_counts["|".join((key[2], key[3]))] += 1
             if case["kind"] == "missing_or_nonpositive_literal":
                 kind = case["invalid_literal_class"]
                 if not isinstance(kind, str):
@@ -212,6 +258,18 @@ class CopticOtVerseAnomalyBatch:
             "scanned_ot_records": self._scanned_ot_records,
             "counts": dict(sorted(self._counts.items())),
             "invalid_literal_classes": dict(sorted(invalid_classes.items())),
+            "zero_literal_source_groups": [
+                {
+                    **zero_groups[key],
+                    "markers": sorted(
+                        zero_groups[key]["markers"],
+                        key=lambda marker: marker["source_marker_ordinal"],
+                    ),
+                }
+                for key in sorted(zero_groups, key=lambda key: tuple(v.casefold() for v in key))
+            ],
+            "zero_literal_work_edition_counts": dict(sorted(zero_work_counts.items())),
+            "zero_literal_source_record_count": len({key[0] for key in zero_groups}),
             "by_work_edition_kind": dict(sorted(groups.items())),
             "cases": cases,
             "warning": (
