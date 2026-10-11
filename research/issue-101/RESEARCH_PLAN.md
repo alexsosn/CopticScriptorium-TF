@@ -9,14 +9,14 @@ GitHub workflow inspection of the **exact main** at `c73834082f70e4d1a26c090eeea
 - `issue80-lxx-coverage.yml`, `issue82-full-streamed-lxx.yml`;
 - `issue89-dual-native-modules.yml`, `issue95-zechariah.yml`, `issue97-crosswalk.yml`, `issue97-zechariah-sequences.yml`.
 
-In particular `issue80` carries a 65-minute job limit and `issue82` 90 minutes, both acquiring exact Coptic TT and pinned `CenterBLC/LXX` parent. #101 cites three superseded PR #100 heads that each executed these costly acquisitions. Existing `research-tests.yml` already uses `github.event.pull_request.number || github.ref` to isolate PRs; the new gate will additionally limit cancellation to **PR events only**, preserving independent push/manual executions.
+In particular `issue80` carries a 65-minute job limit and `issue82` 90 minutes, both acquiring exact Coptic TT and pinned `CenterBLC/LXX` parent. #101 cites three superseded PR #100 heads that each executed these costly acquisitions. Existing `research-tests.yml` already uses `github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id` to isolate PRs; the new gate will additionally limit cancellation to **PR events only**, preserving independent push/manual executions.
 
 ## Research → plan → RED → implementation → CI → independent review
 
-1. RED-first static unittest checks *all 14* affected workflows have exactly one **top-level** GitHub concurrency block, with group scoped by the workflow and PR number (or Git ref when not a PR), and `cancel-in-progress` conditioned on `github.event_name == 'pull_request'`. Existing workflow names, triggers, step bodies, immutable source pins, permissions and job timeout contracts remain unchanged.
+1. RED-first static unittest checks *all 14* affected workflows have exactly one **top-level** GitHub concurrency block, with group scoped by the workflow and PR number (or uniquely scoped GitHub run ID when not a PR), and `cancel-in-progress` conditioned on `github.event_name == 'pull_request'`. Existing workflow names, triggers, step bodies, immutable source pins, permissions and job timeout contracts remain unchanged.
 2. Add the **same three-line block** to each audited workflow directly after its trigger stanza and before its existing permissions block. This is a minimal infrastructure-only change. Use **one atomic Git tree commit for all 14** to avoid 14 intermediate CI heads that exacerbate the very problem being fixed.
 3. RED evidence: all 14 fail the new contract on baseline main; the new test must be green on implementation branch. Verify each changed YAML is parsable, not simply string-containing; use GitHub workflow registration and exact-head job scheduling as the authoritative YAML/trigger check.
-4. Each workflow remains triggered by its original `pull_request.paths`; no heavy job will be bypassed. GitHub's **same-workflow, same-PR** superseded heads should be canceled. Distinct workflow names remain independent. Push-to-main is not cancelled, and unrelated PR numbers cannot collide.
+4. Each workflow remains triggered by its original `pull_request.paths`; no heavy job will be bypassed. GitHub's **same-workflow, same-PR** superseded heads should be canceled. Distinct workflow names remain independent. Push-to-main and manual dispatch runs have their own unique run ID groups, so even **pending** non-PR runs cannot be replaced (GitHub cancels earlier pending runs on a shared group even with cancel-in-progress=false). Unrelated PR numbers cannot collide.
 5. Track CI statuses, actual cancellation statuses if subsequent heads exist, and ideally runner-minute reduction in a later active PR; **do not manufacture a quantitative speedup** from the code change alone. No external corpus text/cache artifacts are added.
 6. Skeptical logically independent review of actual diff, exact-head job logs, workflow names/group collision, YAML parsing and preserved data pins before merge. A queued or failed full-corpus gate blocks merge.
 
@@ -26,3 +26,7 @@ In particular `issue80` carries a 65-minute job limit and `issue82` 90 minutes, 
 - [ ] All source revisions and every full-pinned real validation unchanged; no additional corpus caching/upload.
 - [ ] All exact-head CI applicable jobs green (or explicit approvals for unrelated flaky infrastructure only with evidence), independent review, merge.
 - [ ] Operational before/after measurement recorded honestly, without claiming timings we have not observed.
+
+## Adversarial review correction
+
+Independent reviewer identified the GitHub Actions pending-run cancellation rule: even with `cancel-in-progress: false`, a new run in the same group replaces/cancels the previous **pending** run. The first RED-green implementation used `github.ref` for non-PR events and would inadvertently discard queued dispatch/main runs. Added a second RED gate, then switched all 14 workflows to a unique `github.run_id` fallback for all non-PR events. [Official docs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) document the pending-run rule. This is a correctness fix, not a CI optimization estimate.
