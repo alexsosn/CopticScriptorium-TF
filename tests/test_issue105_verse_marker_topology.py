@@ -50,7 +50,7 @@ class VerseMarkerTopologyContractTests(unittest.TestCase):
             "duplicate_same_number": 2,
             "nonmonotonic": 1,
             "gapped": 1,
-            "zero_word_verse": 1,
+            "no_word_start_between_markers": 1,
             "missing_or_nonpositive_literal": 1,
         })
         self.assertEqual(report["examples"]["duplicate_same_number"], [
