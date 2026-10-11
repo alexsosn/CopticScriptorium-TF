@@ -25,6 +25,7 @@ class LxxWitnessQueryError(ValueError):
 @dataclass(frozen=True, slots=True)
 class CopticWitnessSpan:
     source_record_id: str
+    source_verse_n: str  # Literal Coptic verse label, not inferred Greek numbering
     source_word_ordinals: tuple[int, ...]
     word_nodes: tuple[int, ...]  # Only within the Coptic TF warp
     status: str
@@ -72,7 +73,7 @@ def find_coptic_witnesses(
     Uses the TF feature's inverted `.s(shared_id)` index; does not enumerate
     2.4 million Coptic word slots. Original physical document and source word
     ordinals are preserved; adjacent candidate runs are grouped only within
-    the same physical source record **and same mapping status**.
+    the same physical source record, mapping status, **and original verse label**.
     """
     if (
         not isinstance(book, str) or not book or any(c in book for c in " \t\n:")
@@ -119,9 +120,10 @@ def find_coptic_witnesses(
     statuses = _feature(coptic_api, "coptic_lxx_ref_status", corpus="Coptic")
     record_id = _feature(coptic_api, "source_record_id", corpus="Coptic")
     ordinals = _feature(coptic_api, "source_word_ordinal", corpus="Coptic")
+    verses = _feature(coptic_api, "verse_n", corpus="Coptic")
     types = _feature(coptic_api, "otype", corpus="Coptic")
     seen_source_words: set[tuple[str, int]] = set()
-    entries: list[tuple[str, int, int, str]] = []
+    entries: list[tuple[str, int, int, str, str]] = []
 
     for word in candidates:
         if not _positive_node(word) or types.v(word) != "word":
@@ -131,24 +133,28 @@ def find_coptic_witnesses(
         source = record_id.v(word)
         source_ordinal = ordinals.v(word)
         status = statuses.v(word)
+        verse_literal = verses.v(word)
         if not isinstance(source, str) or not source:
             raise LxxWitnessQueryError("Coptic candidate lacks physical source_record_id")
         if not _positive_node(source_ordinal):
             raise LxxWitnessQueryError("Coptic candidate has invalid source word ordinal")
         if status not in CANDIDATE_STATUSES:
             raise LxxWitnessQueryError(f"invalid Coptic reference candidate status {status!r}")
+        if not isinstance(verse_literal, str) or not verse_literal.strip():
+            raise LxxWitnessQueryError("mapped Coptic word lacks source verse_n literal")
         identity = (source, source_ordinal)
         if identity in seen_source_words:
             raise LxxWitnessQueryError(
                 f"duplicate physical Coptic source word reference {identity}"
             )
         seen_source_words.add(identity)
-        entries.append((source, source_ordinal, word, status))
+        entries.append((source, source_ordinal, word, status, verse_literal))
 
     entries.sort(key=lambda item: (item[0], item[1], item[2]))
     spans: list[CopticWitnessSpan] = []
     active_source = ""
     active_status = ""
+    active_verse_n = ""
     active_ordinals: list[int] = []
     active_words: list[int] = []
 
@@ -156,31 +162,33 @@ def find_coptic_witnesses(
         if active_ordinals:
             spans.append(CopticWitnessSpan(
                 source_record_id=active_source,
+                source_verse_n=active_verse_n,
                 source_word_ordinals=tuple(active_ordinals),
                 word_nodes=tuple(active_words),
                 status=active_status,
             ))
 
-    for source, source_ordinal, word, status in entries:
+    for source, source_ordinal, word, status, verse_literal in entries:
         if (
             active_ordinals
             and source == active_source
             and status == active_status
+            and verse_literal == active_verse_n
             and source_ordinal == active_ordinals[-1] + 1
         ):
             active_ordinals.append(source_ordinal)
             active_words.append(word)
         else:
             flush()
-            active_source, active_status = source, status
+            active_source, active_status, active_verse_n = source, status, verse_literal
             active_ordinals = [source_ordinal]
             active_words = [word]
     flush()
 
-    # Legacy lxx_modules.py counts source reference groups. Two consecutive
-    # source verses can map to one Greek verse under a reviewed crosswalk,
-    # making a single contiguous inverse-index word run out of two groups.
-    # Thus reported groups may EXCEED observed runs, but cannot be fewer.
+    # Legacy lxx_modules.py counts source reference groups. Different source
+    # groups with the same literal verse might still be indistinguishable from
+    # plain word features. A larger declared count is therefore advisory,
+    # whereas an undercount cannot represent all observed disjoint runs.
     if count is not None and count < len(spans):
         raise LxxWitnessQueryError(
             "LXX declared source span count smaller than distinct Coptic word "
