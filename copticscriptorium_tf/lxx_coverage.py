@@ -105,7 +105,9 @@ class CopticLxxCoverageAudit:
         evidence = classify_biblical_record(document.corpus, document.metadata)
         self._source_scopes[evidence.status] += 1
         self._total_words += len(document.words)
-        self._marker_topology.add(document.source_text, document.source_record_id)
+        self._marker_topology.add(
+            document.source_text, document.source_record_id, scope=evidence.status
+        )
         self._midword_events += sum(
             event.kind in {"verse_n_marker", "vid_n_marker", "verse_vid_marker"}
             for event in document.layout_events
