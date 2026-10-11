@@ -16,6 +16,10 @@ on:
       - 'tests/test_issue78_cts_alias_batch.py'
       - 'tests/live_issue78_cts_aliases.py'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
