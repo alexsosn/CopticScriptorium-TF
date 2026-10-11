@@ -177,14 +177,14 @@ def find_coptic_witnesses(
             active_words = [word]
     flush()
 
-    # Legacy lxx_modules.py increments this count for each source reference
-    # span, not for each distinct witness/document. A sparse/damaged weft may
-    # have multiple disjoint runs in one document; comparing only document
-    # count would silently accept missing source reference memberships.
-    if count is not None and count != len(spans):
+    # Legacy lxx_modules.py counts source reference groups. Two consecutive
+    # source verses can map to one Greek verse under a reviewed crosswalk,
+    # making a single contiguous inverse-index word run out of two groups.
+    # Thus reported groups may EXCEED observed runs, but cannot be fewer.
+    if count is not None and count < len(spans):
         raise LxxWitnessQueryError(
-            "LXX declared source span count disagrees with Coptic word runs: "
-            f"declared={count}, observed={len(spans)}"
+            "LXX declared source span count smaller than distinct Coptic word "
+            f"runs: declared={count}, observed={len(spans)}"
         )
 
     return LxxCopticWitnessResult(
