@@ -9,6 +9,9 @@ on:
       - 'tests/live_issue113_all_source_audit.py'
       - 'tests/test_issue113_all_source_audit.py'
       - 'copticscriptorium_tf/nt_reference_audit.py'
+      - 'copticscriptorium_tf/nt_source_diagnostics.py'
+      - 'tests/test_issue117_source_anomalies.py'
+      - 'research/issue_117/**'
       - 'copticscriptorium_tf/nt_modules.py'
       - 'tests/test_issue113_nt_modules.py'
       - 'tests/test_issue113_nt_projection.py'
@@ -39,7 +42,9 @@ jobs:
       - name: Install pinned native Text-Fabric
         run: python -m pip install 'text-fabric==13.1.0'
       - name: Run source and native weft regressions
-        run: python -m unittest discover -s tests -p 'test_issue113_*.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_issue113_*.py' -v
+          python -m unittest discover -s tests -p 'test_issue117_*.py' -v
       - name: Checkout pinned complete physical TT evidence (sparse)
         uses: actions/checkout@v4
         with:
@@ -65,13 +70,32 @@ jobs:
         run: python tests/live_issue113_nt_modules.py pinned-coptic pinned-greek
       - name: Audit all 2628 source TT records and 2747 NT SBL annotations
         run: python tests/live_issue113_all_source_audit.py pinned-coptic pinned-greek > "$RUNNER_TEMP/nt-candidate-full-census.json"
-      - name: Show source-free full-corpus result
-        run: cat "$RUNNER_TEMP/nt-candidate-full-census.json"
+      - name: Independently verify pinned Mark1/1Cor1 original TT attribute shapes
+        run: python research/issue_117/source_shape_probe.py pinned-coptic > "$RUNNER_TEMP/nt-source-anomaly-shapes.json"
+      - name: Show source-free summary, keep exact ordinal inventory in artifact
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          report=json.loads((root/"nt-candidate-full-census.json").read_text())
+          anomaly=report["noncandidate_source_shapes"]
+          print(json.dumps({
+              "statuses":report["statuses"],
+              "noncandidate_occurrences":anomaly["noncandidate_occurrences"],
+              "reason_codes":anomaly["reason_codes"],
+              "marker_shapes":anomaly["marker_shapes"],
+              "diagnostic_physical_records":len(anomaly["by_physical_record"]),
+              "independent_source_probe":json.loads((root/"nt-source-anomaly-shapes.json").read_text()),
+          },sort_keys=True,indent=2))
+          PY
       - name: Upload source-free review evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: nt-candidate-full-source-census
-          path: ${{ runner.temp }}/nt-candidate-full-census.json
+          path: |
+            ${{ runner.temp }}/nt-candidate-full-census.json
+            ${{ runner.temp }}/nt-source-anomaly-shapes.json
           if-no-files-found: ignore
           retention-days: 14
