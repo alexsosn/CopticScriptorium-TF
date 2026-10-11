@@ -89,11 +89,18 @@ chapter shift, nor a certified bilingual/word alignment.
 | Bohairic `ot.zach.bohairic_ed` 1:18–21 | LXX Zech 2:1–4 |
 | Bohairic `ot.zach.bohairic_ed` 2:1–6 | LXX Zech 2:5–10 |
 
-The rules apply only to `bohairic.ot` Zechariah chapter 1 and 2 with their
-exact 2 physical source-record IDs, upstream Git commit and **per-record TT
-SHA-256**. A mismatched target edition or source byte identity is not silently
-accepted as a same-number reference. Sahidic `ot.zech.coptot`, unrelated
-works, and other chapters/verses are excluded from this remap.
+The positive candidate rules apply only to `bohairic.ot` Zechariah chapter
+1 and 2 with their exact 2 physical source-record IDs, upstream Git commit
+and **per-record TT SHA-256**. A mismatched source-byte identity is not
+silently accepted as a same-number reference. Sahidic `ot.zech.coptot`
+and unrelated works/chapters are never shifted.
+
+**Fail-closed remainder:** Because Bohairic Zechariah chapter 2 has
+source-specific numbering, **verses 2:7 onward remain `ambiguous`**
+until independently audited; they must not silently map to existing
+identically numbered Rahlfs verses. Those words retain original Coptic
+verse markers and a native mapping reason, but no Greek reference ID.
+This prevents speculative extrapolation of the 10 reviewed candidates.
 
 The source's `verse_n`, `vid_n`, `verse_vid`, original CTS, and
 `source_record_id` stay unchanged. Only the derived native cross-reference
