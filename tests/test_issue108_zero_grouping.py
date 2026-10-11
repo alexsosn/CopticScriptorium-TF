@@ -81,6 +81,27 @@ class SourceVerseZeroGroupingTests(unittest.TestCase):
         self.assertEqual(report["zero_literal_source_record_count"], 2)
         self.assertEqual(report["invalid_literal_classes"]["zero_literal"], 4)
 
+    def test_missing_chapter_is_distinct_from_explicit_empty_source_chapter(self):
+        batch = CopticOtVerseAnomalyBatch(source_commit=PIN)
+        text = (
+            '<meta>'
+            '<verse_n verse_n="0"><norm norm="a">a</norm>'
+            '<chapter_n chapter_n="">'
+            '<verse_n verse_n="00"><norm norm="b">b</norm>'
+        )
+        batch.add(
+            text, "sahidic.ot/sahidic.ot:unclassified_chapter",
+            source_sha256=HASH_A, scope="ot_candidate",
+            corpus="sahidic.ot", cts_work="ot.ps",
+            chapter=None, edition="coptot_ed", lxx_book="Ps",
+        )
+        groups = batch.report()["zero_literal_source_groups"]
+        self.assertEqual(len(groups), 2)
+        self.assertEqual(
+            {(group["source_chapter"], group["marker_count"]) for group in groups},
+            {(None, 1), ("", 1)},
+        )
+
     def test_deterministic_under_reverse_input_order_and_no_greek_zero_lookup(self):
         a = CopticOtVerseAnomalyBatch(source_commit=PIN)
         b = CopticOtVerseAnomalyBatch(source_commit=PIN)
