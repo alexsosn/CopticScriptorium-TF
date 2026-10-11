@@ -52,7 +52,7 @@ class SupersededHeadCancellationTests(unittest.TestCase):
                 self.assertIn("\n  pull_request:", before)
                 block, rest = after.split("\npermissions:\n", 1)
                 self.assertEqual(
-                    block.strip().splitlines(),
+                    block.strip("\n").splitlines(),
                     [EXPECTED_GROUP, EXPECTED_CANCEL],
                     "exact workflow-scoped group and PR-only cancellation",
                 )
