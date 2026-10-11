@@ -12,7 +12,7 @@ NODE_TYPE_ORDER = (
     "page", "column", "line",
     "verse_n_marker", "vid_n_marker", "verse_vid_marker",
     "entity", "translation", "arabic_translation",
-    "sbl_greek", "sbl_apparatus",
+    "sbl_greek", "sbl_apparatus", "lang",
 )
 LAYOUT_TYPES = {"page", "column", "line"}
 VERSE_POSITION_TYPES = {"verse_n_marker", "vid_n_marker", "verse_vid_marker"}
@@ -234,9 +234,14 @@ def _check_document(document: DocumentModel) -> None:
     if any(count != 1 for count in sentence_membership[1:]):
         raise ValueError(f"source words must belong to exactly one sentence in {document.source_record_id}")
 
-    for annotation in document.sbl_annotations:
-        if annotation.kind not in {"sbl_greek", "sbl_apparatus"} or not isinstance(annotation.value, str):
-            raise ValueError(f"invalid sbl_ source annotation in {document.source_record_id}")
+    for annotation in (*document.sbl_annotations, *document.language_annotations):
+        if (
+            annotation.kind not in {"sbl_greek", "sbl_apparatus", "lang"}
+            or not isinstance(annotation.value, str)
+            or (annotation.kind == "lang" and annotation not in document.language_annotations)
+            or (annotation.kind != "lang" and annotation not in document.sbl_annotations)
+        ):
+            raise ValueError(f"invalid scholarly source annotation in {document.source_record_id}")
         start, end = annotation.start_after_word_ordinal, annotation.end_after_word_ordinal
         if not (0 <= start <= end <= word_count):
             raise ValueError(f"invalid sbl_ source annotation offsets in {document.source_record_id}")
@@ -454,9 +459,13 @@ def build_graph(
                     )
                     entity_ids[(record, item.ordinal)] = node.id
                     entity_heads.append((node.id, document, item.head_word_ordinal))
-            elif otype in {"sbl_greek", "sbl_apparatus"}:
+            elif otype in {"sbl_greek", "sbl_apparatus", "lang"}:
+                source_items = (
+                    document.language_annotations if otype == "lang"
+                    else document.sbl_annotations
+                )
                 for item in sorted(
-                    (a for a in document.sbl_annotations if a.kind == otype),
+                    (a for a in source_items if a.kind == otype),
                     key=lambda a: a.ordinal,
                 ):
                     # A source occurrence may live *inside* a Coptic word or
@@ -472,8 +481,13 @@ def build_graph(
                     add(
                         otype, source_record_id=record,
                         source_ordinal=item.ordinal, slot_ranges=_ranges(locus),
-                        value=item.value, sbl_verse_n=item.source_verse_n,
-                        render_mode="sbl_span" if whole_words else "sbl_anchor",
+                        value=item.value,
+                        sbl_verse_n=item.source_verse_n if otype != "lang" else None,
+                        render_mode=(
+                            ("lang_span" if whole_words else "lang_anchor")
+                            if otype == "lang"
+                            else ("sbl_span" if whole_words else "sbl_anchor")
+                        ),
                         start_word_ordinal=item.start_word_ordinal,
                         start_char=item.start_char,
                         start_after_word_ordinal=item.start_after_word_ordinal,
@@ -653,17 +667,22 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
                 errors.append(f"{node.otype} node {node.id} must render own text")
         if node.otype in LAYOUT_TYPES and (node.render_mode != "own_text" or node.text is None):
             errors.append(f"layout node {node.id} must render own text")
-        if node.otype in {"sbl_greek", "sbl_apparatus"}:
+        if node.otype in {"sbl_greek", "sbl_apparatus", "lang"}:
+            annotation = "lang" if node.otype == "lang" else "sbl_"
+            valid_modes = (
+                {"lang_span", "lang_anchor"} if node.otype == "lang"
+                else {"sbl_span", "sbl_anchor"}
+            )
             if node.value is None:
-                errors.append(f"sbl_ annotation node {node.id} lacks source literal")
-            if node.render_mode not in {"sbl_span", "sbl_anchor"}:
-                errors.append(f"sbl_ annotation node {node.id} lacks precise span/anchor status")
+                errors.append(f"{annotation} annotation node {node.id} lacks source literal")
+            if node.render_mode not in valid_modes:
+                errors.append(f"{annotation} annotation node {node.id} lacks precise span/anchor status")
             if node.start_after_word_ordinal is None or node.end_after_word_ordinal is None:
-                errors.append(f"sbl_ annotation node {node.id} lacks boundary positions")
+                errors.append(f"{annotation} annotation node {node.id} lacks boundary positions")
             elif node.start_after_word_ordinal > node.end_after_word_ordinal:
-                errors.append(f"sbl_ annotation node {node.id} has inverted bounds")
-            if node.render_mode == "sbl_anchor" and len(node.slots) != 1:
-                errors.append(f"sbl_ anchor node {node.id} must link one source word")
+                errors.append(f"{annotation} annotation node {node.id} has inverted bounds")
+            if node.render_mode in {"sbl_anchor", "lang_anchor"} and len(node.slots) != 1:
+                errors.append(f"{annotation} anchor node {node.id} must link one source word")
         if node.otype in VERSE_POSITION_TYPES:
             if node.label is None or node.start_char is None or node.start_char <= 0:
                 errors.append(f"source position node {node.id} lacks a mid-word value/offset")
