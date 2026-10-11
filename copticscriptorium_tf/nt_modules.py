@@ -7,13 +7,15 @@ Foreign TF node numbers are local map keys, never feature *values*.
 from __future__ import annotations
 
 from collections import Counter
-from hashlib import sha256
+from hashlib import sha1, sha256
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
 
 from ._atomic import publish_path_no_clobber
-from .nt_reference import GREEK_NT_EDITION, REVIEWED_SOURCES
+from .nt_reference import GREEK_NT_EDITION, REVIEWED_SOURCES, COPTIC_PIN, resolve_coptic_sbl_references
+from .model import DocumentModel
+from typing import Any, Sequence
 
 SCHEMA = "1"
 FEATURE_TYPES = {
@@ -181,3 +183,158 @@ def write_nt_modules(
             )
         publish_path_no_clobber(stage, destination)
     return destination
+
+
+# Git blob object IDs from the exact source checked at
+# alexsosn/sblgnt@4dd0207bda66133fdfa9740ff0aae7de61228700.
+# The verified historical tf/2022 warp is currently the pinned parent;
+# a future generated MorphGNT source-base is a *distinct* parent profile.
+GREEK_PARENT_PIN = "4dd0207bda66133fdfa9740ff0aae7de61228700"
+GREEK_PARENT_GIT_BLOBS = {
+    "otype": "02b15163b5a1367ee2fabf3c15651ddc146e36c8",
+    "oslots": "b29ec118530423342a1662a942728aedbdbedcc3",
+    "book": "cd3efffe843883e542b4e17671efd0981dc0fb2a",
+    "chapter": "0ab7eabe75f78733aa4dbd35cf9aae0149226b5d",
+    "verse": "b7c3a21f6675c4b783a26c0fef9f19db98a9f3d8",
+}
+
+
+def validate_greek_release(tf_dir: Path, api: Any) -> None:
+    """Reject a lookalike Greek TF whose warp/sections differ from the pin."""
+    if api.F.otype.maxSlot != 137554 or len(api.F.otype.s("verse")) != 7927:
+        raise NtModuleError("Greek parent word/verse inventory mismatch")
+    for feature, expected_blob in GREEK_PARENT_GIT_BLOBS.items():
+        path = Path(tf_dir) / f"{feature}.tf"
+        if not path.is_file() or path.is_symlink():
+            raise NtModuleError(f"missing pinned Greek parent {feature}.tf")
+        data = path.read_bytes()
+        actual = sha1(f"blob {len(data)}\0".encode("ascii") + data).hexdigest()
+        if actual != expected_blob:
+            raise NtModuleError(f"wrong pinned Greek parent feature {feature}.tf")
+
+
+def project_nt_modules(
+    documents: Sequence[DocumentModel], *,
+    coptic_api: Any, greek_api: Any,
+    coptic_tf_dir: Path, greek_tf_dir: Path, destination: Path,
+) -> dict[str, int]:
+    """Project verified original SBL occurrence nodes into *both own warps*.
+
+    All code and output are controlled by the Coptic project. Parent corpora
+    are read-only inputs. A Greek word cannot be inferred from a Coptic span.
+    """
+    validate_greek_release(greek_tf_dir, greek_api)
+    seen_records: set[str] = set()
+    source_nodes: dict[tuple[str, str, int], int] = {}
+    for kind in ("sbl_greek", "sbl_apparatus"):
+        for node in coptic_api.F.otype.s(kind):
+            record = coptic_api.F.source_record_id.v(node)
+            ordinal = coptic_api.F.source_ordinal.v(node)
+            if not isinstance(record, str) or not _valid_node(ordinal):
+                raise NtModuleError("native Coptic SBL node missing source identity")
+            key = record, kind, ordinal
+            if key in source_nodes:
+                raise NtModuleError("duplicate native Coptic source SBL annotation")
+            source_nodes[key] = node
+
+    source_status: dict[int, str] = {}
+    source_ref: dict[int, str] = {}
+    greek_ref: dict[int, str] = {}
+    greek_count: Counter[int] = Counter()
+    status_counts: Counter[str] = Counter()
+    matched: set[tuple[str, str, int]] = set()
+
+    def lookup(book: str, chapter: int, verse: int) -> int | None:
+        try:
+            node = greek_api.T.nodeFromSection((book, chapter, verse))
+        except (KeyError, ValueError):
+            return None
+        if node is None:
+            return None
+        if greek_api.F.otype.v(node) != "verse":
+            raise NtModuleError("Greek target section is not a verse")
+        if greek_api.T.sectionFromNode(node) != (book, chapter, verse):
+            raise NtModuleError("Greek target reverse section mismatch")
+        return node
+
+    for document in documents:
+        record = document.source_record_id
+        if record in seen_records:
+            raise NtModuleError("duplicate physical Coptic source record")
+        seen_records.add(record)
+        if document.upstream_repository != "CopticScriptorium/corpora" or document.upstream_commit != COPTIC_PIN:
+            raise NtModuleError("wrong pinned source revision")
+        parent = coptic_api.T.nodeFromSection((record,))
+        if parent is None or coptic_api.F.otype.v(parent) != "document":
+            raise NtModuleError("missing exact native Coptic source document")
+        if coptic_api.F.source_sha256.v(parent) != document.source_sha256:
+            raise NtModuleError("native Coptic parent source-byte SHA differs")
+        words = tuple(coptic_api.L.d(parent, otype="word"))
+        if len(words) != len(document.words):
+            raise NtModuleError("native Coptic word count mismatch")
+        for position, node in enumerate(words, start=1):
+            if (coptic_api.F.source_record_id.v(node) != record
+                or coptic_api.F.source_word_ordinal.v(node) != position
+                or coptic_api.F.norm.v(node) != document.words[position-1].norm):
+                raise NtModuleError("Coptic source word locality mismatch")
+
+        for source_annotation, ref in zip(
+            document.sbl_annotations,
+            resolve_coptic_sbl_references(document, lookup=lookup),
+            strict=True,
+        ):
+            key = record, source_annotation.kind, source_annotation.ordinal
+            node = source_nodes.get(key)
+            if node is None:
+                raise NtModuleError("native Coptic source annotation absent")
+            if key in matched:
+                raise NtModuleError("duplicate Coptic source occurrence")
+            matched.add(key)
+            if (ref.source_record_id, ref.source_kind, ref.source_ordinal) != key:
+                raise NtModuleError("resolver/source SBL occurrence mismatch")
+            if (coptic_api.F.value.v(node) != source_annotation.value
+                or coptic_api.F.sbl_verse_n.v(node) != source_annotation.source_verse_n):
+                raise NtModuleError("native Coptic annotation source value differs")
+            if source_annotation.word_ordinals:
+                expected_slots = tuple(words[k-1] for k in source_annotation.word_ordinals)
+                expected_mode = "sbl_span"
+            else:
+                ordinal = (source_annotation.start_word_ordinal
+                           if source_annotation.start_word_ordinal is not None
+                           else min(len(words), source_annotation.start_after_word_ordinal + 1))
+                if ordinal < 1 or ordinal > len(words):
+                    raise NtModuleError("invalid source SBL single-word anchor")
+                expected_slots = (words[ordinal-1],)
+                expected_mode = "sbl_anchor"
+            if (tuple(coptic_api.L.d(node, otype="word")) != expected_slots
+                or coptic_api.F.render_mode.v(node) != expected_mode):
+                raise NtModuleError("native Coptic source SBL span/anchor mismatch")
+            source_status[node] = ref.status
+            status_counts[ref.status] += 1
+            if ref.status == "reference_candidate":
+                if ref.target_node is None or ref.shared_id is None:
+                    raise NtModuleError("candidate without Greek target evidence")
+                source_ref[node] = ref.shared_id
+                old = greek_ref.setdefault(ref.target_node, ref.shared_id)
+                if old != ref.shared_id:
+                    raise NtModuleError("two Greek references claim same node")
+                greek_count[ref.target_node] += 1
+            elif ref.shared_id is not None or ref.target_node is not None:
+                raise NtModuleError("unresolved Coptic source has forged Greek target")
+
+    if matched != set(source_nodes):
+        raise NtModuleError("unpaired native Coptic SBL annotation nodes")
+    write_nt_modules(
+        destination, coptic_ref=source_ref, coptic_status=source_status,
+        greek_ref=greek_ref, greek_count=dict(greek_count),
+        parent_proof={
+            "coptic": parent_fingerprints(coptic_tf_dir, "coptic"),
+            "greek": parent_fingerprints(greek_tf_dir, "greek"),
+        },
+    )
+    return {
+        **dict(status_counts),
+        "coptic_annotated_sbl_nodes": len(source_status),
+        "coptic_candidate_sbl_nodes": len(source_ref),
+        "greek_target_verse_nodes": len(greek_ref),
+    }
