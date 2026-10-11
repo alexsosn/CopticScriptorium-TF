@@ -131,6 +131,32 @@ class EntityLabelsNativeTFTests(unittest.TestCase):
             for error in validate_graph(bad)
         ))
 
+    def test_identical_source_name_labels_do_not_merge_distinct_entity_mentions(self):
+        raw = (
+            '<meta corpus="demo">'
+            '<entity entity="person" head_tok="#u1" identity="person-A">'
+            '<norm_group norm_group="x">'
+            '<norm xml:id="u1" new_sent="true" func="root" norm="a">'
+            '<entity_identity entity_identity="Sarah">a</entity_identity>'
+            '</norm></norm_group></entity>'
+            '<entity entity="person" head_tok="#u2" identity="person-B">'
+            '<norm_group norm_group="y">'
+            '<norm xml:id="u2" new_sent="true" func="root" norm="b">'
+            '<entity_identity entity_identity="Sarah">b</entity_identity>'
+            '</norm></norm_group></entity>'
+        )
+        document = parse(raw)
+        self.assertEqual([a.value for a in document.entity_label_annotations],
+                         ["Sarah", "Sarah"])
+        graph = build_graph((document,))
+        self.assertEqual(len(graph.slots), 2)
+        self.assertEqual(len([n for n in graph.nodes if n.otype == "entity"]), 2)
+        source_labels = [n for n in graph.nodes if n.otype == "entity_identity"]
+        self.assertEqual(len(source_labels), 2)
+        self.assertNotEqual(source_labels[0].slots, source_labels[1].slots)
+        self.assertFalse(any(e.kind.startswith("ontology") or
+                             e.kind.startswith("entity_label") for e in graph.edges))
+
     def test_malformed_missing_unclosed_and_orphan_source_annotations_fail_closed(self):
         base = '<meta corpus="demo"><norm_group norm_group="x"><norm xml:id="u1" new_sent="true" norm="x">'
         end = 'x</norm></norm_group>'
