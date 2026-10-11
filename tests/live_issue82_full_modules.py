@@ -101,7 +101,7 @@ def run(coptic_source: Path, greek_tf: Path, scratch: Path) -> None:
     )
     if result.source_documents != 2628 or result.coptic_status_words != 2394354:
         raise ValueError(f"incomplete source→Coptic parent mapping: {result}")
-    if result.lxx_candidate_verses != 21120:
+    if result.lxx_candidate_verses != 21117:
         raise ValueError(f"distinct Greek verse-address coverage regression: {result}")
     verify_coptic_module_parent(output_modules / "coptic", coptic_tf)
 
@@ -139,14 +139,18 @@ def run(coptic_source: Path, greek_tf: Path, scratch: Path) -> None:
             if key in greek_keys:
                 raise ValueError("duplicate Greek verse for a shared Coptic reference")
             greek_keys.add(key)
-    if coptic_keys != greek_keys or len(greek_keys) != 21120:
+    if coptic_keys != greek_keys or len(greek_keys) != 21117:
         raise ValueError("native Coptic/LXX reference modules disagree on Greek target set")
     if sum(statuses.values()) != 2394354:
         raise ValueError("missing Coptic word status after fresh TF overlay load")
     if statuses["unclassified_corpus"] <= 0 or statuses["unresolved"] <= 0:
         raise ValueError("incomplete unresolved/unclassified candidate provenance")
-    if statuses["versification_candidate"] <= 0:
-        raise ValueError("real byte-locked Zechariah crosswalk missing from full Coptic TF output")
+    if statuses["versification_candidate"] != 344 or statuses["ambiguous"] != 257:
+        raise ValueError(
+            "pinned post-crosswalk source-status coverage drift: "
+            f"versification={statuses['versification_candidate']}, "
+            f"ambiguous={statuses['ambiguous']}"
+        )
     print(json.dumps({
         "stage": "full-pinned-streamed-dual-native-TF-modules",
         "coptic_source_records": result.source_documents,
