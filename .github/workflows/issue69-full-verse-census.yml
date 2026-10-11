@@ -13,6 +13,12 @@ on:
       - 'research/issue-16/full_converter_smoke.py'
       - 'tests/live_issue135_full_native.py'
       - 'tests/live_issue140_full_native.py'
+      - 'tests/live_issue143_full_native.py'
+      - 'tests/live_issue143_source_examples.py'
+      - 'tests/test_issue143_multiword.py'
+      - 'tests/test_issue143_value_parity.py'
+      - 'tests/test_issue143_source_boundaries.py'
+      - 'tests/test_issue143_runner_import.py'
       - 'tests/live_issue140_source_examples.py'
       - 'tests/test_issue140_edition_annotations.py'
       - 'tests/test_issue140_value_parity.py'
@@ -83,6 +89,9 @@ jobs:
       - name: Independently audit edition layout sample sources before TF install
         run: PYTHONPATH=. python tests/live_issue140_source_examples.py pinned-coptic
 
+      - name: Check raw TT multiword source sample parity before TF install
+        run: PYTHONPATH=. python tests/live_issue143_source_examples.py pinned-coptic
+
       - name: Install pinned Text-Fabric for native conversion and reload
         run: python -m pip install 'text-fabric==13.1.0'
 
@@ -97,6 +106,7 @@ jobs:
           python tests/live_issue110_full_native.py "$RUNNER_TEMP/issue110-full-native/tf"
           python tests/live_issue135_full_native.py "$RUNNER_TEMP/issue110-full-native/tf"
           python tests/live_issue140_full_native.py "$RUNNER_TEMP/issue110-full-native/tf" pinned-coptic
+          python tests/live_issue143_full_native.py "$RUNNER_TEMP/issue110-full-native/tf" pinned-coptic
           python tests/live_issue109_profile_gate.py "$RUNNER_TEMP/issue110-full-report.json"
 
       - name: Report full-source operational resource diagnostics
