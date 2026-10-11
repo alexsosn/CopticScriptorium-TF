@@ -103,6 +103,19 @@ class TokenSourceTests(unittest.TestCase):
                     parse(META + f'<{name} {name}="x"></{name}>' +
                           norm("abcdef")[len(META):])
 
+    def test_pinned_source_script_loads_local_package_before_install(self):
+        # The source TT sample audit is executed *before* pip installation;
+        # running a file under tests/ otherwise places tests/, not the
+        # project root, on sys.path. Regression for job 114494011574.
+        workflow = (
+            Path(__file__).resolve().parents[1]
+            / ".github/workflows/issue69-full-verse-census.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "PYTHONPATH=. python tests/live_issue135_source_examples.py pinned-coptic",
+            workflow,
+        )
+
     def test_present_empty_value_and_real_native_tf_clean_reload(self):
         items = "".join(f'<{k} {k}=""><{k} {k}="v">a</{k}></{k}>' for k in KINDS)
         doc = parse(norm(items + "b", visible="aaaaab"))
