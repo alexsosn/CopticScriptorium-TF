@@ -45,6 +45,13 @@ The Coptic source is `CopticScriptorium/corpora` pinned to
 
 ### Real full-source coverage and interpretation
 
+The historical counts below are the **pre-crosswalk, numerical-address baseline**.
+The edition-specific Zechariah correction described further below adds a fifth,
+explicit `versification_candidate` status; do not interpret the old counts as
+the current post-crosswalk distribution. The full pinned acceptance must
+recompute every status from the same source bytes, preserving the total slot
+count and distinct native Greek verse target invariants.
+
 The source evidence audit distinguishes **1,574 OT candidate records**,
 **615 NT records**, and **439 undetermined records** out of 2,628 physical
 sources. Biblical verse markers alone never imply LXX scope. The bilateral
@@ -70,6 +77,52 @@ features, as well as the original source's `source_record_id`.
 These outputs and counts refer to the pinned
 `CopticScriptorium/corpora` snapshot and `CenterBLC/LXX` 1935 v1.0.1,
 not to all published Coptic biblical witnesses or a new critical edition.
+
+## Edition-qualified Zechariah numbering candidates — #97
+
+The source-byte-locked v1 policy `bohairic-zach-lxx1935-v1` addresses
+a concrete Greek/Coptic versification mismatch. It is **not** a global Zechariah
+chapter shift, nor a certified bilingual/word alignment.
+
+| Exact source edition / original verse | Pinned Rahlfs Greek candidate |
+| --- | --- |
+| Bohairic `ot.zach.bohairic_ed` 1:18–21 | LXX Zech 2:1–4 |
+| Bohairic `ot.zach.bohairic_ed` 2:1–6 | LXX Zech 2:5–10 |
+
+The rules apply only to `bohairic.ot` Zechariah chapter 1 and 2 with their
+exact 2 physical source-record IDs, upstream Git commit and **per-record TT
+SHA-256**. A mismatched target edition or source byte identity is not silently
+accepted as a same-number reference. Sahidic `ot.zech.coptot`, unrelated
+works, and other chapters/verses are excluded from this remap.
+
+The source's `verse_n`, `vid_n`, `verse_vid`, original CTS, and
+`source_record_id` stay unchanged. Only the derived native cross-reference
+`coptic_lxx_ref_id` targets the Greek verse numbering, and the Coptic native
+`coptic_lxx_ref_status` explicitly says **`versification_candidate`**.
+The associated scalar `coptic_lxx_ref_evidence` / `coptic_lxx_ref_reason`
+carry the versioned rule and its caution.
+
+**Evidence limits:** pinned real CI found 4/4 source Brenton English
+lexical motifs consistent with the 1:18–21 → 2:1–4 correspondence and 6/6
+for 2:1–6 → 2:5–10, versus 0/6 matches for the competing same-number
+Bohairic chapter-2 addresses. Real parent-Coptic/Greece tests reload two
+native weft-only TF modules on their own warps. Because the English source
+annotations themselves cite Brenton 1851 and Sahidic translations may be
+missing, this evidence justifies a **reviewable edition-qualified reference
+candidate**, not independent Coptic/Greek text or word equivalence.
+
+For example, in the derived Coptic overlay, the source words belonging to
+Bohairic Zechariah 2:1 keep source `verse_n="1"` but carry the Greek
+address `CenterBLC/LXX:1935:Zech:2:5` with
+`coptic_lxx_ref_status="versification_candidate"`. Any researcher can
+therefore retrieve the original reference alongside the proposed Greek
+reference without losing source provenance or inventing cross-warp node IDs.
+
+Real byte-pinned regression:
+`tests/live_issue97_crosswalk.py` and
+`.github/workflows/issue97-crosswalk.yml`.
+Further full-book textual/versification review remains open in issues #70,
+#75, #92 and #97.
 
 ## Features and cross-parent join
 
