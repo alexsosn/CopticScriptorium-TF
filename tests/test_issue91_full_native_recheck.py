@@ -72,7 +72,10 @@ class FullNativeSblParityTests(unittest.TestCase):
         a = replace(source(), word_ordinals=(), end_word_ordinal=1,
                     end_char=3, end_after_word_ordinal=0)
         with self.assertRaisesRegex(ValueError, "render_mode"):
-            compare_occurrence(a, native() | {"slots": (101,)}, first_slot=101)
+            compare_occurrence(a, native() | {
+                "slots": (101,), "end_word_ordinal": 1,
+                "end_char": 3, "end_after_word_ordinal": 0,
+            }, first_slot=101)
 
 
 if __name__ == "__main__":
