@@ -37,7 +37,7 @@ class LxxCopticWitnessResult:
     verse: int
     lxx_node: int  # Only within the LXX TF warp
     shared_id: str
-    declared_coptic_source_span_count: int
+    declared_coptic_source_span_count: int | None  # Optional older-module metadata
     spans: tuple[CopticWitnessSpan, ...]
     interpretation: str = INTERPRETATION
 
@@ -91,11 +91,20 @@ def find_coptic_witnesses(
         raise LxxWitnessQueryError(
             "LXX native module has missing or wrong edition-qualified shared reference"
         )
-    count = _feature(
-        lxx_api, "coptic_lxx_source_span_count", corpus="LXX"
-    ).v(node)
-    if not _positive_node(count):
-        raise LxxWitnessQueryError("invalid LXX declared Coptic source span count")
+    # The source-locked full-corpus module generator (lxx_module.py) emits
+    # the shared reference ID but no Greek source_span_count; the legacy
+    # lxx_modules.py generator includes this optional advisory count.
+    # A missing feature is not evidence of zero Coptic witnesses.
+    try:
+        count_feature = getattr(lxx_api.F, "coptic_lxx_source_span_count")
+    except (AttributeError, LookupError):
+        count = None
+    else:
+        if not callable(getattr(count_feature, "v", None)):
+            raise LxxWitnessQueryError("invalid LXX source span count feature")
+        count = count_feature.v(node)
+        if not _positive_node(count):
+            raise LxxWitnessQueryError("invalid LXX declared Coptic source span count")
 
     ids = _feature(coptic_api, "coptic_lxx_ref_id", corpus="Coptic")
     if not callable(getattr(ids, "s", None)):
@@ -137,7 +146,7 @@ def find_coptic_witnesses(
         entries.append((source, source_ordinal, word, status))
 
     entries.sort(key=lambda item: (item[0], item[1], item[2]))
-    if count < len({item[0] for item in entries}):
+    if count is not None and count < len({item[0] for item in entries}):
         raise LxxWitnessQueryError(
             "LXX declared source span count smaller than distinct Coptic witnesses"
         )
