@@ -19,6 +19,12 @@ REFERENCE_WRAPPER_TYPES = (
     "chapter_n", "marcion_chapter_n", "marcion_verse_n",
     "petermann_chapter_n", "petermann_verse_n",
 )
+# Single-literal, source-preserving editorial witness annotations.
+EDITORIAL_WRAPPER_TYPES = (
+    "hi_rend", "note", "gap_reason", "supplied_reason", "note_note",
+    "gap_unit", "supplied_source", "gap_quantity", "gap_extent",
+    "supplied_evidence", "unclear_reason", "unclear",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,3 +177,5 @@ class DocumentModel:
     multiword_annotations: tuple[SblAnnotation, ...] = ()
     # Literal source edition chapter and verse wrapper occurrences.
     reference_annotations: tuple[SblAnnotation, ...] = ()
+    # Source-attested editorial markup; no restored-text interpretation.
+    editorial_annotations: tuple[SblAnnotation, ...] = ()
