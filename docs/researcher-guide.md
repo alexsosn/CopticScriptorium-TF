@@ -73,6 +73,7 @@ without a parallel JSON/XML structure.
 | ed_page_n / ed_pg_n | numbered edition page annotations, distinct from manuscript pagination |
 | multiword | upstream TT grouping over existing normalized words; original Coptic word slots are unchanged |
 | chapter_n / marcion_chapter_n / marcion_verse_n / petermann_chapter_n / petermann_verse_n | original source edition reference labels, never inferred canonical Bible alignments |
+| hi_rend / note / gap_reason / supplied_reason / note_note / gap_unit / supplied_source / gap_quantity / gap_extent / supplied_evidence / unclear_reason / unclear | literal editorial witness annotation spans/anchors over existing Coptic word slots |
 | verse_n_marker / vid_n_marker / verse_vid_marker | source reference marker inside an unsplit word, with exact character offset; not a whole-word verse membership |
 | entity | entity annotation spanning one or more words |
 | translation | English translation segment with its own text |
@@ -147,6 +148,42 @@ of correspondence to canonical Coptic biblical books, the Greek New Testament,
 or LXX verse numbers. Existing Coptic `verse_n`, `vid_n` and
 `verse_vid` features remain separate. See
 `research/issue-146/RESEARCH_PLAN.md`.
+
+### Editorial witness tags and explicit source positions
+
+Twelve source-only TT tags are preserved as native **non-slot** TF node
+types: `hi_rend`, `note`, `gap_reason`, `supplied_reason`,
+`note_note`, `gap_unit`, `supplied_source`, `gap_quantity`,
+`gap_extent`, `supplied_evidence`, `unclear_reason`, `unclear`.
+Each node retains its original decoded source attribute in `value`,
+its `source_record_id`, independent `source_ordinal`, and precise
+Coptic word-relative start/end character positions. These are **attested
+editorial notes or qualifiers**, not reconstructed text, translations,
+normalized tokens, or UD dependency decisions.
+
+~~~python
+for n in api.F.otype.s("hi_rend")[:5]:
+    print(
+        api.F.source_record_id.v(n),
+        api.F.value.v(n),             # original rendition, e.g. "red"
+        api.F.render_mode.v(n),       # editorial_span / editorial_anchor
+        api.F.start_char.v(n),
+        api.F.end_char.v(n),
+        tuple(api.E.oslots.s(n)),
+    )
+~~~
+
+`editorial_span` indicates one or more fully covered existing Coptic norm
+words. `editorial_anchor` is only a positional association; it does not
+assert entire-word membership. For instance, a single red character inside
+a Coptic source word is a one-slot anchor with native character boundaries.
+Crossed note/gap source tags are modeled by independent occurrence stacks,
+not falsely normalized into one XML tree.
+
+The multi-attribute TT `gap`, `supplied` and `abbr type` tags are
+**not included** in this family; their other attributes require separate
+native feature modeling rather than silently dropping provenance.
+Research and source coverage assumptions: `research/issue-153/RESEARCH_PLAN.md`.
 
 ## Normalized and diplomatic text
 
