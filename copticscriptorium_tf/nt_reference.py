@@ -199,8 +199,11 @@ def resolve_coptic_sbl_references(
                 and book == "Mark" and chapter == 1
                 and label is None
                 and verse_cts is not None
-                and not (annotation.kind == "sbl_greek"
-                         and VERSE_LABEL.fullmatch(annotation.value or ""))
+                and not (annotation.kind == "sbl_greek" and (
+                    not (annotation.value or "").strip()
+                    or VERSE_LABEL.fullmatch((annotation.value or "").strip())
+                    or CTS_VERSE.fullmatch((annotation.value or "").strip())
+                ))
             )
             if dual_mark1_cts:
                 evidence = "book+chapter+document_cts_urn+verse_n+vid_n+" + annotation.kind
