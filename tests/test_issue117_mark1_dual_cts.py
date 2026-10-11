@@ -80,6 +80,18 @@ class Mark1SourceCTS(unittest.TestCase):
         self.assertIsNone(result.shared_id)
         self.assertEqual(called, [])
 
+    def test_editorial_or_cts_address_in_original_sbl_payload_must_not_map(self):
+        for misleading in (
+            "41N 1:3",
+            " 41N 1:3 ",
+            "urn:cts:copticLit:nt.mark.sahidica_ed:1.3",
+            "",
+        ):
+            with self.subTest(payload=misleading):
+                r, calls = resolved(document(greek=misleading))
+                self.assertEqual(r.status, "ambiguous")
+                self.assertEqual(calls, [])
+
     def test_wrong_cts_verse_or_missing_cts_is_not_enough(self):
         for doc in (document(vid_verse=4), document(include_vid=False)):
             with self.subTest(raw=doc.source_text[:120]):
