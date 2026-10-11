@@ -30,6 +30,7 @@ EXPECTED = {
 FOCUS = {
     "life-aphou/life.aphou_TT/life.aphou.01.tt",
     "abraham/shenoute.abraham_TT/YA525-530.tt",
+    "john-constantinople/john.constantinople_TT/penitence.01.tt",
 }
 PLAIN = re.compile(r"^[^/]+/[^/]+_TT/[^/]+\.tt$")
 ARCHIVE = re.compile(r"^[^/]+/[^/]+_TT\.zip$")
@@ -120,6 +121,10 @@ def main(root: Path):
         ]
         assert "paths:places:32" in paths_refs, paths_refs
         assert any(api.F.value.v(n) == "Sarah" for n in api.F.otype.s("entity_identity"))
+        # Third independently acquired real witness exercises the large
+        # entity-head/token-text wrapper family, not only synthetic fixtures.
+        assert api.F.otype.s("entity_head_tok")
+        assert api.F.otype.s("entity_text")
         assert api.F.otype.maxSlot == len(graph.slots)
     print(json.dumps({
         "source_commit": PIN,
