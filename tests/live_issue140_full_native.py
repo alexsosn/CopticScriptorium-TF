@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections import Counter
 import json
 import re
+from html import unescape
 from pathlib import Path
 import sys
 
@@ -47,11 +48,12 @@ def compare_pinned_edition_literals(source_records, native: dict) -> dict[str, i
         for match in _EDITION_TAG.finditer(raw):
             ordinal += 1
             kind = match.group(1).decode("ascii")
-            attr = re.compile(rb'(?<!\S)' + re.escape(match.group(1)) + rb'="([^"]*)"')
+            attr = re.compile(rb'(?<!\S)' + re.escape(match.group(1)) + rb'\s*=\s*"([^"]*)"')
             values = attr.findall(match.group(2))
             if len(values) != 1:
                 raise ValueError("edition opening missing or duplicated original literal")
-            literal = values[0].decode("utf-8")
+            # Decode source entities independently, matching original TT attribute semantics.
+            literal = unescape(values[0].decode("utf-8"))
             key = (record_id, ordinal)
             if key in observed:
                 raise ValueError("duplicate edition source occurrence")
