@@ -17,7 +17,7 @@ _CATEGORIES = (
     "duplicate_same_number",
     "nonmonotonic",
     "gapped",
-    "zero_word_verse",
+    "no_word_start_between_markers",
     "missing_or_nonpositive_literal",
 )
 
@@ -72,7 +72,7 @@ class VerseMarkerTopologyAudit:
             n_markers += 1
             self._opening_markers += 1
             if pending_verse and words_since_marker == 0:
-                self._observe("zero_word_verse", source_record_id)
+                self._observe("no_word_start_between_markers", source_record_id)
             words_since_marker = 0
             pending_verse = True
 
@@ -94,7 +94,7 @@ class VerseMarkerTopologyAudit:
             previous = current
 
         if pending_verse and words_since_marker == 0:
-            self._observe("zero_word_verse", source_record_id)
+            self._observe("no_word_start_between_markers", source_record_id)
         if n_markers:
             self._records_with_marker += 1
 
@@ -111,7 +111,7 @@ class VerseMarkerTopologyAudit:
                 for key in _CATEGORIES if key in self._examples
             },
             "interpretation": (
-                "source marker shape only; repeated labels, gaps and decreases "
+                "source marker shape only; no intervening norm start may reflect an internal-word boundary; repeated labels, gaps and decreases "
                 "are not proof of erroneous Coptic or LXX versification"
             ),
         }
