@@ -87,8 +87,14 @@ class NonCandidateInventory:
             if item.status == "reference_candidate":
                 continue
             reason_code = _REASON_CODES[item.reason]
-            label_shape = _shape(item.source_verse_vid)
-            vid_shape = _shape(item.source_vid_n)
+            # The resolver collapses nonuniform word markers to None.
+            # When the source span is conflicting, None means "unknown or
+            # mixed", not proof that the original tag was absent.
+            mixed = reason_code == "mixed_or_missing_word_markers"
+            label_shape = ("indeterminate" if mixed and item.source_verse_vid is None
+                           else _shape(item.source_verse_vid))
+            vid_shape = ("indeterminate" if mixed and item.source_vid_n is None
+                         else _shape(item.source_vid_n))
             greek_shape = _shape(literal) if kind == "sbl_greek" else "not_applicable"
             locus = ("complete_words" if item.source_word_ordinals
                      else "no_complete_word")
