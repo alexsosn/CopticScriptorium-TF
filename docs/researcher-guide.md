@@ -180,10 +180,37 @@ a Coptic source word is a one-slot anchor with native character boundaries.
 Crossed note/gap source tags are modeled by independent occurrence stacks,
 not falsely normalized into one XML tree.
 
-The multi-attribute TT `gap`, `supplied` and `abbr type` tags are
-**not included** in this family; their other attributes require separate
-native feature modeling rather than silently dropping provenance.
-Research and source coverage assumptions: `research/issue-153/RESEARCH_PLAN.md`.
+In addition to the twelve single-literal qualifiers, original **multi-attribute**
+`gap`, `supplied` and `abbr` tags now have separate native non-slot node types.
+Each original attribute becomes a native scalar **node feature** such as
+`tt_attr_gap_extent`, `tt_attr_gap_reason`, `tt_attr_gap_unit`,
+`tt_attr_supplied_source`, `tt_attr_supplied_reason` or
+`tt_attr_abbr_type`. The exact literal source key and original tag type
+appear in that feature's `sourceKey` and `sourceTag` metadata.
+Unsafe key names use a reversible `__hex_<UTF8-bytes>` suffix.
+There is no JSON/XML attribute container or conjectural restoration.
+
+~~~python
+for gap in api.F.otype.s("gap")[:5]:
+    print(
+        api.F.source_record_id.v(gap),
+        api.F.tt_attr_gap_reason.v(gap),  # None if source key absent
+        api.F.tt_attr_gap_extent.v(gap),  # empty string if present-empty
+        api.F.render_mode.v(gap),
+        api.F.start_word_ordinal.v(gap),
+        api.F.start_char.v(gap),
+    )
+~~~
+
+These literal `gap` and `supplied` attributes are **source editorial
+evidence only**; `abbr type` is not an expansion. Their word/character
+positions and independent SGML crossing structure remain queryable without
+adding Coptic word slots. This is not a Coptic↔Greek alignment claim.
+
+Research, pinned counts and source-parity test:
+`research/issue-156/RESEARCH_PLAN.md`,
+`tests/live_issue156_full_attributes.py`. The earlier twelve qualifier
+types are documented in `research/issue-153/RESEARCH_PLAN.md`.
 
 ## Normalized and diplomatic text
 
