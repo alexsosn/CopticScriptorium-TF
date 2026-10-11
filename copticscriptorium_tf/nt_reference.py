@@ -63,6 +63,26 @@ def _positive(text: str | None) -> int | None:
     value = int(text)
     return value if value > 0 else None
 
+_HUMAN_VERSE = re.compile(r"^(Mark|1 Corinthians) ([1-9][0-9]*):([1-9][0-9]*)$")
+
+
+def _source_verse_number(value: str | None, *, book: str | None, chapter: int | None) -> int | None:
+    """Accept only real attested bare or book-qualified source verse styles.
+
+    A full label must agree with BOTH the parent work and its chapter; it
+    cannot silently supply a different book, chapter or a forged reference.
+    """
+    number = _positive(value)
+    if number is not None:
+        return number
+    match = _HUMAN_VERSE.fullmatch(value or "")
+    if not match or chapter is None:
+        return None
+    expected_label = {"Mark": "Mark", "1_Corinthians": "1 Corinthians"}.get(book)
+    if match.group(1) != expected_label or int(match.group(2)) != chapter:
+        return None
+    return int(match.group(3))
+
 
 def resolve_coptic_sbl_references(
     document: DocumentModel, *, lookup: VerseLookup,
@@ -116,7 +136,7 @@ def resolve_coptic_sbl_references(
         reason = ""
         target_node = None
         shared_id = None
-        verse = _positive(annotation.source_verse_n)
+        verse = _source_verse_number(annotation.source_verse_n, book=book, chapter=chapter)
         indices = annotation.word_ordinals
         words = tuple(document.words[i - 1] for i in indices
                       if isinstance(i, int) and 1 <= i <= len(document.words))
@@ -125,7 +145,11 @@ def resolve_coptic_sbl_references(
         raw_label = {w.verse_vid for w in words}
         vid = next(iter(raw_vid)) if len(raw_vid) == 1 else None
         label = next(iter(raw_label)) if len(raw_label) == 1 else None
-        evidence = "book+chapter+document_cts_urn+verse_n+vid_n+verse_vid+" + annotation.kind
+        evidence = (
+            "book+chapter+document_cts_urn+verse_n+"
+            + ("vid_n+" if vid is not None else "")
+            + "verse_vid+" + annotation.kind
+        )
 
         if duplicated_identity:
             status, reason = "ambiguous", "duplicate source identity or provenance metadata"
@@ -137,17 +161,22 @@ def resolve_coptic_sbl_references(
               or annotation.source_verse_n not in raw_verse):
             status, reason = "ambiguous", "contradictory source references in Coptic word span"
         else:
-            verse_cts = CTS_VERSE.fullmatch(vid or "")
+            verse_cts = CTS_VERSE.fullmatch(vid) if vid is not None else None
             verse_label = VERSE_LABEL.fullmatch(label or "")
-            if not doc_cts or not verse_cts or not verse_label:
+            # Actual Mark TT chapters may omit vid_n entirely. Accept that
+            # absence only when the Coptic verse_n, document CTS and explicit
+            # verse_vid editor reference corroborate each other.
+            if not doc_cts or not verse_label or (vid is not None and not verse_cts):
                 status, reason = "ambiguous", "missing or malformed source NT reference evidence"
             elif (doc_cts.group(1) != documented_work
-                  or verse_cts.group(1) != documented_work
                   or verse_label.group(1) != documented_label
                   or chapter is None or verse is None
                   or _positive(doc_cts.group(2)) != chapter
-                  or _positive(verse_cts.group(2)) != chapter
-                  or _positive(verse_cts.group(3)) != verse
+                  or (verse_cts is not None and (
+                      verse_cts.group(1) != documented_work
+                      or _positive(verse_cts.group(2)) != chapter
+                      or _positive(verse_cts.group(3)) != verse
+                  ))
                   or _positive(verse_label.group(2)) != chapter
                   or _positive(verse_label.group(3)) != verse):
                 status, reason = "ambiguous", "contradictory NT book/chapter/verse evidence"
