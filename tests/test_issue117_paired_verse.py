@@ -136,16 +136,44 @@ class PairedSourceVerseEvidence(unittest.TestCase):
                 source_path=original.source_path,
                 upstream_repository="CopticScriptorium/corpora",upstream_commit=PIN)
 
-    def test_crossed_human_and_editor_verse_wrappers_are_not_trusted(self):
-        original=doc()
-        modified=original.source_text.replace(
+    def test_original_tt_overlapping_closure_after_complete_word_is_valid(self):
+        # Real pinned 1Cor14 TT opens editor -> human, closes editor ->
+        # human (40 times). Both independent labels still enclose the same
+        # complete Coptic word; XML-style nesting must not be required.
+        original = doc()
+        modified = original.source_text.replace(
             "</verse></verse_vid>", "</verse_vid></verse>"
         )
-        parsed=parse_tt_record(modified.encode(),source_record_id=PHYSICAL,
+        parsed = parse_tt_record(
+            modified.encode(), source_record_id=PHYSICAL,
             source_path=original.source_path,
-            upstream_repository="CopticScriptorium/corpora",upstream_commit=PIN)
-        with self.assertRaisesRegex(ValueError,"label nesting"):
-            resolve_coptic_sbl_references(parsed,lookup=lambda *args:19)
+            upstream_repository="CopticScriptorium/corpora",
+            upstream_commit=PIN,
+        )
+        calls = []
+        r, = resolve_coptic_sbl_references(
+            parsed, lookup=lambda *args: calls.append(args) or 19
+        )
+        self.assertEqual(r.status, "reference_candidate")
+        self.assertEqual(calls, [("1_Corinthians", 14, 3)])
+
+    def test_overlapping_closure_does_not_allow_conflicting_verse_labels(self):
+        original = doc(verse="1 Corinthians 14:4")
+        modified = original.source_text.replace(
+            "</verse></verse_vid>", "</verse_vid></verse>"
+        )
+        parsed = parse_tt_record(
+            modified.encode(), source_record_id=PHYSICAL,
+            source_path=original.source_path,
+            upstream_repository="CopticScriptorium/corpora",
+            upstream_commit=PIN,
+        )
+        calls = []
+        r, = resolve_coptic_sbl_references(
+            parsed, lookup=lambda *args: calls.append(args) or 19
+        )
+        self.assertNotEqual(r.status, "reference_candidate")
+        self.assertEqual(calls, [])
 
     def test_verse_boundary_inside_coptic_norm_never_maps(self):
         original=doc()
