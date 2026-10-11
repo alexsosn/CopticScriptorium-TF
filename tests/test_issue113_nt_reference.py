@@ -14,6 +14,7 @@ def make_doc(
     *, book="Mark", work="mark", code="41N", chapter=2, verse=1,
     cts_verse=None, label_verse=None, word_verse=None, greek_source=PROVENANCE,
     greek="⸀λόγος· ", annot_kind="sbl_greek", extra_word=False,
+    verse_literal=None, include_vid_n=True,
 ):
     cts_verse = verse if cts_verse is None else cts_verse
     label_verse = verse if label_verse is None else label_verse
@@ -23,14 +24,14 @@ def make_doc(
             f'document_cts_urn="urn:cts:copticLit:nt.{work}.sahidica_ed:{chapter}" '
             f'Greek_source="{greek_source}">')
     annotation = (
-        f'<verse_n verse_n="{word_verse}"><{annot_kind} {annot_kind}="{greek}">'
+        f'<verse_n verse_n="{word_verse if verse_literal is None else verse_literal}"><{annot_kind} {annot_kind}="{greek}">'
         f'<verse_vid verse_vid="{code} {chapter}:{label_verse}">'
-        f'<vid_n vid_n="urn:cts:copticLit:nt.{work}.sahidica_ed:{chapter}.{cts_verse}">'
+        (f'<vid_n vid_n="urn:cts:copticLit:nt.{work}.sahidica_ed:{chapter}.{cts_verse}">' if include_vid_n else "")
         '<norm_group norm_group="a"><norm xml:id="u1" new_sent="true" func="root" norm="ⲁ">ⲁ</norm></norm_group>'
     )
     if extra_word:
         annotation += '<norm_group norm_group="b"><norm xml:id="u2" func="root" norm="ⲃ">ⲃ</norm></norm_group>'
-    annotation += f'</{annot_kind}></vid_n></verse_vid></verse_n>'
+    annotation += f'</{annot_kind}>' + ('</vid_n>' if include_vid_n else '') + '</verse_vid></verse_n>'
     return parse_tt_record((meta+annotation).encode("utf-8"),
         source_record_id=f"{family}/{family}:Chapter_02",
         source_path=f"{family}/{family}_TT/Chapter_02.tt",
@@ -88,6 +89,43 @@ class GreekNtReferences(unittest.TestCase):
         c,=resolve_coptic_sbl_references(d,lookup=lambda *key:calls.append(key) or 111)
         self.assertEqual(c.status,"unclassified_source")
         self.assertEqual(calls,[])
+
+    def test_real_1cor_chapter3_qualified_source_verse_label(self):
+        d = make_doc(book="1Cor", work="1cor", code="46N", chapter=3,
+                     verse=1, verse_literal="1 Corinthians 3:1")
+        c, = resolve_coptic_sbl_references(d, lookup=lambda *ref: 19)
+        self.assertEqual(c.status, "reference_candidate")
+        self.assertEqual((c.target_book, c.target_chapter, c.target_verse),
+                         ("1_Corinthians", 3, 1))
+
+    def test_real_mark8_missing_vid_n_can_use_consistent_other_references(self):
+        d = make_doc(book="Mark", work="mark", code="41N", chapter=8,
+                     verse=1, include_vid_n=False)
+        c, = resolve_coptic_sbl_references(d, lookup=lambda *ref: 19)
+        self.assertEqual(c.status, "reference_candidate")
+        self.assertNotIn("vid_n+", c.evidence)
+        self.assertIsNone(c.source_vid_n)
+
+    def test_missing_vid_with_wrong_editor_verse_cannot_map(self):
+        d = make_doc(chapter=8, verse=1, include_vid_n=False, label_verse=2)
+        calls = []
+        c, = resolve_coptic_sbl_references(d, lookup=lambda *ref: calls.append(ref) or 19)
+        self.assertEqual(c.status, "ambiguous")
+        self.assertEqual(calls, [])
+
+    def test_forged_human_readable_verse_book_is_rejected(self):
+        d = make_doc(book="1Cor", work="1cor", code="46N", chapter=3,
+                     verse=1, verse_literal="John 3:1")
+        calls = []
+        c, = resolve_coptic_sbl_references(d, lookup=lambda *ref: calls.append(ref) or 19)
+        self.assertEqual(c.status, "ambiguous")
+        self.assertEqual(calls, [])
+
+    def test_verse_label_wrong_chapter_is_rejected(self):
+        d = make_doc(book="1Cor", work="1cor", code="46N", chapter=3,
+                     verse=1, verse_literal="1 Corinthians 2:1")
+        c, = resolve_coptic_sbl_references(d, lookup=lambda *ref: 19)
+        self.assertEqual(c.status, "ambiguous")
 
     def test_1cor_real_alias_uses_parent_canonical_book(self):
         d = make_doc(book="1Cor",work="1cor",code="46N",annot_kind="sbl_apparatus")
