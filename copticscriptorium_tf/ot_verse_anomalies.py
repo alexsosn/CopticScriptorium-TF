@@ -207,6 +207,10 @@ class CopticOtVerseAnomalyBatch:
             dict[str, object],
         ] = {}
         gap_work_counts: Counter[str] = Counter()
+        # Authoritative grouping retains None, empty and literal display labels.
+        gap_work_structured: Counter[
+            tuple[str | None, str | None]
+        ] = Counter()
         gap_greek_status: Counter[str] = Counter()
         gap_greek_addresses: Counter[str] = Counter()
         for case in cases:
@@ -271,6 +275,7 @@ class CopticOtVerseAnomalyBatch:
                     str(key[2]) if key[2] is not None else "<missing>",
                     str(key[3]) if key[3] is not None else "<missing>",
                 ))] += 1
+                gap_work_structured[(key[2], key[3])] += 1
                 gap_greek_status[str(case["greek_status"])] += 1
                 for row in case["greek_missing_intermediate"]:
                     if row["address"] not in {"present", "absent"}:
@@ -376,6 +381,18 @@ class CopticOtVerseAnomalyBatch:
                 )
             ],
             "gapped_work_edition_counts": dict(sorted(gap_work_counts.items())),
+            # Unlike a joined display key, typed values cannot collide.
+            "gapped_work_edition_groups": [
+                {"source_cts_work": work, "source_edition": edition,
+                 "event_count": gap_work_structured[(work, edition)]}
+                for work, edition in sorted(
+                    gap_work_structured,
+                    key=lambda values: tuple(
+                        (part is not None, part.casefold() if part is not None else "")
+                        for part in values
+                    ),
+                )
+            ],
             "gapped_source_record_count": len({key[0] for key in gap_groups}),
             "gapped_greek_check_status_counts": dict(sorted(gap_greek_status.items())),
             "gapped_intermediate_address_status_counts": dict(
