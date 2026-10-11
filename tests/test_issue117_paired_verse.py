@@ -130,11 +130,11 @@ class PairedSourceVerseEvidence(unittest.TestCase):
             '<verse verse="1 Corinthians 14:3">',
             '<verse verse="1 Corinthians 14:3" verse="1 Corinthians 14:4">',
         )
-        reloaded=parse_tt_record(changed.encode(),source_record_id=PHYSICAL,
-            source_path=original.source_path,
-            upstream_repository="CopticScriptorium/corpora",upstream_commit=PIN)
+        # The original TT parser rejects this even before reference resolution.
         with self.assertRaisesRegex(ValueError,"duplicate"):
-            resolve_coptic_sbl_references(reloaded,lookup=lambda *a:1)
+            parse_tt_record(changed.encode(),source_record_id=PHYSICAL,
+                source_path=original.source_path,
+                upstream_repository="CopticScriptorium/corpora",upstream_commit=PIN)
 
     def test_verse_boundary_inside_coptic_norm_never_maps(self):
         original=doc()
