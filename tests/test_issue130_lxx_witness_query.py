@@ -103,6 +103,16 @@ class NativeCopticLxxInverseLookupTests(unittest.TestCase):
         self.assertIsNone(result.declared_coptic_source_span_count)
         self.assertEqual(len(result.spans), 2)
 
+    def test_present_legacy_span_count_must_equal_actual_word_runs(self):
+        # Legacy lxx_modules.py increments the count *once per source
+        # reference span*, not once per distinct document or word.
+        c = fake_coptic()
+        c.F.source_word_ordinal = Feature({10: 1, 11: 4, 20: 8, 21: 9})
+        with self.assertRaisesRegex(LxxWitnessQueryError, "span count"):
+            find_coptic_witnesses(c, fake_lxx(declared=2), "Ruth", 2, 1)
+        with self.assertRaisesRegex(LxxWitnessQueryError, "span count"):
+            find_coptic_witnesses(fake_coptic(), fake_lxx(declared=3), "Ruth", 2, 1)
+
     def test_discontinuous_word_runs_in_one_witness_stay_distinct(self):
         c = fake_coptic()
         c.F.source_word_ordinal = Feature({10: 1, 11: 4, 20: 8, 21: 9})
