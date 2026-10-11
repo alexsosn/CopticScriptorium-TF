@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import unittest
 
 from tests.live_issue97_zechariah_sequences import (
-    classify_cts, translation_tokens, normalized_tokens, compare_token_sequences,
+    classify_cts, translation_tokens, normalized_tokens, compare_token_sequences,\n    motif_score,
 )
 
 
@@ -49,6 +49,17 @@ class ZechariahSourceSequenceContracts(unittest.TestCase):
 
     def test_missing_english_data_never_becomes_a_zero_similarity_diagnostic(self):
         self.assertIsNone(compare_token_sequences((), normalized_tokens("Several available words in another verse")))
+
+    def test_semantic_content_anchor_distinguishes_two_recurrent_introductory_phrases(self):
+        horns = normalized_tokens("And I lifted up mine eyes and beheld four horns")
+        cord = normalized_tokens("And I lifted up mine eyes and behold a man holding a measuring line")
+        self.assertEqual(motif_score(horns, 1), 1.0)
+        self.assertEqual(motif_score(horns, 5), 0.0)
+        self.assertEqual(motif_score(cord, 5), 1.0)
+        self.assertEqual(motif_score(cord, 1), 0.0)
+        self.assertIsNone(motif_score((), 1))
+        with self.assertRaises(ValueError):
+            motif_score(horns, 999)
 
 
 if __name__ == "__main__":
