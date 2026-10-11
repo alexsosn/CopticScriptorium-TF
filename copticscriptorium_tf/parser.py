@@ -123,10 +123,12 @@ def parse_tt_record(
     # order from opening (real Mark_02). Independent tracks preserve both
     # occurrences rather than imposing a fictional XML tree.
     sbl_open: dict[str, list[dict[str, Any]]] = {
-        "sbl_greek": [], "sbl_apparatus": [],
+        "sbl_greek": [], "sbl_apparatus": [], "lang": [],
     }
     sbl_closed: list[dict[str, Any]] = []
+    lang_closed: list[dict[str, Any]] = []
     sbl_open_count = 0
+    lang_open_count = 0
     layout_events: list[LayoutEvent] = []
     current_word: dict[str, Any] | None = None
     # Preserve upstream literal verse references. They are not claimed to
@@ -214,7 +216,8 @@ def parse_tt_record(
                 arabic_raw.append(arabic_stack.pop())
             elif name in sbl_open:
                 if not sbl_open[name]:
-                    raise ValueError(f"closing sbl_ annotation without opening {name} in {source_record_id}")
+                    kind = "lang" if name == "lang" else "sbl_"
+                    raise ValueError(f"closing {kind} annotation without opening {name} in {source_record_id}")
                 item = sbl_open[name].pop()
                 item["end_word_ordinal"] = current_word["ordinal"] if current_word else None
                 item["end_char"] = current_offset() if current_word else None
@@ -222,7 +225,7 @@ def parse_tt_record(
                 start_after = item["start_after_word_ordinal"]
                 end_after = item["end_after_word_ordinal"]
                 if end_after < start_after:
-                    raise ValueError(f"invalid sbl_ annotation bounds for {name} in {source_record_id}")
+                    raise ValueError(f"invalid source annotation bounds for {name} in {source_record_id}")
                 # If an annotation opens after some characters of the
                 # current word, that word is only partially covered. Keep the
                 # source offset but exclude that word from the *full-word*
@@ -232,7 +235,10 @@ def parse_tt_record(
                     (item["start_char"] or 0) > 0
                 ) else 1)
                 item["word_ordinals"] = tuple(range(first_full, end_after + 1))
-                sbl_closed.append(item)
+                if name == "lang":
+                    lang_closed.append(item)
+                else:
+                    sbl_closed.append(item)
             elif name == "verse_n":
                 current_verse_n = None
                 current_vid_n = None
@@ -247,10 +253,18 @@ def parse_tt_record(
             continue
         if name in sbl_open:
             if name not in attrs:
-                raise ValueError(f"sbl_ annotation {name} has no source value in {source_record_id}")
-            sbl_open_count += 1
+                kind = "lang" if name == "lang" else "sbl_"
+                raise ValueError(f"{kind} annotation {name} has no source value in {source_record_id}")
+            # Preserve legacy SBL occurrence IDs. Source language wrappers
+            # get a separate ordinal sequence and never renumber SBL nodes.
+            if name == "lang":
+                lang_open_count += 1
+                occurrence = lang_open_count
+            else:
+                sbl_open_count += 1
+                occurrence = sbl_open_count
             sbl_open[name].append({
-                "ordinal": sbl_open_count,
+                "ordinal": occurrence,
                 "kind": name,
                 "value": attrs[name],  # empty string is present, not missing
                 "source_verse_n": current_verse_n,
@@ -434,8 +448,10 @@ def parse_tt_record(
         raise ValueError(f"unclosed translation tag in {source_record_id}")
     if arabic_stack:
         raise ValueError(f"unclosed Arabic translation tag in {source_record_id}")
-    if any(sbl_open.values()):
+    if sbl_open["sbl_greek"] or sbl_open["sbl_apparatus"]:
         raise ValueError(f"unclosed sbl_ annotation tag in {source_record_id}")
+    if sbl_open["lang"]:
+        raise ValueError(f"unclosed lang source annotation tag in {source_record_id}")
 
     if raw_words and (not sentence_starts or sentence_starts[0] != 1):
         raise ValueError(f"first word has no source sentence start in {source_record_id}")
@@ -553,6 +569,9 @@ def parse_tt_record(
         source_text=text,
         sbl_annotations=tuple(SblAnnotation(**item) for item in sorted(
             sbl_closed, key=lambda a: a["ordinal"]
+        )),
+        language_annotations=tuple(SblAnnotation(**item) for item in sorted(
+            lang_closed, key=lambda a: a["ordinal"]
         )),
     )
 
