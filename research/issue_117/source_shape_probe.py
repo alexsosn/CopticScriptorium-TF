@@ -70,6 +70,8 @@ def audit(root: Path) -> dict:
                 found[f"vid_n.{category}"] += 1
             if key == "sbl_greek" and EDITOR.fullmatch(value):
                 found["sbl_greek.editor_reference"] += 1
+        for expected_key in expected:
+            found[expected_key] += 0  # Preserve explicit zero absent-tag strata.
         if dict(found) != expected:
             raise ValueError(f"pinned TT source attribute-shape drift: {source}")
         observations[source] = dict(sorted(found.items()))
