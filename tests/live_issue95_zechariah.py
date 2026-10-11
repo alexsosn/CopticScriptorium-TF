@@ -48,6 +48,29 @@ def focused_verse(chapter: int | None, verse: int | None) -> bool:
     )
 
 
+def propose_bohairic_zechariah_target(
+    corpus: str, source_cts: str | None, chapter: int, verse: int,
+) -> tuple[int, int] | None:
+    """*Diagnostic hypothesis*, NOT a verified chapter/verse mapping.
+
+    This explicitly matches the actual pinned Bohairic Zechariah work/edition.
+    Never apply it to Sahidic OT, other Bohairic works, or unreviewed ranges.
+    """
+    if corpus != "bohairic.ot" or not source_cts:
+        return None
+    match = re.fullmatch(
+        r"urn:cts:copticLit:ot\\.zach\\.bohairic_ed:(0*[1-9][0-9]*)",
+        source_cts,
+    )
+    if match is None or int(match.group(1)) != chapter:
+        return None
+    if chapter == 1 and 18 <= verse <= 21:
+        return (2, verse - 17)
+    if chapter == 2 and 1 <= verse <= 6:
+        return (2, verse + 4)
+    return None
+
+
 def _short_source(words, ordinals: tuple[int, ...]) -> str:
     # At most three source words and 50 code points, not a text export.
     return " ".join((words[n - 1].norm or "") for n in ordinals[:3])[:50]
@@ -145,9 +168,23 @@ def run(source_root: Path, greek_tf: Path) -> None:
                     }
                     if chapter is not None and ref.lxx_verse is not None:
                         row["identically_numbered_greek"] = greek_at(chapter, ref.lxx_verse)
-                        if chapter == 1 and 18 <= ref.lxx_verse <= 21:
-                            # Pure comparison hypothesis, *never a mapping*.
-                            row["hypothetical_shifted_greek"] = greek_at(2, ref.lxx_verse - 17)
+                        proposed = propose_bohairic_zechariah_target(
+                            corpus, document.metadata.get("document_cts_urn"),
+                            chapter, ref.lxx_verse,
+                        )
+                        if proposed is not None:
+                            # Comparison-only candidate; source English renderings
+                            # can be misaligned (upstream notes) and are NOT proof.
+                            row["hypothetical_shifted_greek"] = greek_at(*proposed)
+                            row["hypothesis_status"] = "needs_independent_textual_review"
+                            source_slots = set(ref.source_word_ordinals)
+                            source_translations = [
+                                trans.text for trans in document.translations
+                                if source_slots.intersection(trans.word_ordinals)
+                            ]
+                            row["unverified_translation_head"] = (
+                                source_translations[0][:85] if source_translations else None
+                            )
                     rows.append(row)
 
     if not summary["zechariah_records"]:
