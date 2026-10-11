@@ -23,13 +23,15 @@ KINDS = tuple(EXPECTED)
 _TAG = re.compile(rb"<(/?)(norm|chapter_n|marcion_chapter_n|marcion_verse_n|petermann_chapter_n|petermann_verse_n)\b([^<>]*)>")
 
 
-def compare_source_reference_events(source_records, native: dict):
+def compare_source_reference_events(source_records, native: dict, *, expected_counts=None):
     """Independently compare every original reference kind/literal/order/word bounds.
 
     Per-kind source stacks allow crossed wrappers while preserving ordinal
     assignment in *opening* order; norm closings count source Coptic slots.
     Never parse the source using the converter or the native graph builder.
     """
+    if expected_counts is None:
+        expected_counts = EXPECTED
     seen = set()
     records_seen = set()
     counts = Counter()
@@ -70,7 +72,7 @@ def compare_source_reference_events(source_records, native: dict):
             raise ValueError(f"unclosed original edition reference {rid}")
     if seen != set(native):
         raise ValueError("original reference/source TF occurrence parity mismatch")
-    if dict(counts) != EXPECTED:
+    if dict(counts) != expected_counts:
         raise ValueError(f"reference source tag inventory changed: {counts}")
     return dict(sorted(counts.items()))
 
