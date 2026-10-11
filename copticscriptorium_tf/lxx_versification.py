@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from .model import DocumentModel
 
-BOHAIRIC_ZECH_CROSSWALK_VERSION = "bohairic-zach-lxx1935-v1"
+BOHAIRIC_ZECH_CROSSWALK_VERSION = "bohairic-zach-lxx1935-v2"
 COPTIC_SOURCE_GIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
 BOHAIRIC_ZECH_CHAPTER_SHA: dict[int, str] = {
     1: "c52322c9e69a68cefe39827c18417a37d291ecbd919f8440adc0c340cf7867bd",
@@ -19,10 +19,10 @@ BOHAIRIC_ZECH_CHAPTER_SHA: dict[int, str] = {
 }
 # An explicit *batch* of scoped, source-edition-specific verse-number rules.
 # Source Zech 1:18–21 → pinned Greek Zech 2:1–4.
-# Source Zech 2:1–6 → pinned Greek Zech 2:5–10.
+# Source Zech 2:1–13 → pinned Greek Zech 2:5–17, individually checked\n# against both literal source-verse English motifs and real pinned Greek\n# word motifs in issue #111; reference-numbering candidates ONLY.
 _RULES: tuple[tuple[int, range, int], ...] = (
     (1, range(18, 22), -17),
-    (2, range(1, 7), 4),
+    (2, range(1, 14), 4),
 )
 
 
@@ -75,7 +75,7 @@ def propose_bohairic_zechariah(
         None,
     )
     if offset is None:
-        if source_chapter == 2 and source_verse >= 7:
+        if source_chapter == 2 and source_verse >= 14:
             # The same numbered Greek verse *exists* here, but this Bohairic
             # source demonstrably uses a displaced chapter-2 reference
             # system. Downstream unreviewed verses must never silently fall
@@ -85,7 +85,7 @@ def propose_bohairic_zechariah(
                 rule_id=BOHAIRIC_ZECH_CROSSWALK_VERSION,
                 blocked_reason=(
                     "Bohairic Zechariah chapter 2 numbering differs from "
-                    "Rahlfs LXX; verse beyond reviewed 1–6 crosswalk "
+                    "Rahlfs LXX; verse beyond reviewed 1–13 crosswalk "
                     "requires further source-text adjudication"
                 ),
             )
