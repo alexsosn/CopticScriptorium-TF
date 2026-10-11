@@ -3,7 +3,7 @@ from dataclasses import replace
 import unittest
 
 from copticscriptorium_tf.model import SblAnnotation
-from research.issue_91.full_native_recheck import compare_occurrence
+from copticscriptorium_tf.sbl_validation import compare_occurrence
 
 
 def source():
