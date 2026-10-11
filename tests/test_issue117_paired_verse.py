@@ -136,6 +136,17 @@ class PairedSourceVerseEvidence(unittest.TestCase):
                 source_path=original.source_path,
                 upstream_repository="CopticScriptorium/corpora",upstream_commit=PIN)
 
+    def test_crossed_human_and_editor_verse_wrappers_are_not_trusted(self):
+        original=doc()
+        modified=original.source_text.replace(
+            "</verse></verse_vid>", "</verse_vid></verse>"
+        )
+        parsed=parse_tt_record(modified.encode(),source_record_id=PHYSICAL,
+            source_path=original.source_path,
+            upstream_repository="CopticScriptorium/corpora",upstream_commit=PIN)
+        with self.assertRaisesRegex(ValueError,"label nesting"):
+            resolve_coptic_sbl_references(parsed,lookup=lambda *args:19)
+
     def test_verse_boundary_inside_coptic_norm_never_maps(self):
         original=doc()
         changed=original.source_text.replace(
