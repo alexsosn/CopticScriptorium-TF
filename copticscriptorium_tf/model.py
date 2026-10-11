@@ -79,6 +79,23 @@ class Translation:
 
 
 @dataclass(frozen=True, slots=True)
+class SblAnnotation:
+    """One upstream annotation occurrence; Greek text is not a Coptic word."""
+
+    ordinal: int
+    kind: str
+    value: str
+    word_ordinals: tuple[int, ...]
+    source_verse_n: str | None
+    start_word_ordinal: int | None
+    start_char: int | None
+    start_after_word_ordinal: int
+    end_word_ordinal: int | None
+    end_char: int | None
+    end_after_word_ordinal: int
+
+
+@dataclass(frozen=True, slots=True)
 class SupplementalWord:
     ordinal: int
     form_literal: str
@@ -122,3 +139,4 @@ class DocumentModel:
     translations: tuple[Translation, ...]
     arabic_translations: tuple[Translation, ...]
     source_text: str = field(repr=False)
+    sbl_annotations: tuple[SblAnnotation, ...] = ()
