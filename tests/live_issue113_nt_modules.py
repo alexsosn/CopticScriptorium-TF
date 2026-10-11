@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT))
 from tf.fabric import Fabric
 from copticscriptorium_tf.graph import build_graph, validate_graph
 from copticscriptorium_tf.nt_modules import (
-    GREEK_PARENT_PIN, project_nt_modules,
+    GREEK_PARENT_PIN, project_nt_modules, validate_native_module_parent,
 )
 from copticscriptorium_tf.nt_reference import COPTIC_PIN
 from copticscriptorium_tf.parser import parse_tt_record
@@ -79,6 +79,11 @@ def main(coptic_root: Path, greek_root: Path) -> dict:
         if result["reference_candidate"] != 129 or result["coptic_annotated_sbl_nodes"] != 129:
             raise ValueError("unexpected real Mark2/1Cor2/treebank source NT candidate inventory")
 
+        for parent in ("coptic", "greek"):
+            validate_native_module_parent(
+                wefts / parent, projection=parent,
+                coptic_tf_dir=coptic_dir, greek_tf_dir=greek_dir,
+            )
         cw = Fabric(
             locations=[str(coptic_dir), str(wefts / "coptic")], silent="deep",
         ).load("coptic_nt_ref_id coptic_nt_ref_status", silent="deep")
