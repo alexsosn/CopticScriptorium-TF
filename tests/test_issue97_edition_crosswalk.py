@@ -1,4 +1,4 @@
-"""RED-first actual-edition contract: 10 Bohairic Zechariah→LXX numbering candidates.
+"""RED-first actual-edition contract: 17 Bohairic Zechariah→LXX numbering candidates.
 
 Source-translation-supported numbering only, NOT certified Coptic/Greek lexical alignment.
 Real pinned bytes and Greek verse nodes are asserted in separate GitHub Actions CI.
@@ -54,10 +54,10 @@ def source_document(chapter: int, verses: tuple[int, ...], *, witness="bohairic"
 
 class BohairicZechariahEditionCrosswalkTests(unittest.TestCase):
     def test_versioned_two_batched_rules_and_original_coptic_verse_literals(self):
-        self.assertEqual(BOHAIRIC_ZECH_CROSSWALK_VERSION, "bohairic-zach-lxx1935-v1")
+        self.assertEqual(BOHAIRIC_ZECH_CROSSWALK_VERSION, "bohairic-zach-lxx1935-v2")
         for c, source_verses, expected in (
             (1, (18,19,20,21), (1,2,3,4)),
-            (2, (1,2,3,4,5,6), (5,6,7,8,9,10)),
+            (2, tuple(range(1, 14)), tuple(range(5, 18))),
         ):
             with self.subTest(source_chapter=c):
                 doc = source_document(c, source_verses)
@@ -92,7 +92,7 @@ class BohairicZechariahEditionCrosswalkTests(unittest.TestCase):
             source_document(2, (1,), witness="sahidic"),
             source_document(2, (1,), cts="urn:cts:copticLit:ot.zach.alternate:02"),
             source_document(2, (1,), source_commit="f" * 40),
-            source_document(2, (7,)),
+            source_document(2, (14,)),
             source_document(1, (17,)),
         ]
         for doc in cases:
@@ -117,7 +117,7 @@ class BohairicZechariahEditionCrosswalkTests(unittest.TestCase):
             self.assertEqual(calls, [], "unknown edition cannot reuse known mismatched Bohairic numbering")
 
     def test_unreviewed_remaining_bohairic_chapter_2_fails_closed_not_false_same_number(self):
-        doc = source_document(2, (7, 8, 9, 10))
+        doc = source_document(2, (14, 15, 16, 17))
         calls = []
         got = resolve_coptic_lxx_references(
             doc, lookup=lambda *args: calls.append(args) or 123
@@ -125,7 +125,7 @@ class BohairicZechariahEditionCrosswalkTests(unittest.TestCase):
         self.assertEqual([m.status for m in got], ["ambiguous"] * 4)
         self.assertTrue(all(m.shared_id is None and m.lxx_node is None for m in got))
         self.assertEqual(calls, [], "uncertified source numbering must not claim Greek same-address candidates")
-        self.assertEqual([m.source_verse_n for m in got], ["7", "8", "9", "10"])
+        self.assertEqual([m.source_verse_n for m in got], ["14", "15", "16", "17"])
 
     def test_crosswalk_missing_lxx_target_is_unresolved_not_fabricated(self):
         got = resolve_coptic_lxx_references(
