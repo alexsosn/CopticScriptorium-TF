@@ -49,3 +49,37 @@ jobs:
           test -f upstream/sahidica.mark/sahidica.mark_TT/Mark_16.tt
       - name: Preserve and clean-reload both real Greek-annotated Mark chapters
         run: python research/issue-91/live_sbl_annotations.py upstream --output "$RUNNER_TEMP/issue91-mark-tf"
+
+  source-census:
+    needs: native-sbl
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Checkout exact pinned TT corpus (directories and ZIP packages)
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: upstream
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*/*_TT/**
+            /*/*_TT.zip
+      - name: Verify exact upstream SHA
+        run: test "$(git -C upstream rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+      - name: Count and preserve all 2628 physical source TT records
+        run: python research/issue-91/sbl_source_census.py upstream --output "$RUNNER_TEMP/sbl-source-census.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbl-annotations-pinned-source-census
+          path: ${{ runner.temp }}/sbl-source-census.json
+          if-no-files-found: ignore
