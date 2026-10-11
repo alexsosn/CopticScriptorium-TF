@@ -71,6 +71,13 @@ class PinnedAlternativeGreekEditionTests(unittest.TestCase):
             ),
             lambda d: d["records"][0].update(source_cts_work="ot.mark"),
             lambda d: d["records"][0].update(source_edition="unknown"),
+            # Same number of skipped verses, but forged source event placement.
+            lambda d: d["records"][0]["events"][0].update(
+                previous_verse=11, current_verse=16,
+            ),
+            lambda d: d["records"][0]["events"][0].update(
+                source_marker_ordinal=5,
+            ),
         ):
             data = deepcopy(self.data)
             mutate(data)
