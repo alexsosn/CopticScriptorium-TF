@@ -237,35 +237,42 @@ unauthenticated on a remote transport. See the
 [Agora local-import guide](https://github.com/alexsosn/Agora/blob/main/wiki/guides/context-fabric-local-import.md)
 for limits, lifecycle, and feature-module behavior.
 
-### Automatic upstream acquisition: outstanding limitation
+### Automatic upstream acquisition: verified full-corpus path
 
-The manifest now opts in to Agora's proposed `sparse_patterns` Git acquisition
-(`/*/*_TT/**` and `/*/*_TT.zip`), which downloads TT directory files and
-TT ZIP archives at the same pinned upstream commit without deliberately
-materializing other formats. The host support has now merged as
-[Agora PR #210](https://github.com/alexsosn/Agora/pull/210).
-Its real pinned GitHub Actions acquisition passed: **565 TT blobs**, totaling
-**220,289,125 bytes**, matched the immutable upstream Git tree by path
-and size. This verifies source acquisition, not native TF conversion.
-
-**The registered integration is still incomplete**: Agora's canonical
-materializer registry remains pinned to the earlier reviewed Coptic plugin
-commit. Until that pin is updated and the complete acquired-source
-conversion/Context-Fabric handoff has passed, use `--source` for
-the production materialization workflow.
-
-The materializer manifest also declares immutable Git acquisition from
+The canonical Agora registry now pins the reviewed Coptic materializer release
+(merged [Agora PR #213](https://github.com/alexsosn/Agora/pull/213))
+and its exact source Git acquisition manifest. It uses the production sparse
+paths `/*/*_TT/**` and `/*/*_TT.zip` at immutable upstream
 `CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`.
-Running the registered materializer without `--source` selects that acquisition
-strategy, but its full-corpus end-to-end path **has not yet passed**. A CI
-attempt hit the bounded **120-second** Git fetch timeout with an early EOF
-while acquiring the approximately 2.7 GiB repository; conversion was never
-reached in that attempt. See
-[Agora #205](https://github.com/alexsosn/Agora/issues/205) and
-[CopticScriptorium-TF #17](https://github.com/alexsosn/CopticScriptorium-TF/issues/17)
-for this remaining gate. For now, use an already acquired local TT source tree
-with `--source` or the direct converter documented above; do not treat the
-declared automatic acquisition as a verified working full-corpus route.
+The pinned source census verified **565 TT Git blobs** and **220,289,125
+bytes**; it avoids unrelated source formats.
+
+**Full registered integration acceptance passed.** Merged
+[Agora PR #215](https://github.com/alexsosn/Agora/pull/215)
+(workflow `38063116201`) exercised canonical registered install,
+**automatic remote Git source acquisition without `--source`**,
+network-denied sandbox conversion of the full source, native Text-Fabric reload,
+and an actual Context-Fabric import/prepare/load/query/unload/remove lifecycle.
+It is a technical, edition-pinned regression — not scholarly certification or
+permission to redistribute the Coptic corpus.
+
+For reproducible automatic acquisition, omit the local source override:
+
+```bash
+python scripts/agora_materialize_registered.py \
+  --plugin copticscriptorium-tf \
+  --materializer copticscriptorium-text-fabric \
+  --output /path/to/agora-output \
+  --sandbox required
+```
+
+Explicit `--source /path/to/CopticScriptorium-corpora` remains supported for
+user-local source trees; the receipt distinguishes its provenance from
+a Git checkout verified by the host. Automatic remote acquisition can require
+significant download time, disk space and memory. Agora **does not automatically**
+invoke Context-Fabric on every production materialization: import is a
+separate user action described above, even though the full composed workflow
+has passed in CI.
 
 ## Troubleshooting
 
@@ -285,8 +292,9 @@ Active changes follow research/plan → RED tests → minimal implementation →
 
 Current release-facing follow-ups are:
 
-- #17 — complete bounded automatic upstream acquisition (Agora #205); the registered local-source and explicit Context-Fabric handoff paths already work;
-- #18 — maintain tested installation, feature/query, and Agora instructions;
+- #66 — add validated CoNLL-U supplementation to native conversion;
+- #70 / #75 / #92 — audit Coptic↔LXX versification, missing/ambiguous references and candidate-only textual semantics;
+- #18 — maintain researcher-facing installation, feature/query, and Agora instructions;
 - #11 — parent first-usable-release epic.
 
 ## License
