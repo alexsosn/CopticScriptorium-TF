@@ -317,6 +317,36 @@ an edition-qualified LXX parent version, document its reference-mapping
 evidence and exceptions, and leave unresolvable passages visible. TF node
 integers cannot be used as cross-corpus edge targets.
 
+## Source language wrappers (Greek/Hebrew evidence)
+
+The upstream TT `<lang lang="...">` annotation is preserved as an ordinary
+native non-slot TF node of type `lang`. It carries the **literal upstream
+language label** in `value` and native source positions in
+`start_word_ordinal`, `start_char`, `start_after_word_ordinal`,
+`end_word_ordinal`, `end_char`, and `end_after_word_ordinal`.
+Use `render_mode=lang_span` for a complete-word locus and
+`render_mode=lang_anchor` when oslots provides only a single-word positional
+anchor. An anchor does *not* imply the whole Coptic word is language-tagged.
+There are no extra word slots or serialized XML/JSON annotations.
+
+On the exact pinned `sahidica.mark` Mark 2 TT source, 77 wrappers are present:
+61 labeled `Greek` and 16 labeled `Hebrew`. The original SBL Greek NT
+annotation nodes remain a separate model and retain their own original
+occurrence numbering. The source language label does **not** certify a Greek
+loanword, etymology, a corresponding SBL Greek NT word, or an LXX alignment.
+
+~~~python
+lang_nodes = api.F.otype.s("lang")
+for node in lang_nodes:
+    literal_label = api.F.value.v(node)
+    mode = api.F.render_mode.v(node)
+    source = api.F.source_record_id.v(node)
+    words = api.L.d(node, otype="word")
+~~~
+
+This first slice does not claim completeness for *other* TT scholarly wrappers;
+see issue #110 for the full source tag census.
+
 ## Document metadata
 
 Upstream document metadata becomes deterministic scalar node features.
