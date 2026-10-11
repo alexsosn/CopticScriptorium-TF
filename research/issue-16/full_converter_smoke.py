@@ -17,7 +17,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from copticscriptorium_tf.converter import convert_source_tree
+from copticscriptorium_tf.converter import convert_source_tree, _memory_checkpoint
 
 UPSTREAM_REPOSITORY = "CopticScriptorium/corpora"
 UPSTREAM_COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
@@ -119,6 +119,7 @@ def run(source_root: Path, work_root: Path) -> dict[str, object]:
 
     report = result.to_dict()
     report.update(reload_report)
+    report["phase_memory_mb"] = {**result.phase_memory_mb, "after_reload": _memory_checkpoint()}
     report["upstream_repository"] = UPSTREAM_REPOSITORY
     report["upstream_commit"] = UPSTREAM_COMMIT
     report["purpose"] = "converter/resource regression; not corpus certification"
