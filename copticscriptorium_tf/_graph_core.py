@@ -234,12 +234,14 @@ def _check_document(document: DocumentModel) -> None:
     if any(count != 1 for count in sentence_membership[1:]):
         raise ValueError(f"source words must belong to exactly one sentence in {document.source_record_id}")
 
-    for annotation in (*document.sbl_annotations, *document.language_annotations):
+    for annotation, expected_kind in (
+        *((item, "sbl") for item in document.sbl_annotations),
+        *((item, "lang") for item in document.language_annotations),
+    ):
         if (
-            annotation.kind not in {"sbl_greek", "sbl_apparatus", "lang"}
-            or not isinstance(annotation.value, str)
-            or (annotation.kind == "lang" and annotation not in document.language_annotations)
-            or (annotation.kind != "lang" and annotation not in document.sbl_annotations)
+            not isinstance(annotation.value, str)
+            or (annotation.kind != "lang" if expected_kind == "lang"
+                else annotation.kind not in {"sbl_greek", "sbl_apparatus"})
         ):
             raise ValueError(f"invalid scholarly source annotation in {document.source_record_id}")
         start, end = annotation.start_after_word_ordinal, annotation.end_after_word_ordinal
