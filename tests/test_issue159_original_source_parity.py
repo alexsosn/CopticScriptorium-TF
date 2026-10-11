@@ -42,6 +42,32 @@ class EntityLabelSourceAdversarialTests(unittest.TestCase):
                 ],{("demo/demo:one",1):forged},
                 expected_counts={"placeName_ref":1})
 
+    def test_source_xml_entity_decoding_and_present_empty_attribute(self):
+        # Literal source attributes must preserve a present empty string,
+        # whereas encoded ampersand in source text decodes exactly once.
+        source=(
+            b'<entity_text entity_text="a &amp; b"><norm>a</norm></entity_text>'
+            b'<org_type org_type=""></org_type>'
+        )
+        got=compare_source_entity_labels(
+            [("demo/demo:one",source)],
+            {
+                ("demo/demo:one",1):("entity_text","a & b",0,1),
+                ("demo/demo:one",2):("org_type","",1,1),
+            },
+            expected_counts={"entity_text":1,"org_type":1},
+        )
+        self.assertEqual(got,{"entity_text":1,"org_type":1})
+        with self.assertRaisesRegex(ValueError,"mismatch"):
+            compare_source_entity_labels(
+                [("demo/demo:one",source)],
+                {
+                    ("demo/demo:one",1):("entity_text","a &amp; b",0,1),
+                    ("demo/demo:one",2):("org_type","",1,1),
+                },
+                expected_counts={"entity_text":1,"org_type":1},
+            )
+
     def test_duplicate_missing_and_unclosed_pairs_fail_closed(self):
         samples=(
             b'<entity_identity entity_identity="Sarah"><norm>a</norm>',
