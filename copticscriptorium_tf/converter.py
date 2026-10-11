@@ -87,7 +87,7 @@ def _parse_linux_vmrss_kib(status: str) -> int | None:
     """
     if not isinstance(status, str):
         return None
-    match = re.search(r"^VmRSS:[ \\t]+([0-9]{1,15})[ \\t]+kB[ \\t]*$", status, re.M)
+    match = re.search(r"^VmRSS:[ \t]+([0-9]{1,15})[ \t]+kB[ \t]*$", status, re.M)
     if match is None:
         return None
     value = int(match.group(1))
