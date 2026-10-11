@@ -17,3 +17,41 @@ Source `CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`. Gre
 - [ ] LXX verse/subverse lookup attempted only for determinable gaps; unknown cases remain clearly unresolved
 - [ ] CI/coverage counts reconciled; no raw TT text, no new semantic sidecars or invented correspondence
 - [ ] Independent adversarial review before any merge
+
+## Follow-up batch: distinguish 153 invalid/unnumbered source literals
+
+**Research:** #123 merged the exact-source enumeration of all 309 positive-label
+jumps and 153 absent/nonpositive OT `verse_n` events, checked against the
+immutable Coptic source and pinned CenterBLC/LXX verse/subverse index. Its
+original single `missing_or_nonpositive_literal` category preserved literal
+evidence but conflated importantly different syntactic source conditions.
+A source `verse_n="0"` must not be called a missing attribute or
+presumed to mean a Psalm superscription; a bare `<verse_n>` likewise
+must not be parsed as verse zero. Source labels are not Greek verses.
+
+**RED first:** `tests/test_issue108_ot_anomaly_batch.py` adds synthetic,
+adversarial literal forms: `0`, `00`, `-3`, empty, text, Unicode numeral,
+and absent attribute, alongside a legitimate positive-number gap. Requires
+exact event-level class and reconciliation to total invalid events, never
+probes a Greek address for any invalid class.
+
+**Implementation:** append backward-compatible
+`invalid_literal_class` to the bounded source-event metadata (null for
+`gapped`), and `invalid_literal_classes` counters to the aggregate
+source-anomaly report. Categories are `zero_literal`, `empty_literal`,
+`missing_attribute`, `signed_nonpositive_literal`, and
+`nondecimal_literal`. These are source **syntax classifications**, not
+guesses about editorial meaning. No Greek content, Coptic lexical forms,
+source text, or per-word identity is added to the artifact.
+
+**Real gate:** existing `issue80` full Git-pinned Coptic/LXX CI reuses the
+same 565-file/2,628-record source, validates sum of exact invalid-class
+counters equals **153**, and still independently verifies 309 numeric gaps,
+all 462 rows, original source SHA and source-tag offsets. Log the observed
+class partition without hard-coding an invented distribution. Preserve
+2,394,354 Coptic slots and source book/edition boundaries. Review
+the new exact-head code and live log logically independently before merge.
+
+**Deferred:** Philological classifications (e.g. Psalm superscription vs
+lacuna vs alternate versification) require explicit edition evidence and
+negative controls; no candidate LXX address added in this PR.
