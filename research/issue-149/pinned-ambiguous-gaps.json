@@ -1,0 +1,123 @@
+{
+  "schema": "coptic_ot_unclassified_variant_gap_events_v1",
+  "coptic_source_commit": "3ac067f1709a0012daf39ea8da2fac79980176a5",
+  "source_report_run": 38165316273,
+  "source_report_job": 114546559963,
+  "source_report_pr_head": "8b02a2507b48b9e4f93ba5c1559d47cd69e4edfe",
+  "annotation": "byte-fingerprinted reference metadata only; not raw corpus or bilingual alignment",
+  "records": [
+    {
+      "source_record_id": "sahidic.ot/sahidic.ot:27_Daniel_04",
+      "source_sha256": "0c473af5a8b50b83f447cc98bbfc4a4235970d53723992f7055385797d5594a9",
+      "source_cts_work": "ot.dan",
+      "source_edition": "coptot",
+      "source_chapter": 4,
+      "events": [
+        {
+          "source_marker_ordinal": 4,
+          "previous_verse": 12,
+          "current_verse": 17
+        }
+      ]
+    },
+    {
+      "source_record_id": "sahidic.ot/sahidic.ot:27_Daniel_05",
+      "source_sha256": "9db35a519774dfaf1b8e58537fac8ad94e2431a08f8a82d39c291b9027c102fc",
+      "source_cts_work": "ot.dan",
+      "source_edition": "coptot",
+      "source_chapter": 5,
+      "events": [
+        {
+          "source_marker_ordinal": 3,
+          "previous_verse": 6,
+          "current_verse": 8
+        },
+        {
+          "source_marker_ordinal": 6,
+          "previous_verse": 10,
+          "current_verse": 16
+        },
+        {
+          "source_marker_ordinal": 12,
+          "previous_verse": 21,
+          "current_verse": 30
+        }
+      ]
+    },
+    {
+      "source_record_id": "sahidic.ot/sahidic.ot:27_Daniel_10",
+      "source_sha256": "831fedf2b4956ab4ecc595d8ec67ed6787b5a3d96a879123e5936c0a00cfd70e",
+      "source_cts_work": "ot.dan",
+      "source_edition": "coptot",
+      "source_chapter": 10,
+      "events": [
+        {
+          "source_marker_ordinal": 2,
+          "previous_verse": 1,
+          "current_verse": 4
+        },
+        {
+          "source_marker_ordinal": 10,
+          "previous_verse": 11,
+          "current_verse": 13
+        }
+      ]
+    },
+    {
+      "source_record_id": "sahidic.ot/sahidic.ot:67_Tobit_04",
+      "source_sha256": "d23211beabe033f7f10d4a2bdaea1724a6c8e450e0c2fdbb7a27e9f9bdb82ecc",
+      "source_cts_work": "ot.tob",
+      "source_edition": "coptot",
+      "source_chapter": 4,
+      "events": [
+        {
+          "source_marker_ordinal": 3,
+          "previous_verse": 14,
+          "current_verse": 16
+        }
+      ]
+    },
+    {
+      "source_record_id": "sahidic.ot/sahidic.ot:67_Tobit_05",
+      "source_sha256": "07b0e575b016bb3b996f5efce18d70f0e19ec65f12fc2537fb8791748c04caaf",
+      "source_cts_work": "ot.tob",
+      "source_edition": "coptot",
+      "source_chapter": 5,
+      "events": [
+        {
+          "source_marker_ordinal": 10,
+          "previous_verse": 9,
+          "current_verse": 16
+        }
+      ]
+    },
+    {
+      "source_record_id": "sahidic.ot/sahidic.ot:75_Susanna_01",
+      "source_sha256": "c4af337ee2d1d0fb7f50f3982eb6e8a049c04ff99e46bec67066e952c4a3d258",
+      "source_cts_work": "ot.sus",
+      "source_edition": "coptot",
+      "source_chapter": 1,
+      "events": [
+        {
+          "source_marker_ordinal": 51,
+          "previous_verse": 50,
+          "current_verse": 52
+        }
+      ]
+    },
+    {
+      "source_record_id": "sahidic.ot/sahidic.ot:76_Bel_and_the_Dragon_01",
+      "source_sha256": "52f68085124e4f4e6b7a05d65e79a8e3d44332e41813ce28cfba4b9e63081ea5",
+      "source_cts_work": "ot.bel",
+      "source_edition": "coptot",
+      "source_chapter": 1,
+      "events": [
+        {
+          "source_marker_ordinal": 2,
+          "previous_verse": 1,
+          "current_verse": 23
+        }
+      ]
+    }
+  ]
+}
