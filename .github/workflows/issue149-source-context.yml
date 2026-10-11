@@ -1,0 +1,68 @@
+name: issue149-pinned-coptic-OT-gap-source-context
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue149-source-context.yml'
+      - 'copticscriptorium_tf/ot_variant_source_context.py'
+      - 'research/issue-149/**'
+      - 'tests/test_issue149_source_context.py'
+      - 'tests/live_issue149_source_context.py'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/issue149-source-context.yml'
+      - 'copticscriptorium_tf/ot_variant_source_context.py'
+      - 'tests/test_issue149_source_context.py'
+      - 'tests/live_issue149_source_context.py'
+
+# Cancel only superseded heads of the same PR; do not collide with push runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-raw-Coptic-OT-verse-context:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout immutable issue149 source-context implementation
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact implementation SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Checkout one original Sahidic OT ZIP blob from exact upstream revision
+        uses: actions/checkout@v4
+        timeout-minutes: 18
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /sahidic.ot/sahidic.ot_TT.zip
+
+      - name: Assert Coptic original source revision
+        run: test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Execute RED-first byte/marker integrity tests
+        run: python -m unittest tests.test_issue149_source_context -v
+
+      - name: Verify seven original sources, ten numeric jumps, and original Coptic marker contexts
+        run: python tests/live_issue149_source_context.py pinned-coptic
