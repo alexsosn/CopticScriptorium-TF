@@ -12,6 +12,8 @@ TOKEN_WRAPPER_TYPES = (
 )
 # Native edition numbering distinct from manuscript layout and biblical refs.
 EDITION_WRAPPER_TYPES = ("ed_line_n", "ed_lb_n", "ed_page_n", "ed_pg_n")
+# Source grouping over multiple normalized words; not new word slots.
+MULTIWORD_WRAPPER_TYPES = ("multiword",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,3 +162,5 @@ class DocumentModel:
     token_annotations: tuple[SblAnnotation, ...] = ()
     # Precise edition pagination wrappers, preserving source literals and offsets.
     edition_annotations: tuple[SblAnnotation, ...] = ()
+    # Source-exact multiword wrappers over existing canonical norm tokens.
+    multiword_annotations: tuple[SblAnnotation, ...] = ()
