@@ -52,6 +52,7 @@ _SCALAR_FEATURES = (
     ("end_word_ordinal", None, "end_word_ordinal", "int"),
     ("end_char", None, "end_char", "int"),
     ("end_after_word_ordinal", None, "end_after_word_ordinal", "int"),
+    ("sbl_verse_n", None, "sbl_verse_n", "str"),
 )
 
 _EDGE_FEATURES = (
