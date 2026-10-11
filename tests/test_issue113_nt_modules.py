@@ -6,11 +6,20 @@ import unittest
 from copticscriptorium_tf.nt_reference import GREEK_NT_EDITION
 from copticscriptorium_tf.nt_modules import (
     NtModuleError, write_nt_modules, render_node_feature,
+    parent_fingerprints, validate_native_module_parent,
 )
 
 REF = f"{GREEK_NT_EDITION}:Mark:2:1"
 PROOF = {
-    "coptic": {"otype": "a" * 64, "oslots": "b" * 64},
+    "coptic": {
+        "otype": "a" * 64, "oslots": "b" * 64,
+        "source_record_id": "1" * 64,
+        "source_ordinal": "2" * 64,
+        "value": "3" * 64,
+        "sbl_verse_n": "4" * 64,
+        "source_sha256": "5" * 64,
+        "render_mode": "6" * 64,
+    },
     "greek": {"otype": "c" * 64, "oslots": "d" * 64,
               "book": "e" * 64, "chapter": "f" * 64, "verse": "0" * 64},
 }
@@ -97,6 +106,39 @@ class NativeNtWeftTests(unittest.TestCase):
         with TemporaryDirectory() as root:
             with self.assertRaises(NtModuleError):
                 write(Path(root)/"weft", greek_ref={True:REF})
+
+    def test_reject_missing_coptic_source_feature_fingerprint(self):
+        with TemporaryDirectory() as root:
+            p=Path(root)/"weft"
+            altered={name:sha for name,sha in PROOF["coptic"].items()
+                     if name != "value"}
+            with self.assertRaisesRegex(NtModuleError, "fingerprint"):
+                write(p, parent_proof={"coptic":altered, "greek":PROOF["greek"]})
+            self.assertFalse(p.exists())
+
+    def test_consumers_reject_changed_coptic_source_annotations_same_warp(self):
+        with TemporaryDirectory() as root:
+            folder=Path(root)
+            coptic=folder/"coptic-source"
+            greek=folder/"greek-source"
+            for projection, output in (("coptic",coptic),("greek",greek)):
+                output.mkdir()
+                for name in PROOF[projection]:
+                    (output / f"{name}.tf").write_text(f"dummy exact {projection} {name}")
+            original={
+                "coptic":parent_fingerprints(coptic,"coptic"),
+                "greek":parent_fingerprints(greek,"greek"),
+            }
+            bundle=folder/"bundle"
+            write(bundle,parent_proof=original)
+            validate_native_module_parent(
+                bundle/"coptic",projection="coptic",
+                coptic_tf_dir=coptic,greek_tf_dir=greek)
+            (coptic/"value.tf").write_text("different source annotation value")
+            with self.assertRaisesRegex(NtModuleError, "fingerprint"):
+                validate_native_module_parent(
+                    bundle/"coptic",projection="coptic",
+                    coptic_tf_dir=coptic,greek_tf_dir=greek)
 
     def test_invalid_parent_fingerprint_is_fail_closed(self):
         with TemporaryDirectory() as root:
