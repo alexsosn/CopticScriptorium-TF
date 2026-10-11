@@ -10,6 +10,8 @@ from typing import Mapping
 TOKEN_WRAPPER_TYPES = (
     "morph", "norm_func", "norm_head", "norm_xml:id", "norm_new_sent",
 )
+# Native edition numbering distinct from manuscript layout and biblical refs.
+EDITION_WRAPPER_TYPES = ("ed_line_n", "ed_lb_n", "ed_page_n", "ed_pg_n")
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,3 +158,5 @@ class DocumentModel:
     language_annotations: tuple[SblAnnotation, ...] = ()
     # One opening-ordered occurrence track for crossed token-internal TT tags.
     token_annotations: tuple[SblAnnotation, ...] = ()
+    # Precise edition pagination wrappers, preserving source literals and offsets.
+    edition_annotations: tuple[SblAnnotation, ...] = ()
