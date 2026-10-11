@@ -65,6 +65,37 @@ class VerseMarkerTopologyContractTests(unittest.TestCase):
         self.assertEqual(audit.report()["opening_verse_n_tags"], 1)
         self.assertEqual(audit.report()["categories"], {})
 
+    def test_real_ap_chapter_boundary_resets_numeric_verse_sequence(self):
+        # Source-grounded from AP.017.n148.cellar TT: chapter 1 verse
+        # 1..7, then chapter 2 starts verse 1. This is not a drop.
+        source = (
+            '<chapter_n chapter_n="1">'
+            + ''.join(f'<verse_n verse_n="{n}">' + token(n) for n in range(1, 8))
+            + '<chapter_n chapter_n="2">'
+            + '<verse_n verse_n="1">' + token(8)
+            + '<verse_n verse_n="2">' + token(9)
+        )
+        audit = VerseMarkerTopologyAudit()
+        audit.add(source, "AP/apophthegmata.patrum:AP.017.n148.cellar")
+        report = audit.report()
+        self.assertEqual(report["opening_verse_n_tags"], 9)
+        self.assertEqual(report["chapter_resets"], 1)
+        self.assertEqual(report["chapter_markers"], 2)
+        self.assertNotIn("nonmonotonic", report["categories"])
+
+    def test_repeated_same_chapter_label_does_not_hide_backwards_verse_numbering(self):
+        source = (
+            '<chapter_n chapter_n="2">'
+            '<verse_n verse_n="3">' + token(1)
+            + '<chapter_n chapter_n="2">'
+            '<verse_n verse_n="2">' + token(2)
+        )
+        audit = VerseMarkerTopologyAudit()
+        audit.add(source, "sample/sample:repeat")
+        report = audit.report()
+        self.assertEqual(report["chapter_resets"], 0)
+        self.assertEqual(report["categories"]["nonmonotonic"], 1)
+
     def test_intra_word_marker_does_not_falsely_claim_an_empty_textual_verse(self):
         source = (
             '<verse_n verse_n="1">'
