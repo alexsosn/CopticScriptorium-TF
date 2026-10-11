@@ -134,6 +134,33 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         raise ValueError(
             f"invalid source marker kinds do not reconcile to 153: {invalid_classes}"
         )
+    # A zero-literal is a source event, NOT a recoverable Greek verse.
+    # Group every pinned event by source hash, physical witness, edition and
+    # chapter without omitting non-Psalm negative controls.
+    zero_groups = anomalies["zero_literal_source_groups"]
+    zero_events = sum(group["marker_count"] for group in zero_groups)
+    if zero_events != invalid_classes.get("zero_literal", 0) or zero_events != 153:
+        raise ValueError(
+            f"source-locked verse-zero group reconciliation failed: "
+            f"groups={zero_events}, literal_classes={invalid_classes}"
+        )
+    if anomalies["zero_literal_source_record_count"] != len(
+        {group["source_record_id"] for group in zero_groups}
+    ):
+        raise ValueError("verse-zero physical source record count inconsistent")
+    if sum(anomalies["zero_literal_work_edition_counts"].values()) != zero_events:
+        raise ValueError("verse-zero work/edition batch counts do not reconcile")
+    if any(
+        group["marker_count"] != len(group["markers"])
+        or not group["source_sha256"]
+        or any(marker["literal"] is None
+               or not marker["literal"].isascii()
+               or not marker["literal"].isdecimal()
+               or int(marker["literal"]) != 0
+               for marker in group["markers"])
+        for group in zero_groups
+    ):
+        raise ValueError("verse-zero batch has invalid raw-source evidence")
     if any(
         (case["invalid_literal_class"] is None)
         != (case["kind"] == "gapped")
@@ -180,6 +207,9 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         "marker_topology_categories": topology["categories"],
         "ot_marker_anomaly_counts": anomalies["counts"],
         "ot_invalid_source_literal_classes": invalid_classes,
+        "ot_zero_literal_source_groups": len(zero_groups),
+        "ot_zero_literal_source_records": anomalies["zero_literal_source_record_count"],
+        "ot_zero_literal_work_edition_counts": anomalies["zero_literal_work_edition_counts"],
         "ot_marker_anomaly_cases": len(anomalies["cases"]),
         "ot_greek_crosscheck_statuses": dict(sorted(Counter(case["greek_status"] for case in anomalies["cases"]).items())),
         "marker_topology_by_scope": {

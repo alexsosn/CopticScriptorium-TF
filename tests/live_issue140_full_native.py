@@ -3,10 +3,18 @@ from __future__ import annotations
 
 from collections import Counter
 import json
+import re
+from html import unescape
 from pathlib import Path
 import sys
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from tf.fabric import Fabric
+
+from copticscriptorium_tf.sbl_source_census import records
 
 EXPECTED = {
     "ed_line_n": 42_189,
@@ -16,7 +24,51 @@ EXPECTED = {
 }
 
 
-def main(tf_root: Path) -> None:
+
+_EDITION_TAG = re.compile(rb'<(ed_line_n|ed_lb_n|ed_page_n|ed_pg_n)\b([^<>]*)>')
+
+
+def compare_pinned_edition_literals(source_records, native: dict) -> dict[str, int]:
+    """Independently compare EVERY raw TT opening value/kind/ordinal to native TF.
+
+    This reader does not call the Coptic TT parser or graph writer. It counts
+    each TT archive member and directory file as a distinct physical source
+    record. Only categorical counts are returned; no licensed source text.
+    """
+    counts: Counter[str] = Counter()
+    observed: set[tuple[str, int]] = set()
+    physical: set[str] = set()
+    for record_id, raw in source_records:
+        if not isinstance(record_id, str) or not record_id:
+            raise ValueError("invalid edition physical source identity")
+        if record_id.casefold() in physical:
+            raise ValueError("duplicate edition physical source record")
+        physical.add(record_id.casefold())
+        ordinal = 0
+        for match in _EDITION_TAG.finditer(raw):
+            ordinal += 1
+            kind = match.group(1).decode("ascii")
+            attr = re.compile(rb'(?<!\S)' + re.escape(match.group(1)) + rb'\s*=\s*"([^"]*)"')
+            values = attr.findall(match.group(2))
+            if len(values) != 1:
+                raise ValueError("edition opening missing or duplicated original literal")
+            # Decode source entities independently, matching original TT attribute semantics.
+            literal = unescape(values[0].decode("utf-8"))
+            key = (record_id, ordinal)
+            if key in observed:
+                raise ValueError("duplicate edition source occurrence")
+            observed.add(key)
+            target = native.get(key)
+            if target is None:
+                raise ValueError("edition native TF missing original occurrence")
+            if target != (kind, literal):
+                raise ValueError("edition kind/value differs from original source")
+            counts[kind] += 1
+    if observed != set(native):
+        raise ValueError("edition source-to-native occurrence parity mismatch")
+    return dict(sorted(counts.items()))
+
+def main(tf_root: Path, source_root: Path | None = None) -> None:
     api = Fabric(locations=[str(tf_root)], silent="deep").load(
         "value render_mode source_record_id source_ordinal "
         "start_word_ordinal start_char start_after_word_ordinal "
@@ -32,6 +84,7 @@ def main(tf_root: Path) -> None:
     assert len(api.F.otype.s("morph")) == 78_265
     unique: set[tuple[str, int]] = set()
     modes = Counter()
+    native: dict[tuple[str, int], tuple[str, str]] = {}
     for tag, count in EXPECTED.items():
         nodes = api.F.otype.s(tag)
         assert len(nodes) == count, (tag, len(nodes), count)
@@ -41,6 +94,7 @@ def main(tf_root: Path) -> None:
             assert key not in unique, (tag, key)
             unique.add(key)
             assert api.F.value.v(n) is not None
+            native[key] = (tag, api.F.value.v(n))
             mode = api.F.render_mode.v(n)
             assert mode in {"edition_span", "edition_anchor"}, (tag, n, mode)
             assert len(api.E.oslots.s(n)) >= 1
@@ -54,6 +108,14 @@ def main(tf_root: Path) -> None:
                 assert (a is None) == (b is None), (tag, n, a, b)
             modes[(tag, mode)] += 1
     assert len(unique) == sum(EXPECTED.values()) == 43_735
+    raw_parity = None
+    if source_root is not None:
+        raw_parity = compare_pinned_edition_literals(
+            ((identity, payload) for identity, _path, payload, _pack in records(source_root)),
+            native,
+        )
+        if raw_parity != EXPECTED:
+            raise ValueError("complete edition original TT to native value/count drift")
     print(json.dumps({
         "result": "PASS exact native edition source annotation coverage",
         "source_revision": "3ac067f1709a0012daf39ea8da2fac79980176a5",
@@ -61,10 +123,11 @@ def main(tf_root: Path) -> None:
         "nodes_by_type": EXPECTED,
         "modes": {"|".join(k): v for k, v in sorted(modes.items())},
         "unique_per_record_opening_ordinals": True,
+        "independent_exact_original_tt_literals": raw_parity,
     }, sort_keys=True), flush=True)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        raise SystemExit("usage: python tests/live_issue140_full_native.py TF_DIR")
-    main(Path(sys.argv[1]))
+    if len(sys.argv) not in (2, 3):
+        raise SystemExit("usage: python tests/live_issue140_full_native.py TF_DIR [PINNED_TT_ROOT]")
+    main(Path(sys.argv[1]), Path(sys.argv[2]) if len(sys.argv) == 3 else None)
