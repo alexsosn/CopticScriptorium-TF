@@ -359,6 +359,75 @@ an edition-qualified LXX parent version, document its reference-mapping
 evidence and exceptions, and leave unresolvable passages visible. TF node
 integers cannot be used as cross-corpus edge targets.
 
+## Look up Coptic witnesses from one LXX verse
+
+For a generated **bilateral native TF module** bundle, you can query the
+Greek parent verse and retrieve all Coptic source-record word runs associated
+with the edition-qualified **reference-address candidate**:
+
+~~~python
+from tf.fabric import Fabric
+from copticscriptorium_tf.lxx_query import find_coptic_witnesses
+from copticscriptorium_tf.lxx_module import verify_coptic_module_parent
+from copticscriptorium_tf.lxx_modules import validate_lxx_release
+
+# Distinct parent warps and distinct additive native TF weft directories.
+coptic_tf_dir = "/path/to/generated-coptic/tf"
+lxx_tf_dir = "/path/to/pinned-CenterBLC-LXX/tf/1935"
+weft_coptic_dir = "/path/to/generated-bilateral-modules/coptic"
+weft_lxx_dir = "/path/to/generated-bilateral-modules/lxx"
+
+# Validate both exact parent identities *before* interpreting candidate IDs.
+verify_coptic_module_parent(weft_coptic_dir, coptic_tf_dir)
+base_lxx = Fabric(locations=[lxx_tf_dir], silent="deep").load(
+    "book chapter verse subverse word orig_order", silent="deep"
+)
+validate_lxx_release(lxx_tf_dir, base_lxx)
+
+coptic = Fabric(
+    locations=[coptic_tf_dir, weft_coptic_dir], silent="deep"
+).load(
+    "source_record_id source_word_ordinal verse_n "
+    "coptic_lxx_ref_id coptic_lxx_ref_status", silent="deep"
+)
+lxx = Fabric(
+    locations=[lxx_tf_dir, weft_lxx_dir], silent="deep"
+).load(
+    "book chapter verse subverse coptic_lxx_ref_id", silent="deep"
+)
+
+result = find_coptic_witnesses(coptic, lxx, "Ruth", 2, 1)
+for witness in result.spans:
+    print(witness.source_record_id, witness.source_word_ordinals, witness.status)
+~~~
+
+Every `word_nodes` value in the returned Coptic witness spans is local to
+the **Coptic** warp; `result.lxx_node` belongs only to the Greek warp.
+The shared string `CenterBLC/LXX:1935:Ruth:2:1` joins them safely.
+Discontinuous Coptic runs, distinct source witnesses, and **adjacent distinct
+source `verse_n` literals mapped to one LXX reference** remain separate.
+Each returned `CopticWitnessSpan.source_verse_n` is the original Coptic
+verse label, not an inferred Greek verse number. The source `verse_n`
+feature must be loaded; the helper fails explicitly if it is missing or
+malformed, rather than silently merging source verse boundaries. Repeated
+opening verse tags with identical literals cannot be reconstructed from
+word features alone (see the source marker-topology audit).
+The source-locked Greek module contains `coptic_lxx_ref_id` but **does not**
+provide `coptic_lxx_source_span_count`. The legacy two-module writer may
+provide that optional count; in that case load the count feature explicitly,
+and the helper validates its positive value. In the current source-locked
+module, `result.declared_coptic_source_span_count is None` rather than a
+fabricated count. Any declared count is a source **candidate span** count,
+not a token count, lexically aligned word count, or scholarly verification.
+
+The helper uses Text-Fabric's inverse feature index to avoid scanning every
+Coptic word for each query. It returns `reference_candidate` and
+`versification_candidate` statuses as they appear on the native weft, and
+never upgrades them to verified Greek/Coptic passage equivalence.
+Absent Greek verses, inconsistent edition IDs, corrupt candidate word
+ordinals and missing weft features fail explicitly. The same numbered Coptic
+and Greek verses can differ in content or numbering (see #70/#92/#108).
+
 ## Source language wrappers (Greek/Hebrew evidence)
 
 The upstream TT `<lang lang="...">` annotation is preserved as an ordinary
