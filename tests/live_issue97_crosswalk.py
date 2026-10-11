@@ -68,7 +68,7 @@ def run(upstream: Path, lxx_dir: Path) -> None:
         coptic_dir = folder / "coptic"
         write_graph(build_graph(docs), coptic_dir)
         coptic = Fabric(locations=[str(coptic_dir)], silent="deep").load(
-            "source_record_id source_word_ordinal source_sha256 norm verse_n vid_n verse_vid",
+            "source_record_id source_word_ordinal source_sha256 norm verse_n",
             silent="deep",
         )
         greek = Fabric(locations=[str(lxx_dir)], silent="deep").load(
