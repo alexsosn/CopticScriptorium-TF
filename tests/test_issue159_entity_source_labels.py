@@ -85,6 +85,29 @@ class SourceEntityLabelContract(unittest.TestCase):
         self.assertEqual(n.render_mode,"entity_label_anchor")
         self.assertEqual(n.slots,(1,))
 
+    def test_source_label_does_not_rewrite_two_distinct_interpreted_entities(self):
+        # Source entity_identity is a witnessed tag, never a replacement for
+        # the two independent interpreted entity identities and parentage.
+        doc=parse(
+            '<entity entity="person" identity="Outer" head_tok="#u1">'
+            '<norm xml:id="u1" new_sent="true" func="root" norm="abc">'
+            'a<entity_identity entity_identity="Sarah">bc</entity_identity>'
+            '</norm>'
+            '<entity entity="title" identity="Inner" head_tok="#u2">'
+            +w(2,"d")+'</entity></entity>'
+        )
+        self.assertEqual([e.identity for e in doc.entities],["Outer","Inner"])
+        self.assertEqual([e.parent_entity_ordinal for e in doc.entities],[None,1])
+        self.assertEqual([(a.kind,a.value) for a in doc.entity_source_annotations],
+                         [("entity_identity","Sarah")])
+        self.assertEqual(len(doc.words),2)
+        g=build_graph([doc])
+        self.assertFalse(validate_graph(g))
+        self.assertEqual(len([n for n in g.nodes if n.otype=="entity"]),2)
+        self.assertEqual(len([n for n in g.nodes if n.otype=="entity_identity"]),1)
+        self.assertEqual(doc.entities[0].head_word_ordinal,1)
+        self.assertEqual(doc.entities[1].head_word_ordinal,2)
+
     def test_source_type_present_empty_and_missing_or_orphan_rejected(self):
         doc=parse('<org_type org_type="">'+w(1,"a",root=True)+'</org_type>')
         self.assertEqual(doc.entity_source_annotations[0].value,"")
