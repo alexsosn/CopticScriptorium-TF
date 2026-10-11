@@ -127,6 +127,19 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         )
     if len(anomalies["cases"]) != 462:
         raise ValueError("not all 462 OT anomaly occurrences were retained")
+    # Avoid conflating verse-zero (often edition-dependent), empty, missing,
+    # signed, and non-decimal markup; none authorizes an LXX verse number.
+    invalid_classes = anomalies["invalid_literal_classes"]
+    if sum(invalid_classes.values()) != 153:
+        raise ValueError(
+            f"invalid source marker kinds do not reconcile to 153: {invalid_classes}"
+        )
+    if any(
+        (case["invalid_literal_class"] is None)
+        != (case["kind"] == "gapped")
+        for case in anomalies["cases"]
+    ):
+        raise ValueError("literal subtype lost or invented on an anomalous event")
     if any(case["greek_status"] == "not_checked" for case in anomalies["cases"]):
         raise ValueError("LXX source anomaly analysis left cases unchecked")
     if any(case["source_sha256"] is None for case in anomalies["cases"]):
@@ -166,6 +179,7 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         "verse_position_events": report["totals"]["verse_position_events"],
         "marker_topology_categories": topology["categories"],
         "ot_marker_anomaly_counts": anomalies["counts"],
+        "ot_invalid_source_literal_classes": invalid_classes,
         "ot_marker_anomaly_cases": len(anomalies["cases"]),
         "ot_greek_crosscheck_statuses": dict(sorted(Counter(case["greek_status"] for case in anomalies["cases"]).items())),
         "marker_topology_by_scope": {

@@ -25,6 +25,19 @@ def _positive(value: str | None) -> int | None:
     return number if number > 0 else None
 
 
+def _invalid_literal_class(value: str | None) -> str | None:
+    """Classify source *syntax*, not a conjectural biblical verse number."""
+    if value is None:
+        return "missing_attribute"
+    if value == "":
+        return "empty_literal"
+    if value.isascii() and value.isdecimal():
+        return "zero_literal" if int(value) == 0 else None
+    if re.fullmatch(r"-[0-9]+", value):
+        return "signed_nonpositive_literal"
+    return "nondecimal_literal"
+
+
 class CopticOtVerseAnomalyBatch:
     """Collect every exceptional OT marker occurrence, not just sample records."""
 
@@ -115,6 +128,10 @@ class CopticOtVerseAnomalyBatch:
                     "source_tag_offset": tag.start(),
                     "source_word_starts_before": word_starts,
                     "literal": literal,
+                    "invalid_literal_class": (
+                        _invalid_literal_class(literal)
+                        if kind == "missing_or_nonpositive_literal" else None
+                    ),
                     "previous_verse": previous,
                     "current_verse": current,
                     "missing_count": missing_count,
@@ -176,7 +193,13 @@ class CopticOtVerseAnomalyBatch:
             ),
         )
         groups: Counter[str] = Counter()
+        invalid_classes: Counter[str] = Counter()
         for case in cases:
+            if case["kind"] == "missing_or_nonpositive_literal":
+                kind = case["invalid_literal_class"]
+                if not isinstance(kind, str):
+                    raise ValueError("invalid verse literal has no source-literal class")
+                invalid_classes[kind] += 1
             group = "|".join((
                 str(case["source_cts_work"] or "<unknown>"),
                 str(case["source_edition"] or "<unknown>"),
@@ -188,6 +211,7 @@ class CopticOtVerseAnomalyBatch:
             "source_commit": self.source_commit,
             "scanned_ot_records": self._scanned_ot_records,
             "counts": dict(sorted(self._counts.items())),
+            "invalid_literal_classes": dict(sorted(invalid_classes.items())),
             "by_work_edition_kind": dict(sorted(groups.items())),
             "cases": cases,
             "warning": (
