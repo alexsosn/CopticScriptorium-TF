@@ -146,11 +146,6 @@ def find_coptic_witnesses(
         entries.append((source, source_ordinal, word, status))
 
     entries.sort(key=lambda item: (item[0], item[1], item[2]))
-    if count is not None and count < len({item[0] for item in entries}):
-        raise LxxWitnessQueryError(
-            "LXX declared source span count smaller than distinct Coptic witnesses"
-        )
-
     spans: list[CopticWitnessSpan] = []
     active_source = ""
     active_status = ""
@@ -181,6 +176,16 @@ def find_coptic_witnesses(
             active_ordinals = [source_ordinal]
             active_words = [word]
     flush()
+
+    # Legacy lxx_modules.py increments this count for each source reference
+    # span, not for each distinct witness/document. A sparse/damaged weft may
+    # have multiple disjoint runs in one document; comparing only document
+    # count would silently accept missing source reference memberships.
+    if count is not None and count != len(spans):
+        raise LxxWitnessQueryError(
+            "LXX declared source span count disagrees with Coptic word runs: "
+            f"declared={count}, observed={len(spans)}"
+        )
 
     return LxxCopticWitnessResult(
         book=book, chapter=chapter, verse=verse, lxx_node=node,
