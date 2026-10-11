@@ -92,6 +92,17 @@ class NativeCopticLxxInverseLookupTests(unittest.TestCase):
         with self.assertRaisesRegex(LxxWitnessQueryError, "missing Coptic.*module"):
             find_coptic_witnesses(coptic, fake_lxx(), "Ruth", 2, 1)
 
+    def test_source_locked_bilateral_weft_has_no_optional_greek_span_count(self):
+        # The current source-locked lxx_module.py emitter (including its
+        # streaming full-corpus path) writes a Greek reference-ID feature,
+        # but DOES NOT write the older lxx_modules.py count feature.
+        # A query must still work on that provenance-validated module.
+        greek = fake_lxx()
+        delattr(greek.F, "coptic_lxx_source_span_count")
+        result = find_coptic_witnesses(fake_coptic(), greek, "Ruth", 2, 1)
+        self.assertIsNone(result.declared_coptic_source_span_count)
+        self.assertEqual(len(result.spans), 2)
+
     def test_discontinuous_word_runs_in_one_witness_stay_distinct(self):
         c = fake_coptic()
         c.F.source_word_ordinal = Feature({10: 1, 11: 4, 20: 8, 21: 9})
