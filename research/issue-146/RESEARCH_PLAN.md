@@ -1,0 +1,7 @@
+#146 source chapter / Marcion / Petermann reference spans: research and RED plan
+
+Immutable source CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5 (2,628 TT records). Five source tag counts: chapter_n=3673; marcion_chapter_n=403; marcion_verse_n=10117; petermann_chapter_n=248; petermann_verse_n=2320; total=16761. Original source evidence is pinned by research/issue-118/tag_matrix.csv.
+
+Pistis Sophia Postscript part1 uses chapter_n=148_postscript, petermann_chapter_n=145 and marcion_chapter_n=390/391 concurrently. Its Marcion verses 21-31 and Petermann verses 1-2 cross line/norm/note boundaries. AP Mother uses chapter_n=1; Bohairic Lausiac 01 uses chapter_n=0. All are literal source references, not inferred biblical/LXX matches.
+
+Plan: RED first for overlapping, crossed, midword, nonnumeric/zero/empty source literals, orphan/unclosed errors and TT dependency/verse feature stability. Extend per-kind independent stack and model field reference_annotations, append five native non-slot otypes. The original word slot remains canonical; full-word source reference_span vs positional reference_anchor, no invented Greek equivalence. Independent complete pinned raw record/ordinal/value/word boundaries parity (16761) against native TF, retain editions #140, multiword #143, SBL/lang/morph and full CoNLL-U regression. Gate independent adversarial PR review on actual source and exact SHA. Do not merge this stacked RED branch or trigger expensive duplicate source CI until #144 is merged.
