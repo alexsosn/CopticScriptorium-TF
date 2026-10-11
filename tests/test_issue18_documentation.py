@@ -70,7 +70,7 @@ class ReadmeContractTests(unittest.TestCase):
         self.assertNotIn("not yet canonically registered", text)
         self.assertNotIn("canonical registration/composition remains blocked", text)
 
-    def test_agora_path_distinguishes_reviewed_local_handoff_from_unverified_bulk_fetch(self) -> None:
+    def test_agora_path_distinguishes_local_import_from_verified_full_remote_acquisition(self) -> None:
         text = README.read_text(encoding="utf-8")
         section = text.split("## Agora integration status", 1)[1].split(
             "## Troubleshooting", 1
@@ -86,8 +86,10 @@ class ReadmeContractTests(unittest.TestCase):
             "prepare_corpus(resource_id=",
             "load_corpus(resource_id=",
             "source_mode=\"offline\"",
-            "Agora #205",
-            "120-second",
+            "PR #215",
+            "38063116201",
+            "Full registered integration acceptance passed",
+            "does not automatically",
             "server host",
         )
         for value in required:
@@ -95,6 +97,8 @@ class ReadmeContractTests(unittest.TestCase):
                 self.assertIn(value, section)
         self.assertNotIn("automatic handoff", section)
         self.assertNotIn("automatically discoverable", section)
+        self.assertNotIn("The registered integration is still incomplete", section)
+        self.assertNotIn("full-corpus end-to-end path **has not yet passed**", section)
 
 
 class DocumentedQueryContractTests(unittest.TestCase):
