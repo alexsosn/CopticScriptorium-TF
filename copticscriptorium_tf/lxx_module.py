@@ -14,7 +14,7 @@ from tempfile import TemporaryDirectory
 from typing import Iterable
 
 from ._atomic import publish_path_no_clobber
-from .lxx_reference import resolve_coptic_lxx_references
+from .lxx_reference import CANDIDATE_STATUSES, resolve_coptic_lxx_references
 from .model import DocumentModel
 
 LXX_PIN = "f32a98eddf7eb239aa73ab863d70381e416d5076"
@@ -436,7 +436,7 @@ def materialize_lxx_reference_modules_streaming(
                             or ords != tuple(range(ords[0], ords[-1] + 1))):
                         raise ValueError("noncontiguous or overlapping source verse span")
                     previous = ords[-1]
-                    if m.status == "reference_candidate":
+                    if m.status in CANDIDATE_STATUSES:
                         if m.shared_id is None or m.lxx_node is None:
                             raise ValueError("candidate lacks Greek reference")
                         prior = greek_refs.setdefault(m.lxx_node, m.shared_id)
@@ -522,7 +522,7 @@ def materialize_lxx_reference_modules_streaming(
                     ):
                         _stream_tf_row(handles[feature], node, value)
                     if ref is not None:
-                        if status != "reference_candidate":
+                        if status not in CANDIDATE_STATUSES:
                             raise ValueError("noncandidate source word has reference ID")
                         _stream_tf_row(handles["coptic_lxx_ref_id"], node, ref)
                         candidate_words += 1
