@@ -72,6 +72,7 @@ without a parallel JSON/XML structure.
 | ed_line_n / ed_lb_n | numbered edition line annotations; preserve literal page/line numbering |
 | ed_page_n / ed_pg_n | numbered edition page annotations, distinct from manuscript pagination |
 | multiword | upstream TT grouping over existing normalized words; original Coptic word slots are unchanged |
+| chapter_n / marcion_chapter_n / marcion_verse_n / petermann_chapter_n / petermann_verse_n | original source edition reference labels, never inferred canonical Bible alignments |
 | verse_n_marker / vid_n_marker / verse_vid_marker | source reference marker inside an unsplit word, with exact character offset; not a whole-word verse membership |
 | entity | entity annotation spanning one or more words |
 | translation | English translation segment with its own text |
@@ -117,6 +118,35 @@ a source `multiword` tag does not prove a UD `fixed` dependency.
 
 The full source-data rationale and known limits are in
 `research/issue-143/RESEARCH_PLAN.md`.
+
+### Edition chapter and verse reference labels
+
+The source labels `chapter_n`, `marcion_chapter_n`,
+`marcion_verse_n`, `petermann_chapter_n` and
+`petermann_verse_n` are preserved as five distinct **non-slot**
+Text-Fabric node types. Each node stores the upstream edition literal
+as `value`, an original `source_record_id`, source-opening `source_ordinal`,
+and source word/character boundary features.
+
+~~~python
+for verse in api.F.otype.s("marcion_verse_n")[:10]:
+    print(
+        api.F.source_record_id.v(verse),
+        api.F.value.v(verse),        # Marcion *edition's* original label
+        api.F.render_mode.v(verse), # reference_span / reference_anchor
+        tuple(api.E.oslots.s(verse)),
+    )
+~~~
+
+A `reference_span` has measured wholly covered source Coptic norm
+words. A `reference_anchor` is a positional association, **not**
+claimed whole-word membership. Labels such as `chapter_n="148_postscript"`
+and `chapter_n="0"` remain strings. Marcion and Petermann chapter/verse
+numbers are parallel **source edition reference systems**, not evidence
+of correspondence to canonical Coptic biblical books, the Greek New Testament,
+or LXX verse numbers. Existing Coptic `verse_n`, `vid_n` and
+`verse_vid` features remain separate. See
+`research/issue-146/RESEARCH_PLAN.md`.
 
 ## Normalized and diplomatic text
 
