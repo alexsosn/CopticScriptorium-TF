@@ -102,6 +102,20 @@ class NoncandidateInventoryTests(TestCase):
                     inventory.finish(expected_statuses=expected,
                                      expected_annotated=docs,expected_total=total)
 
+    def test_mixed_scope_never_reports_missing_as_proven_absent(self):
+        inventory = NonCandidateInventory()
+        item = ref(
+            reason="contradictory source references in Coptic word span",
+            vid=None, editor=None,
+        )
+        inventory.add(MARK, [("sbl_greek", "Greek source value")], [item])
+        row, = inventory.finish(
+            expected_statuses={"ambiguous": 1},
+            expected_annotated=1, expected_total=1,
+        )["inventory"]
+        self.assertEqual(row["vid_n_shape"], "indeterminate")
+        self.assertEqual(row["verse_vid_shape"], "indeterminate")
+
     def test_no_word_locus_and_malformed_editor_are_explicit_shapes(self):
         inventory=NonCandidateInventory()
         case=ref(status="unresolved",ordinals=(),vid="46N 1:1",
