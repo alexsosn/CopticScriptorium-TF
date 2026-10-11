@@ -2,6 +2,16 @@ name: issue66-conllu
 
 on:
   pull_request:
+    paths:
+      - '.github/workflows/issue66-conllu.yml'
+      - 'copticscriptorium_tf/conllu.py'
+      - 'copticscriptorium_tf/converter.py'
+      - 'copticscriptorium_tf/model.py'
+      - 'copticscriptorium_tf/_graph_core.py'
+      - 'copticscriptorium_tf/writer.py'
+      - 'copticscriptorium_tf/parser.py'
+      - 'research/issue-66/**'
+      - 'tests/test_issue66_*.py'
   workflow_dispatch:
 
 concurrency:
@@ -35,7 +45,6 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_issue66_*.py' -v
 
   conllu-full-corpus-parity:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'feat/issue66-conllu-supplement'
     needs: conllu-wiring-unit
     runs-on: ubuntu-latest
     timeout-minutes: 60
