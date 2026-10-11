@@ -107,7 +107,7 @@ class VerseMarkerTopologyAudit:
                 key: self._counts[key] for key in _CATEGORIES if self._counts[key]
             },
             "examples": {
-                key: tuple(sorted(self._examples[key]))
+                key: list(sorted(self._examples[key]))
                 for key in _CATEGORIES if key in self._examples
             },
             "interpretation": (
