@@ -27,7 +27,7 @@ class NativeInverseQueryRealDataGate(unittest.TestCase):
     def test_real_parent_smoke_uses_actual_tf_inverse_index_and_two_jonah_witnesses(self):
         source = (ROOT / "tests/live_issue130_real_witnesses.py").read_text()
         for required in (
-            "project_reference_modules(",
+            "materialize_lxx_reference_modules(",
             "validate_lxx_release(",
             "verify_coptic_module_parent(",
             "find_coptic_witnesses(",
