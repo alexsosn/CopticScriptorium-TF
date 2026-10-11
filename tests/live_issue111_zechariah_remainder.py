@@ -1,6 +1,7 @@
 """Real pinned source/Greek *diagnostic* for Bohairic Zechariah 2:7–13.
 
-No versification rule is changed here. Source Brenton English translations are
+The source-byte-qualified v2 candidates are audited against real source and
+Greek verse motifs. Source Brenton English translations are
 a non-independent verse-local comparison aid; not Coptic/Greek collation.
 Only source counts and hand-curated motif evidence are printed, never text.
 """
@@ -21,7 +22,9 @@ sys.path.insert(0, str(ROOT))
 from copticscriptorium_tf.parser import parse_tt_record
 from copticscriptorium_tf.lxx_module import verify_lxx_parent_feature_blobs
 from copticscriptorium_tf.lxx_reference import resolve_coptic_lxx_references
-from copticscriptorium_tf.lxx_versification import BOHAIRIC_ZECH_CHAPTER_SHA
+from copticscriptorium_tf.lxx_versification import (
+    BOHAIRIC_ZECH_CHAPTER_SHA, BOHAIRIC_ZECH_CROSSWALK_VERSION,
+)
 
 PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
 LXX_PIN = "f32a98eddf7eb239aa73ab863d70381e416d5076"
@@ -112,11 +115,13 @@ def run(coptic_root: Path, lxx_root: Path) -> None:
         if len(spans) != 1:
             raise ValueError(f"not one real source span at Boh Zech2:{source_verse}: {len(spans)}")
         ref = spans[0]
-        # Fail-closed current production rule is prerequisite, not an issue.
-        assert ref.status == "ambiguous" and ref.shared_id is None
         english = verse_translation_words(doc, ref.source_word_ordinals)
         shifted_node, greek = greek_reference(source_verse + 4)
         competing_node, competing_greek = greek_reference(source_verse)
+        assert ref.status == "versification_candidate", ref
+        assert ref.shared_id == f"CenterBLC/LXX:1935:Zech:2:{source_verse + 4}"
+        assert ref.lxx_node == shifted_node
+        assert ref.evidence.endswith(BOHAIRIC_ZECH_CROSSWALK_VERSION)
         row = {
             "source": f"Bohairic Zech 2:{source_verse}",
             "current_status": ref.status,
