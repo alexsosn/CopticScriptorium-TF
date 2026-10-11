@@ -90,6 +90,7 @@ class GraphNode:
     conllu_status: str | None = None
     conllu_source_path: str | None = None
     conllu_source_sha256: str | None = None
+    source_attributes: tuple[tuple[str, str], ...] = ()
 
     @property
     def slots(self) -> tuple[int, ...]:
@@ -268,6 +269,17 @@ def _check_document(document: DocumentModel) -> None:
         )
         if not isinstance(annotation.value, str) or annotation.kind not in accepted_kinds:
             raise ValueError(f"invalid scholarly source annotation in {document.source_record_id}")
+        # A source attribute is individually queryable. Duplicate keys, an
+        # unsorted/non-literal encoding, and unrelated spoofed attributes
+        # would all compromise the native projection.
+        attrs = annotation.attributes
+        if attrs and (
+            annotation.kind not in {"gap", "supplied", "abbr"}
+            or attrs != tuple(sorted(attrs))
+            or any(not isinstance(k, str) or not k or not isinstance(v, str) for k, v in attrs)
+            or len(set(k for k, _ in attrs)) != len(attrs)
+        ):
+            raise ValueError(f"invalid original source annotation attributes in {document.source_record_id}")
         start, end = annotation.start_after_word_ordinal, annotation.end_after_word_ordinal
         if not (0 <= start <= end <= word_count):
             raise ValueError(f"invalid sbl_ source annotation offsets in {document.source_record_id}")
@@ -536,6 +548,7 @@ def build_graph(
                         otype, source_record_id=record,
                         source_ordinal=item.ordinal, slot_ranges=_ranges(locus),
                         value=item.value,
+                        source_attributes=item.attributes,
                         sbl_verse_n=item.source_verse_n if otype in {"sbl_greek", "sbl_apparatus"} else None,
                         render_mode=(
                             ("editorial_span" if whole_words else "editorial_anchor")
@@ -857,6 +870,8 @@ def graph_fingerprint(graph: Graph) -> str:
              node.end_after_word_ordinal)
         # Keep hashes of unrelated legacy graphs unchanged. The additional
         # provenance field must still contribute when it actually exists.
+        if node.source_attributes:
+            emit("source_attributes", node.id, node.source_attributes)
         if node.sbl_verse_n is not None:
             emit("sbl_verse_n", node.id, node.sbl_verse_n)
         if node.conllu_status is not None:
