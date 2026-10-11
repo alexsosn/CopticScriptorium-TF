@@ -9,8 +9,8 @@ import unittest
 from tf.fabric import Fabric
 
 from copticscriptorium_tf.converter import convert_source_tree
-from subprocess import run as process_run
-import sys
+import importlib.util
+from unittest.mock import patch
 
 
 TT = (
@@ -31,6 +31,31 @@ def _source_tree(root: Path) -> None:
     folder = root / "small" / "small_TT"
     folder.mkdir(parents=True)
     (folder / "test.tt").write_text(TT, encoding="utf-8")
+
+
+def _research_smoke_module():
+    """Load the real research runner without invoking its CLI entry point."""
+    location = (
+        Path(__file__).resolve().parents[1]
+        / "research/issue-16/full_converter_smoke.py"
+    )
+    spec = importlib.util.spec_from_file_location("issue109_smoke", location)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _small_fixture_reload(tf_dir: Path, result):
+    """Exercise real TF reload; full-corpus-only edge gates run separately in CI."""
+    api = Fabric(locations=[str(tf_dir)], silent="deep").load(
+        "value dependency_head", silent="deep",
+    )
+    assert api and api.F.otype.maxSlot == 2
+    assert len(api.F.otype.s("morph")) == 1
+    assert tuple(api.E.dependency_head.f(2)) == (1,)
+    assert api.F.otype.maxNode - api.F.otype.maxSlot == result.nodes
+    return {"reload_slots": api.F.otype.maxSlot, "reload_nodes": result.nodes}
 
 
 class PhaseMemoryProfileContractTests(unittest.TestCase):
@@ -65,21 +90,18 @@ class PhaseMemoryProfileContractTests(unittest.TestCase):
             self.assertEqual(tuple(api.E.dependency_head.f(2)), (1,))
 
     def test_smoke_opt_in_reports_phase_rss_and_post_reload(self):
+        smoke = _research_smoke_module()
         with TemporaryDirectory() as temp:
             base = Path(temp)
             source = base / "source"
             _source_tree(source)
             report = base / "report.json"
-            command = [
-                sys.executable, "research/issue-16/full_converter_smoke.py",
-                str(source), "--work-root", str(base / "work"),
-                "--output", str(report), "--profile-memory",
-            ]
-            p = process_run(
-                command, cwd=Path(__file__).resolve().parents[1],
-                capture_output=True, text=True, check=False,
-            )
-            self.assertEqual(p.returncode, 0, p.stdout + "\n" + p.stderr)
+            with patch.object(smoke, "_reload_and_check", new=_small_fixture_reload):
+                status = smoke.main([
+                    str(source), "--work-root", str(base / "work"),
+                    "--output", str(report), "--profile-memory",
+                ])
+            self.assertEqual(status, 0)
             data = json.loads(report.read_text(encoding="utf-8"))
             self.assertEqual(data["source_records"], 1)
             self.assertEqual(data["slots"], 2)
@@ -90,8 +112,6 @@ class PhaseMemoryProfileContractTests(unittest.TestCase):
                 self.assertGreaterEqual(row["elapsed_seconds"], 0)
                 self.assertIsInstance(row["peak_rss_mb"], (int, float))
                 self.assertGreaterEqual(row["peak_rss_mb"], 0)
-                # On Linux all process VmRSS samples must be numeric; on
-                # unsupported platforms use None, never fabricate zero.
                 self.assertTrue(
                     row["current_rss_mb"] is None
                     or isinstance(row["current_rss_mb"], (int, float))
@@ -99,21 +119,21 @@ class PhaseMemoryProfileContractTests(unittest.TestCase):
             self.assertTrue((base / "work/tf/otype.tf").exists())
 
     def test_default_smoke_report_has_no_memory_profile_key(self):
+        smoke = _research_smoke_module()
         with TemporaryDirectory() as temp:
             base = Path(temp)
             source = base / "source"
             _source_tree(source)
             report = base / "report.json"
-            p = process_run(
-                [sys.executable, "research/issue-16/full_converter_smoke.py",
-                 str(source), "--work-root", str(base / "work"),
-                 "--output", str(report)],
-                cwd=Path(__file__).resolve().parents[1],
-                capture_output=True, text=True, check=False,
-            )
-            self.assertEqual(p.returncode, 0, p.stdout + "\n" + p.stderr)
-            self.assertNotIn("memory_profile", json.loads(report.read_text()))
-            self.assertIn("peak_rss_mb", json.loads(report.read_text()))
+            with patch.object(smoke, "_reload_and_check", new=_small_fixture_reload):
+                status = smoke.main([
+                    str(source), "--work-root", str(base / "work"),
+                    "--output", str(report),
+                ])
+            self.assertEqual(status, 0)
+            data = json.loads(report.read_text(encoding="utf-8"))
+            self.assertNotIn("memory_profile", data)
+            self.assertIn("peak_rss_mb", data)
 
 
 if __name__ == "__main__":
