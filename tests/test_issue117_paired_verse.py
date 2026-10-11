@@ -132,9 +132,15 @@ class PairedSourceVerseEvidence(unittest.TestCase):
         self.assertNotEqual(r.status,"reference_candidate")
 
     def test_missing_explicit_pair_does_not_fabricate_verse(self):
-        d=doc()
-        d=replace(d,source_text=d.source_text.replace('<verse verse="1 Corinthians 14:3">',
-            '<verse verse="wrong">'))
+        original=doc()
+        changed=original.source_text.replace(
+            '<verse verse="1 Corinthians 14:3">', '<verse verse="wrong">'
+        )
+        # Reparse the modified synthetic source, so its own SHA256 is honest.
+        # A different test rejects forged source_text without rehashing.
+        d=parse_tt_record(changed.encode(),source_record_id=PHYSICAL,
+            source_path=original.source_path,
+            upstream_repository="CopticScriptorium/corpora",upstream_commit=PIN)
         calls=[]
         r,=resolve_coptic_sbl_references(d,lookup=lambda *args:calls.append(args) or 19)
         self.assertEqual(r.status,"ambiguous")
