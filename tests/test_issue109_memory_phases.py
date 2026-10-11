@@ -58,7 +58,7 @@ class PhaseMemoryProfileContractTests(unittest.TestCase):
             files1 = {p.name: p.read_bytes() for p in (base / "measured").glob("*.tf")}
             self.assertEqual(files0, files1, "Memory profiler changed actual TF serialization")
             api = Fabric(locations=[str(base / "measured")], silent="deep").load(
-                "morph value dependency_head", silent="deep",
+                "value dependency_head", silent="deep",
             )
             self.assertEqual(api.F.otype.maxSlot, 2)
             self.assertEqual(api.F.value.v(api.F.otype.s("morph")[0]), "b")
