@@ -345,7 +345,7 @@ validate_lxx_release(lxx_tf_dir, base_lxx)
 coptic = Fabric(
     locations=[coptic_tf_dir, weft_coptic_dir], silent="deep"
 ).load(
-    "source_record_id source_word_ordinal "
+    "source_record_id source_word_ordinal verse_n "
     "coptic_lxx_ref_id coptic_lxx_ref_status", silent="deep"
 )
 lxx = Fabric(
@@ -362,7 +362,14 @@ for witness in result.spans:
 Every `word_nodes` value in the returned Coptic witness spans is local to
 the **Coptic** warp; `result.lxx_node` belongs only to the Greek warp.
 The shared string `CenterBLC/LXX:1935:Ruth:2:1` joins them safely.
-Discontinuous Coptic runs and distinct source witnesses remain separate.
+Discontinuous Coptic runs, distinct source witnesses, and **adjacent distinct
+source `verse_n` literals mapped to one LXX reference** remain separate.
+Each returned `CopticWitnessSpan.source_verse_n` is the original Coptic
+verse label, not an inferred Greek verse number. The source `verse_n`
+feature must be loaded; the helper fails explicitly if it is missing or
+malformed, rather than silently merging source verse boundaries. Repeated
+opening verse tags with identical literals cannot be reconstructed from
+word features alone (see the source marker-topology audit).
 The source-locked Greek module contains `coptic_lxx_ref_id` but **does not**
 provide `coptic_lxx_source_span_count`. The legacy two-module writer may
 provide that optional count; in that case load the count feature explicitly,
