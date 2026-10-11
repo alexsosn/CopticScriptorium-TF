@@ -233,5 +233,62 @@ class NativeCopticLxxInverseLookupTests(unittest.TestCase):
             self.assertEqual(result.spans[0].source_word_ordinals, (1, 2))
 
 
+    def test_native_tf_weft_retains_two_adjacent_source_verses_for_one_greek_address(self):
+        # Prove the source-verse boundary survives actual Text-Fabric F.s()
+        # lookup and native additive module reload, not just the fake index.
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from tf.fabric import Fabric
+        from copticscriptorium_tf.parser import parse_tt_record
+        from copticscriptorium_tf.graph import build_graph
+        from copticscriptorium_tf.writer import write_graph
+        from copticscriptorium_tf.lxx_modules import write_reference_modules
+
+        raw = (
+            '<meta corpus="sahidic.ruth" chapter="2">'
+            '<verse_n verse_n="1"><norm_group norm_group="one">'
+            '<norm xml:id="u1" new_sent="true" func="root" norm="a">a</norm>'
+            '</norm_group>'
+            '<verse_n verse_n="2"><norm_group norm_group="two">'
+            '<norm xml:id="u2" new_sent="true" func="root" norm="b">b</norm>'
+            '</norm_group>'
+        )
+        doc = parse_tt_record(
+            raw.encode("utf-8"),
+            source_record_id="sahidic.ruth/sahidic.ruth:Ruth_02",
+            source_path="sahidic.ruth/sahidic.ruth_TT/Ruth_02.tt",
+            upstream_repository="CopticScriptorium/corpora",
+            upstream_commit="3ac067f1709a0012daf39ea8da2fac79980176a5",
+        )
+        shared = "CenterBLC/LXX:1935:Ruth:2:1"
+        with TemporaryDirectory() as directory:
+            parent = Path(directory) / "parent"
+            write_graph(build_graph((doc,)), parent)
+            module = Path(directory) / "weft"
+            write_reference_modules(
+                module,
+                coptic_ref={1: shared, 2: shared},
+                coptic_status={1: "versification_candidate", 2: "versification_candidate"},
+                lxx_ref={663156: shared},
+                lxx_count={663156: 2},
+            )
+            api = Fabric(
+                locations=[str(parent), str(module / "coptic")], silent="deep"
+            ).load(
+                "source_record_id source_word_ordinal verse_n coptic_lxx_ref_id "
+                "coptic_lxx_ref_status", silent="deep"
+            )
+            self.assertTrue(api)
+            result = find_coptic_witnesses(api, fake_lxx(declared=2), "Ruth", 2, 1)
+            self.assertEqual(
+                [(span.source_verse_n, span.source_word_ordinals) for span in result.spans],
+                [("1", (1,)), ("2", (2,))],
+            )
+            self.assertEqual(
+                [span.status for span in result.spans],
+                ["versification_candidate", "versification_candidate"],
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
