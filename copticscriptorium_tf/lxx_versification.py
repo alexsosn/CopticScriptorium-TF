@@ -52,6 +52,21 @@ def propose_bohairic_zechariah(
     cts = (document.metadata.get("document_cts_urn") or "").strip()
     expected_cts = f"urn:cts:copticLit:ot.zach.bohairic_ed:{source_chapter:02d}"
     if cts != expected_cts:
+        # This corpus family is known to contain an edition whose chapter-2
+        # numbering differs from Rahlfs. An unreviewed edition of the *same
+        # work* must not be given Greek same-number candidate IDs in the
+        # implicated chapter boundary (even if numbers happen to exist).
+        if (
+            (source_chapter == 1 and source_verse >= 18)
+            or (source_chapter == 2 and source_verse >= 1)
+        ):
+            return VersificationCandidate(
+                lxx_book="Zech", lxx_chapter=source_chapter,
+                lxx_verse=source_verse,
+                rule_id=BOHAIRIC_ZECH_CROSSWALK_VERSION,
+                blocked_reason="Bohairic Zechariah exact CTS edition not reviewed "
+                               "against pinned LXX numbering",
+            )
         return None
 
     offset = next(
