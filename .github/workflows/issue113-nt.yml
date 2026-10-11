@@ -86,6 +86,12 @@ jobs:
               "reason_codes":anomaly["reason_codes"],
               "marker_shapes":anomaly["marker_shapes"],
               "diagnostic_physical_records":len(anomaly["by_physical_record"]),
+              "noncandidate_counts_by_record":anomaly["by_physical_record"],
+              "parent_verse_unavailable": [
+                  {key:row[key] for key in ("source_record_id","source_ordinal","kind","reason_code")}
+                  for row in anomaly["inventory"]
+                  if row["reason_code"] == "parent_verse_unavailable"
+              ],
               "independent_source_probe":json.loads((root/"nt-source-anomaly-shapes.json").read_text()),
           },sort_keys=True,indent=2))
           PY
