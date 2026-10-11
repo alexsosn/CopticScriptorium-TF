@@ -13,6 +13,7 @@ import re
 from .parser import TAG_RE
 
 _NUMBER = re.compile(r'(?:^|\s)verse_n\s*=\s*"([^"]*)"')
+_CHAPTER = re.compile(r'(?:^|\s)chapter_n\s*=\s*"([^"]*)"')
 _SCOPES = frozenset({"ot_candidate", "nt_candidate", "conflicting", "undetermined"})
 _CATEGORIES = (
     "duplicate_same_number",
@@ -42,6 +43,10 @@ class VerseMarkerTopologyAudit:
         self._records = 0
         self._records_with_marker = 0
         self._opening_markers = 0
+        self._chapter_markers = 0
+        self._chapter_resets = 0
+        self._scoped_chapter_markers: Counter[str] = Counter()
+        self._scoped_chapter_resets: Counter[str] = Counter()
         self._scoped_records: Counter[str] = Counter()
         self._scoped_marker_records: Counter[str] = Counter()
         self._scoped_markers: Counter[str] = Counter()
@@ -73,6 +78,7 @@ class VerseMarkerTopologyAudit:
         self._scoped_records[scope] += 1
         n_markers = 0
         previous: int | None = None
+        current_chapter: str | None = None
         pending_verse = False
         words_since_marker = 0
 
@@ -83,6 +89,20 @@ class VerseMarkerTopologyAudit:
             if name == "norm":
                 if pending_verse:
                     words_since_marker += 1
+                continue
+            if name == "chapter_n":
+                self._chapter_markers += 1
+                self._scoped_chapter_markers[scope] += 1
+                match = _CHAPTER.search(attributes)
+                chapter = match.group(1) if match else None
+                if chapter != current_chapter:
+                    if previous is not None:
+                        self._chapter_resets += 1
+                        self._scoped_chapter_resets[scope] += 1
+                    # The next source verse belongs to another local
+                    # chapter: numeric 7 -> 1 is not nonmonotonic.
+                    previous = None
+                    current_chapter = chapter
                 continue
             if name != "verse_n":
                 continue
@@ -122,11 +142,15 @@ class VerseMarkerTopologyAudit:
             "source_records": self._records,
             "source_records_with_verse_n": self._records_with_marker,
             "opening_verse_n_tags": self._opening_markers,
+            "chapter_markers": self._chapter_markers,
+            "chapter_resets": self._chapter_resets,
             "by_scope": {
                 scope: {
                     "source_records": self._scoped_records[scope],
                     "source_records_with_verse_n": self._scoped_marker_records[scope],
                     "opening_verse_n_tags": self._scoped_markers[scope],
+                    "chapter_markers": self._scoped_chapter_markers[scope],
+                    "chapter_resets": self._scoped_chapter_resets[scope],
                     "categories": {
                         key: self._scoped_counts.get(scope, Counter())[key]
                         for key in _CATEGORIES
