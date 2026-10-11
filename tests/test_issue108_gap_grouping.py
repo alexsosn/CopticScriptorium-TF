@@ -124,6 +124,27 @@ class GappedOtMarkerBatchTests(unittest.TestCase):
                          "source_reference_unclassified")
         self.assertEqual(unresolved["markers"][0]["greek_missing_intermediate"], [])
 
+    def test_missing_metadata_and_literal_missing_label_are_distinct(self):
+        # The display aggregate '<missing>|...' is lossy. The structured
+        # edition breakdown must not collapse a real source literal onto None.
+        audit = CopticOtVerseAnomalyBatch(source_commit=PIN)
+        raw = '<meta chapter="1"><verse_n verse_n="1"><verse_n verse_n="3">'
+        for n, work in ((1, None), (2, "<missing>")):
+            audit.add(
+                raw, f"sahidic.ruth/sahidic.ruth:record_{n}",
+                source_sha256=HASH_A if n == 1 else HASH_B,
+                scope="ot_candidate", corpus="sahidic.ruth",
+                cts_work=work, chapter="1", edition="edition",
+                lxx_book="Ruth",
+            )
+        groups = audit.report()["gapped_work_edition_groups"]
+        self.assertEqual(len(groups), 2)
+        self.assertEqual(
+            [(row["source_cts_work"], row["source_edition"],
+              row["event_count"]) for row in groups],
+            [(None, "edition", 1), ("<missing>", "edition", 1)],
+        )
+
     def test_large_numeric_jump_is_retained_without_forging_greek_address_checks(self):
         audit = CopticOtVerseAnomalyBatch(source_commit=PIN)
         source = (
