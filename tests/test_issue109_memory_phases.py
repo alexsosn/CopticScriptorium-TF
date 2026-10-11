@@ -76,7 +76,27 @@ class MemoryPhaseResearchTests(TestCase):
             source=Path(tmp)/"source"
             source.mkdir()
             _source_tree(source)
-            result=run(source,Path(tmp)/"work")
+            # The full-corpus smoke requires features (e.g. documented_overlap)
+            # that this tiny fixture legitimately does not contain. Keep a
+            # *real native TF reload* but limit the requested feature set to
+            # source features this synthetic two-document graph can have.
+            from tf.fabric import Fabric
+            def limited_native_reload(tf_dir, conversion):
+                api=Fabric(locations=[str(tf_dir)], silent="deep").load(
+                    "source_record_id norm", silent="deep",
+                )
+                if not api:
+                    raise AssertionError("minimal native TF reloader failed")
+                if api.F.otype.maxSlot != conversion.slots:
+                    raise AssertionError("native slot count differs")
+                return {
+                    "reload_slots": api.F.otype.maxSlot,
+                    "structural_json_features": [
+                        p.stem for p in tf_dir.glob("*_json.tf")
+                    ],
+                }
+            with patch.object(module, "_reload_and_check", side_effect=limited_native_reload):
+                result=run(source,Path(tmp)/"work")
             self.assertIn("after_parse",result["phase_memory_mb"])
             self.assertIn("after_write",result["phase_memory_mb"])
             self.assertIn("after_reload",result["phase_memory_mb"])
