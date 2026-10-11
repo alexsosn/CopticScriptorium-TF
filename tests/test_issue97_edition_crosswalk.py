@@ -100,6 +100,22 @@ class BohairicZechariahEditionCrosswalkTests(unittest.TestCase):
                 got = resolve_coptic_lxx_references(doc, lookup=lambda *_: 54)[0]
                 self.assertNotEqual(got.status, "versification_candidate")
 
+    def test_unreviewed_bohairic_zechariah_edition_must_not_fall_back_to_number_only(self):
+        for chapter, verses in ((1, (18, 19)), (2, (1, 2, 7))):
+            doc = source_document(
+                chapter, verses,
+                cts=f"urn:cts:copticLit:ot.zach.unreviewed_ed:{chapter:02d}",
+            )
+            calls = []
+            got = resolve_coptic_lxx_references(
+                doc, lookup=lambda *key: calls.append(key) or 456
+            )
+            self.assertEqual(
+                [m.status for m in got], ["ambiguous"] * len(verses)
+            )
+            self.assertTrue(all(m.shared_id is None and m.lxx_node is None for m in got))
+            self.assertEqual(calls, [], "unknown edition cannot reuse known mismatched Bohairic numbering")
+
     def test_unreviewed_remaining_bohairic_chapter_2_fails_closed_not_false_same_number(self):
         doc = source_document(2, (7, 8, 9, 10))
         calls = []
