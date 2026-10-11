@@ -28,7 +28,8 @@ from copticscriptorium_tf.sbl_source_census import records, expected_sbl
 EXPECTED_COUNTS = {
     "reference_candidate": 2301,
     "ambiguous": 437,
-    "unresolved": 9,
+    "unresolved": 8,
+    "edition_unavailable": 1,
     "coptic_annotated_sbl_nodes": 2747,
     "coptic_candidate_sbl_nodes": 2301,
     "greek_target_verse_nodes": 904,
