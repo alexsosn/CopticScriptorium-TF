@@ -240,7 +240,11 @@ def _check_document(document: DocumentModel) -> None:
         start, end = annotation.start_after_word_ordinal, annotation.end_after_word_ordinal
         if not (0 <= start <= end <= word_count):
             raise ValueError(f"invalid sbl_ source annotation offsets in {document.source_record_id}")
-        expected_locus = tuple(range(start + 1, end + 1))
+        start_full = start + (2 if (
+            annotation.start_word_ordinal is not None and
+            (annotation.start_char or 0) > 0
+        ) else 1)
+        expected_locus = tuple(range(start_full, end + 1))
         if annotation.word_ordinals != expected_locus:
             raise ValueError(f"incorrect sbl_ complete-word locus in {document.source_record_id}")
         for ordinal, offset in (
