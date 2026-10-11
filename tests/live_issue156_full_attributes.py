@@ -22,7 +22,7 @@ from copticscriptorium_tf.parser import TAG_RE, _visible_piece, parse_tt_record
 
 # Independently parse the original TT opening attributes: do not reuse
 # production _scan_attrs, whose mistakes this regression is meant to catch.
-_ORIGINAL_ATTR = re.compile(r'\\s+([A-Za-z_][A-Za-z0-9_.:-]*)\\s*=\\s*"([^"]*)"')
+_ORIGINAL_ATTR = re.compile(r'\s+([A-Za-z_][A-Za-z0-9_.:-]*)\s*=\s*"([^"]*)"')
 
 
 def original_attributes(raw: str) -> tuple[tuple[str, str], ...]:
