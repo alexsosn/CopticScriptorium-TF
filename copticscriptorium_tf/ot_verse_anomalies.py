@@ -201,6 +201,86 @@ class CopticOtVerseAnomalyBatch:
             dict[str, object],
         ] = {}
         zero_work_counts: Counter[str] = Counter()
+        # Numeric jumps are source events, not inferred omitted Coptic verses.
+        gap_groups: dict[
+            tuple[str, str, str | None, str | None, str | None, str | None],
+            dict[str, object],
+        ] = {}
+        gap_work_counts: Counter[str] = Counter()
+        # Authoritative grouping retains None, empty and literal display labels.
+        gap_work_structured: Counter[
+            tuple[str | None, str | None]
+        ] = Counter()
+        gap_greek_status: Counter[str] = Counter()
+        gap_greek_addresses: Counter[str] = Counter()
+        for case in cases:
+            if case["kind"] == "gapped":
+                key = (
+                    str(case["source_record_id"]),
+                    str(case["source_sha256"]),
+                    case["source_cts_work"],
+                    case["source_edition"],
+                    case["source_chapter"],
+                    case["lxx_book"],
+                )
+                group = gap_groups.get(key)
+                if group is None:
+                    group = {
+                        "source_record_id": case["source_record_id"],
+                        "source_sha256": case["source_sha256"],
+                        "source_corpus": case["source_corpus"],
+                        "source_cts_work": case["source_cts_work"],
+                        "source_edition": case["source_edition"],
+                        "source_chapter": case["source_chapter"],
+                        "lxx_book": case["lxx_book"],
+                        "marker_count": 0,
+                        "markers": [],
+                        "interpretation": (
+                            "Greek missing-intermediate reference addresses only; "
+                            "not Coptic textual absence or verified bilingual alignment"
+                        ),
+                    }
+                    gap_groups[key] = group
+                elif group["source_corpus"] != case["source_corpus"]:
+                    raise ValueError("source gap group has conflicting corpus identity")
+                marker = {
+                    "source_marker_ordinal": case["source_marker_ordinal"],
+                    "source_tag_offset": case["source_tag_offset"],
+                    "source_word_starts_before": case["source_word_starts_before"],
+                    "previous_verse": case["previous_verse"],
+                    "current_verse": case["current_verse"],
+                    "missing_count": case["missing_count"],
+                    "missing_verse_numbers": list(case["missing_verse_numbers"]),
+                    "greek_status": case["greek_status"],
+                    "greek_missing_intermediate": [
+                        dict(row) for row in case["greek_missing_intermediate"]
+                    ],
+                }
+                if any(
+                    old["source_marker_ordinal"] == marker["source_marker_ordinal"]
+                    for old in group["markers"]
+                ):
+                    raise ValueError("duplicate source numeric-gap marker ordinal")
+                if not (
+                    type(marker["previous_verse"]) is int
+                    and type(marker["current_verse"]) is int
+                    and marker["current_verse"] > marker["previous_verse"] + 1
+                    and marker["missing_count"]
+                        == marker["current_verse"] - marker["previous_verse"] - 1
+                ):
+                    raise ValueError("invalid source numeric gap")
+                group["markers"].append(marker)
+                group["marker_count"] += 1
+                gap_work_counts["|".join((
+                    str(key[2]) if key[2] is not None else "<missing>",
+                    str(key[3]) if key[3] is not None else "<missing>",
+                ))] += 1
+                gap_work_structured[(key[2], key[3])] += 1
+                gap_greek_status[str(case["greek_status"])] += 1
+                for row in case["greek_missing_intermediate"]:
+                    if row["address"] not in {"present", "absent"}:
+                        raise ValueError("invalid Greek intermediate address status")
+                    gap_greek_addresses[str(row["address"])] += 1
         for case in cases:
             if case["invalid_literal_class"] == "zero_literal":
                 # Group *source* events for batch philological review, never
@@ -284,6 +364,40 @@ class CopticOtVerseAnomalyBatch:
             ],
             "zero_literal_work_edition_counts": dict(sorted(zero_work_counts.items())),
             "zero_literal_source_record_count": len({key[0] for key in zero_groups}),
+            "gapped_source_groups": [
+                {
+                    **gap_groups[key],
+                    "markers": sorted(
+                        gap_groups[key]["markers"],
+                        key=lambda item: item["source_marker_ordinal"],
+                    ),
+                }
+                for key in sorted(
+                    gap_groups,
+                    key=lambda key: tuple(
+                        (part is not None, part.casefold() if part is not None else "")
+                        for part in key
+                    ),
+                )
+            ],
+            "gapped_work_edition_counts": dict(sorted(gap_work_counts.items())),
+            # Unlike a joined display key, typed values cannot collide.
+            "gapped_work_edition_groups": [
+                {"source_cts_work": work, "source_edition": edition,
+                 "event_count": gap_work_structured[(work, edition)]}
+                for work, edition in sorted(
+                    gap_work_structured,
+                    key=lambda values: tuple(
+                        (part is not None, part.casefold() if part is not None else "")
+                        for part in values
+                    ),
+                )
+            ],
+            "gapped_source_record_count": len({key[0] for key in gap_groups}),
+            "gapped_greek_check_status_counts": dict(sorted(gap_greek_status.items())),
+            "gapped_intermediate_address_status_counts": dict(
+                sorted(gap_greek_addresses.items())
+            ),
             "by_work_edition_kind": dict(sorted(groups.items())),
             "cases": cases,
             "warning": (

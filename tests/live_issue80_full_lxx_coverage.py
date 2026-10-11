@@ -167,6 +167,68 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         for case in anomalies["cases"]
     ):
         raise ValueError("literal subtype lost or invented on an anomalous event")
+    # Every source OT positive-number jump must survive a source-byte-locked
+    # batch, including gaps with no resolvable Greek book or chapter.
+    gap_groups = anomalies["gapped_source_groups"]
+    gap_events = [
+        (g["source_record_id"], g["source_sha256"],
+         g["source_chapter"], m["source_marker_ordinal"])
+        for g in gap_groups for m in g["markers"]
+    ]
+    source_gap_events = [
+        (c["source_record_id"], c["source_sha256"],
+         c["source_chapter"], c["source_marker_ordinal"])
+        for c in anomalies["cases"] if c["kind"] == "gapped"
+    ]
+    if (
+        len(gap_events) != 309
+        or len(set(gap_events)) != 309
+        or set(gap_events) != set(source_gap_events)
+    ):
+        raise ValueError("309 exact physical source gap events were lost or duplicated")
+    if sum(g["marker_count"] for g in gap_groups) != 309:
+        raise ValueError("OT gap source-group event total does not reconcile")
+    if anomalies["gapped_source_record_count"] != len({
+        g["source_record_id"] for g in gap_groups
+    }):
+        raise ValueError("OT gap physical source record total does not reconcile")
+    if sum(anomalies["gapped_work_edition_counts"].values()) != 309:
+        raise ValueError("OT gap work/edition display total does not reconcile")
+    structured_work_counts = anomalies["gapped_work_edition_groups"]
+    if (
+        sum(row["event_count"] for row in structured_work_counts) != 309
+        or len({(row["source_cts_work"], row["source_edition"])
+                for row in structured_work_counts}) != len(structured_work_counts)
+    ):
+        raise ValueError("OT gap typed work/edition aggregate lost source identities")
+    status_counts = Counter(
+        c["greek_status"] for c in anomalies["cases"]
+        if c["kind"] == "gapped"
+    )
+    if dict(sorted(status_counts.items())) != anomalies[
+        "gapped_greek_check_status_counts"
+    ]:
+        raise ValueError("OT gap per-event Greek lookup status total differs")
+    address_counts = Counter(
+        row["address"] for g in gap_groups for marker in g["markers"]
+        for row in marker["greek_missing_intermediate"]
+    )
+    if dict(sorted(address_counts.items())) != anomalies[
+        "gapped_intermediate_address_status_counts"
+    ]:
+        raise ValueError("Greek intermediate address probes lost source evidence")
+    if any(
+        marker["missing_count"] != len(marker["greek_missing_intermediate"])
+        for g in gap_groups for marker in g["markers"]
+        if marker["greek_status"] == "crosschecked_address_only"
+    ):
+        raise ValueError("an inspected numeric gap has incomplete Greek addresses")
+    if any(
+        marker["greek_missing_intermediate"]
+        for g in gap_groups for marker in g["markers"]
+        if marker["greek_status"] != "crosschecked_address_only"
+    ):
+        raise ValueError("unresolved source gap invented Greek address evidence")
     if any(case["greek_status"] == "not_checked" for case in anomalies["cases"]):
         raise ValueError("LXX source anomaly analysis left cases unchecked")
     if any(case["source_sha256"] is None for case in anomalies["cases"]):
@@ -207,6 +269,12 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         "marker_topology_categories": topology["categories"],
         "ot_marker_anomaly_counts": anomalies["counts"],
         "ot_invalid_source_literal_classes": invalid_classes,
+        "ot_numeric_gap_source_groups": len(gap_groups),
+        "ot_numeric_gap_source_records": anomalies["gapped_source_record_count"],
+        "ot_gap_greek_check_statuses": anomalies["gapped_greek_check_status_counts"],
+        "ot_gap_intermediate_address_statuses": anomalies[
+            "gapped_intermediate_address_status_counts"
+        ],
         "ot_zero_literal_source_groups": len(zero_groups),
         "ot_zero_literal_source_records": anomalies["zero_literal_source_record_count"],
         "ot_zero_literal_work_edition_counts": anomalies["zero_literal_work_edition_counts"],
