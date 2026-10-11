@@ -53,6 +53,11 @@ def verify(root: Path, parent: Path) -> dict:
     by_kind=Counter((r.source_kind,r.status) for r in refs)
     statuses=Counter(r.status for r in refs)
     distinct=sorted(set(r.target_verse for r in refs if r.status=="reference_candidate"))
+    if statuses != {"reference_candidate": 61} or by_kind != {
+        ("sbl_greek", "reference_candidate"): 40,
+        ("sbl_apparatus", "reference_candidate"): 21,
+    } or distinct != list(range(1, 41)):
+        raise ValueError("real paired TT source coverage is not 61 occurrences / 40 verses")
     for r,a in zip(refs,doc.sbl_annotations,strict=True):
         if (r.source_record_id,r.source_ordinal,r.source_kind)!=(REC,a.ordinal,a.kind):
             raise ValueError("original Coptic SBL kind/ordinal mismatch")
