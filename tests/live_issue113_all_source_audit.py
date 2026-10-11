@@ -88,8 +88,8 @@ def audit(coptic_root: Path, greek_root: Path) -> dict:
     )
     result["noncandidate_source_shapes"] = anomalies.finish(
         expected_statuses={
-            "reference_candidate": 2301,
-            "ambiguous": 437,
+            "reference_candidate": 2362,
+            "ambiguous": 376,
             "unresolved": 8,
             "edition_unavailable": 1,
         },

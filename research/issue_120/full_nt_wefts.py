@@ -26,13 +26,13 @@ from copticscriptorium_tf.parser import parse_tt_record
 from copticscriptorium_tf.sbl_source_census import records, expected_sbl
 
 EXPECTED_COUNTS = {
-    "reference_candidate": 2301,
-    "ambiguous": 437,
+    "reference_candidate": 2362,
+    "ambiguous": 376,
     "unresolved": 8,
     "edition_unavailable": 1,
     "coptic_annotated_sbl_nodes": 2747,
-    "coptic_candidate_sbl_nodes": 2301,
-    "greek_target_verse_nodes": 904,
+    "coptic_candidate_sbl_nodes": 2362,
+    "greek_target_verse_nodes": 944,
 }
 EXPECTED_KIND_COUNTS = {"sbl_greek": 1652, "sbl_apparatus": 1095}
 
@@ -229,13 +229,13 @@ def verify(source_root: Path, greek_root: Path, coptic_tf: Path, destination: Pa
     counts = verify_native_feature_parity(coptic, greek,
         word_max=2394354, greek_max_slot=137554)
     if (counts["coptic_annotated_sbl_nodes"] != 2747
-        or counts["coptic_candidate_sbl_nodes"] != 2301
-        or counts["distinct_greek_verses"] != 904
-        or counts["total_greek_occurrences"] != 2301
-        or counts.get("ambiguous") != 437
+        or counts["coptic_candidate_sbl_nodes"] != 2362
+        or counts["distinct_greek_verses"] != 944
+        or counts["total_greek_occurrences"] != 2362
+        or counts.get("ambiguous") != 376
         or counts.get("unresolved") != 8
         or counts.get("edition_unavailable") != 1
-        or counts.get("reference_candidate") != 2301
+        or counts.get("reference_candidate") != 2362
         or set(counts) != {
             "coptic_annotated_sbl_nodes", "coptic_candidate_sbl_nodes",
             "distinct_greek_verses", "total_greek_occurrences",
