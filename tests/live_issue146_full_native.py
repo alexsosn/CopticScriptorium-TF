@@ -9,6 +9,11 @@ import re
 import sys
 
 from tf.fabric import Fabric
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from copticscriptorium_tf.sbl_source_census import records
 
 PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
