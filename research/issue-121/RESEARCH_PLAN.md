@@ -1,0 +1,21 @@
+# Issue #121 — paired native Coptic / LXX reference-candidate modules
+
+## Research (2026-10-11)
+
+Merged PR #71 preserves source-faithful TT `verse_n`, `vid_n`, `verse_vid` as native word-slot Text-Fabric features; a pinned 2,628-document full-source marker census and real Ruth/Jonah/Habakkuk reload passed. Merged PR #72 implements strict `resolve_coptic_lxx_references` including curated OT book/CTS mapping, source conflict detection and independently evidenced Bohairic Zechariah source-numbering crosswalk. Its pinned real target check found 23 Ruth 2, 11 Jonah 2 and 20 Habakkuk 2 candidate reference addresses in `CenterBLC/LXX` with no unresolved or ambiguous references *in those three records*. A matching reference **is not** evidence of text/word equivalence.
+
+The LXX parent profile used by CATSS-TF is `CenterBLC/LXX@f32a98eddf7eb239aa73ab863d70381e416d5076` (v1.0.1; TF version 1935), 623,693 Greek word slots, 685,732 total nodes and 30,371 verse nodes. Its `get_span(subverse=None)` can return None for a verse containing only subverse-labelled words; the **direct** `T.nodeFromSection((book,chapter,verse))` is required for existence.
+
+Like CATSS-TF, each Text-Fabric module must be a set of **weft-only features over an existing warp**. Coptic word nodes and LXX verse nodes cannot use meaningful cross-warp numeric edges. Stable shared `clxx_ref_id` on both sides supports queries; on the Greek verse node, count distinct Coptic physical documents, while on the Coptic side the existing `source_record_id` identifies the individual witness. Do not serialize a delimited/JSON list of witnesses in one Greek node feature. The input to module generation should be two *existing native TF corpora*, not raw TT files. Preserve the original parent warp unchanged. Strictly check both parent corpus identities and the expected LXX profile; no unverified assumption based only on node counts is acceptable as corpus-version identity. The CI test must check checkout exact Git commits separately.
+
+## Research → plan → TDD → test → independent review
+
+1. RED-first unit tests: a tiny real-shaped native Coptic TF with Ruth witness duplication and missing/contradictory markers; fake LXX reference provider, and tests for deterministic one shared ID, witness counts, no cross-warp integer links, preserved ambiguous/unresolved statuses; reject collisions/invalid parent node IDs; test writing actual weft-only TF files and loading back with source warp.
+2. Implement TF-reader adapter from `F.corpus, F.meta_chapter, F.meta_document_cts_urn, F.verse_n, F.vid_n, F.verse_vid, F.source_word_ordinal, F.source_record_id` to the already-reviewed pure resolver; no reimplementation of versification. Require `source_record_id` on document and word; fail closed for gaps, unexpected order and conflicting source record labels.
+3. Implement a deterministic dual-module materializer that iterates Coptic TF documents, verifies LXX verse-node references through real `T.nodeFromSection`, gathers per-word `clxx_ref_id` and `clxx_status`, and one `clxx_ref_id` + count of distinct Coptic witnesses per LXX verse node. Preserve Greek book/chapter/verse and original Coptic record in parent features. Reject non-candidate targets and ambiguous lookup values. Use `@parentRepo`, `@parentCommit`, `@sourceCommit` in each feature header. No `otype.tf`, `oslots.tf` or `otext.tf` in modules, no JSON/CSV sidecar.
+4. Run exact real pinned Ruth/Jonah/Habakkuk → Coptic TF plus pinned actual CenterBLC/LXX → dual modules → load both modules and query shared IDs; report counts, and do not upload generated text.
+5. Logically independent skeptical review against actual source data, exact-head CI, duplicate witness semantics, unresolved tracking, profile trust, missed verse subverses, id/version reproducibility and time/memory.
+
+## Explicit non-goals / limits
+
+Reference candidates are **not** authenticated verse-equivalence or Greek/Coptic word alignments. Not every Coptic OT edition and versification is in the reviewed mapping; later expansion must include a full coverage audit, explicit source LXX numeration, 1:N or N:1 mappings and manual philological validation. Keep parent #70 OPEN until that is addressed.
