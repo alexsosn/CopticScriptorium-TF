@@ -17,6 +17,7 @@ from .model import (
     Orig,
     OrigGroup,
     Sentence,
+    SblAnnotation,
     Translation,
     Word,
 )
@@ -118,6 +119,14 @@ def parse_tt_record(
     translation_stack: list[dict[str, Any]] = []
     arabic_raw: list[dict[str, Any]] = []
     arabic_stack: list[dict[str, Any]] = []
+    # TT is SGML-like: sbl_apparatus/sbl_greek can close in the reverse
+    # order from opening (real Mark_02). Independent tracks preserve both
+    # occurrences rather than imposing a fictional XML tree.
+    sbl_open: dict[str, list[dict[str, Any]]] = {
+        "sbl_greek": [], "sbl_apparatus": [],
+    }
+    sbl_closed: list[dict[str, Any]] = []
+    sbl_open_count = 0
     layout_events: list[LayoutEvent] = []
     current_word: dict[str, Any] | None = None
     # Preserve upstream literal verse references. They are not claimed to
@@ -203,6 +212,27 @@ def parse_tt_record(
                 if not arabic_stack:
                     raise ValueError(f"closing Arabic translation without open annotation in {source_record_id}")
                 arabic_raw.append(arabic_stack.pop())
+            elif name in sbl_open:
+                if not sbl_open[name]:
+                    raise ValueError(f"closing sbl_ annotation without opening {name} in {source_record_id}")
+                item = sbl_open[name].pop()
+                item["end_word_ordinal"] = current_word["ordinal"] if current_word else None
+                item["end_char"] = current_offset() if current_word else None
+                item["end_after_word_ordinal"] = len(raw_words)
+                start_after = item["start_after_word_ordinal"]
+                end_after = item["end_after_word_ordinal"]
+                if end_after < start_after:
+                    raise ValueError(f"invalid sbl_ annotation bounds for {name} in {source_record_id}")
+                # If an annotation opens after some characters of the
+                # current word, that word is only partially covered. Keep the
+                # source offset but exclude that word from the *full-word*
+                # TF span; later fully contained words remain eligible.
+                first_full = start_after + (2 if (
+                    item["start_word_ordinal"] is not None and
+                    (item["start_char"] or 0) > 0
+                ) else 1)
+                item["word_ordinals"] = tuple(range(first_full, end_after + 1))
+                sbl_closed.append(item)
             elif name == "verse_n":
                 current_verse_n = None
                 current_vid_n = None
@@ -214,6 +244,20 @@ def parse_tt_record(
             continue
 
         if name == "meta":
+            continue
+        if name in sbl_open:
+            if name not in attrs:
+                raise ValueError(f"sbl_ annotation {name} has no source value in {source_record_id}")
+            sbl_open_count += 1
+            sbl_open[name].append({
+                "ordinal": sbl_open_count,
+                "kind": name,
+                "value": attrs[name],  # empty string is present, not missing
+                "source_verse_n": current_verse_n,
+                "start_word_ordinal": current_word["ordinal"] if current_word else None,
+                "start_char": current_offset() if current_word else None,
+                "start_after_word_ordinal": len(raw_words),
+            })
             continue
         if name in {"verse_n", "vid_n", "verse_vid"}:
             # Some real TT records start nested source-reference wrappers
@@ -390,6 +434,8 @@ def parse_tt_record(
         raise ValueError(f"unclosed translation tag in {source_record_id}")
     if arabic_stack:
         raise ValueError(f"unclosed Arabic translation tag in {source_record_id}")
+    if any(sbl_open.values()):
+        raise ValueError(f"unclosed sbl_ annotation tag in {source_record_id}")
 
     if raw_words and (not sentence_starts or sentence_starts[0] != 1):
         raise ValueError(f"first word has no source sentence start in {source_record_id}")
@@ -505,6 +551,9 @@ def parse_tt_record(
         translations=freeze_translations(translations_raw),
         arabic_translations=freeze_translations(arabic_raw),
         source_text=text,
+        sbl_annotations=tuple(SblAnnotation(**item) for item in sorted(
+            sbl_closed, key=lambda a: a["ordinal"]
+        )),
     )
 
 
