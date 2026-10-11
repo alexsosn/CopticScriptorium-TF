@@ -194,7 +194,12 @@ class CopticOtVerseAnomalyBatch:
         )
         groups: Counter[str] = Counter()
         invalid_classes: Counter[str] = Counter()
-        zero_groups: dict[tuple[str, str, str, str, str], dict[str, object]] = {}
+        # Optional source strings must remain distinguishable: None, "", and
+        # literal "<unknown>" are different source evidence.
+        zero_groups: dict[
+            tuple[str, str, str | None, str | None, str | None],
+            dict[str, object],
+        ] = {}
         zero_work_counts: Counter[str] = Counter()
         for case in cases:
             if case["invalid_literal_class"] == "zero_literal":
@@ -203,9 +208,9 @@ class CopticOtVerseAnomalyBatch:
                 key = (
                     str(case["source_record_id"]),
                     str(case["source_sha256"]),
-                    str(case["source_cts_work"] or "<unknown>"),
-                    str(case["source_edition"] or "<unknown>"),
-                    str(case["source_chapter"] or "<unknown>"),
+                    case["source_cts_work"],
+                    case["source_edition"],
+                    case["source_chapter"],
                 )
                 row = zero_groups.get(key)
                 if row is None:
@@ -240,7 +245,10 @@ class CopticOtVerseAnomalyBatch:
                     raise ValueError("duplicate source verse-zero marker ordinal")
                 row["markers"].append(marker)
                 row["marker_count"] += 1
-                zero_work_counts["|".join((key[2], key[3]))] += 1
+                zero_work_counts["|".join((
+                    str(key[2]) if key[2] is not None else "<missing>",
+                    str(key[3]) if key[3] is not None else "<missing>",
+                ))] += 1
             if case["kind"] == "missing_or_nonpositive_literal":
                 kind = case["invalid_literal_class"]
                 if not isinstance(kind, str):
@@ -266,7 +274,13 @@ class CopticOtVerseAnomalyBatch:
                         key=lambda marker: marker["source_marker_ordinal"],
                     ),
                 }
-                for key in sorted(zero_groups, key=lambda key: tuple(v.casefold() for v in key))
+                for key in sorted(
+                    zero_groups,
+                    key=lambda key: tuple(
+                        (part is not None, part.casefold() if part is not None else "")
+                        for part in key
+                    ),
+                )
             ],
             "zero_literal_work_edition_counts": dict(sorted(zero_work_counts.items())),
             "zero_literal_source_record_count": len({key[0] for key in zero_groups}),
