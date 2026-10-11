@@ -34,6 +34,10 @@ jobs:
           python-version: '3.12'
       - name: Install pinned Text-Fabric
         run: python -m pip install 'text-fabric==13.1.0'
+      - name: RED-first seven-verse production mapping and negative tests
+        run: |
+          python -m unittest tests.test_issue111_zechariah_continuation -v
+          python -m unittest tests.test_issue97_edition_crosswalk -v
       - name: Fetch only immutable Bohairic Zechariah TT ZIP
         uses: actions/checkout@v4
         timeout-minutes: 15
