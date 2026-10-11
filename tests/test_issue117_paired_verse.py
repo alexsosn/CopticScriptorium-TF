@@ -124,6 +124,35 @@ class PairedSourceVerseEvidence(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"source bytes"):
             resolve_coptic_sbl_references(tampered,lookup=lambda *args:17)
 
+    def test_reject_duplicate_source_verse_attribute(self):
+        original=doc()
+        changed=original.source_text.replace(
+            '<verse verse="1 Corinthians 14:3">',
+            '<verse verse="1 Corinthians 14:3" verse="1 Corinthians 14:4">',
+        )
+        reloaded=parse_tt_record(changed.encode(),source_record_id=PHYSICAL,
+            source_path=original.source_path,
+            upstream_repository="CopticScriptorium/corpora",upstream_commit=PIN)
+        with self.assertRaisesRegex(ValueError,"duplicate"):
+            resolve_coptic_sbl_references(reloaded,lookup=lambda *a:1)
+
+    def test_verse_boundary_inside_coptic_norm_never_maps(self):
+        original=doc()
+        changed=original.source_text.replace(
+            '<norm xml:id="u1" norm="ⲁ" new_sent="true">ⲁ</norm>',
+            '<norm xml:id="u1" norm="ⲁ" new_sent="true">'
+            'ⲁ</verse></verse_vid><verse_vid verse_vid="46N 14:3">'
+            '<verse verse="1 Corinthians 14:3"></norm>',
+        )
+        reloaded=parse_tt_record(changed.encode(),source_record_id=PHYSICAL,
+            source_path=original.source_path,
+            upstream_repository="CopticScriptorium/corpora",upstream_commit=PIN)
+        calls=[]
+        r,=resolve_coptic_sbl_references(reloaded,
+            lookup=lambda *a:calls.append(a) or 1)
+        self.assertNotEqual(r.status,"reference_candidate")
+        self.assertEqual(calls,[])
+
     def test_invalid_word_ordinal_fails_closed(self):
         d=doc()
         annotation=replace(d.sbl_annotations[0],word_ordinals=(True,))
