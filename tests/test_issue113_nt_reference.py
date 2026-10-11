@@ -53,6 +53,24 @@ class GreekNtReferences(unittest.TestCase):
         self.assertEqual(c.source_ordinal, 1)
         self.assertEqual(c.evidence, "book+chapter+document_cts_urn+verse_n+vid_n+verse_vid+sbl_greek")
 
+    def test_treebank_duplicate_physical_mark_witness_uses_original_meta_family(self):
+        d=make_doc()
+        d=replace(d,corpus="coptic-treebank",dataset="coptic.treebank",
+                  source_record_id="coptic-treebank/coptic.treebank:Mark_02")
+        c,=resolve_coptic_sbl_references(d,lookup=lambda b,c,v:111)
+        self.assertEqual(c.status,"reference_candidate")
+        self.assertEqual(c.source_record_id,"coptic-treebank/coptic.treebank:Mark_02")
+
+    def test_treebank_forged_meta_corpus_is_not_reviewed(self):
+        d=make_doc()
+        d=replace(d,corpus="coptic-treebank",dataset="coptic.treebank",
+                  source_record_id="coptic-treebank/coptic.treebank:Mark_02",
+                  metadata={**d.metadata,"corpus":"unrelated"})
+        calls=[]
+        c,=resolve_coptic_sbl_references(d,lookup=lambda *key:calls.append(key) or 111)
+        self.assertEqual(c.status,"unclassified_source")
+        self.assertEqual(calls,[])
+
     def test_1cor_real_alias_uses_parent_canonical_book(self):
         d = make_doc(book="1Cor",work="1cor",code="46N",annot_kind="sbl_apparatus")
         c, = resolve_coptic_sbl_references(d,lookup=lambda b,c,v: 19 if (b,c,v)==("1_Corinthians",2,1) else None)
