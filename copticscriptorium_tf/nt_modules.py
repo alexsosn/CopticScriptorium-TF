@@ -29,7 +29,10 @@ VALID_STATUSES = frozenset((
     "edition_unavailable", "unclassified_source",
 ))
 PARENT_FEATURES = {
-    "coptic": ("otype", "oslots"),
+    "coptic": (
+        "otype", "oslots", "source_record_id", "source_ordinal",
+        "value", "sbl_verse_n", "source_sha256", "render_mode",
+    ),
     "greek": ("otype", "oslots", "book", "chapter", "verse"),
 }
 _HEX = re.compile(r"[0-9a-f]{64}\Z")
@@ -118,6 +121,56 @@ def render_node_feature(
         lines.append(f"{node}\t{value}")
     return ("\n".join(lines) + "\n").encode("utf-8")
 
+
+
+def validate_native_module_parent(
+    module_dir: Path, *, projection: str,
+    coptic_tf_dir: Path, greek_tf_dir: Path,
+) -> None:
+    """Reject any module reused against another warp OR altered SBL evidence.
+
+    Checking only otype/oslots would miss a changed source Greek annotation,
+    source verse marker, source record or SBL span classification with the
+    same node IDs. Match all source-critical Coptic feature hashes as well.
+    """
+    if projection not in PARENT_FEATURES:
+        raise NtModuleError("unknown native NT module projection")
+    module_dir = Path(module_dir)
+    expected_names = {
+        name for parent, name in FEATURE_TYPES if parent == projection
+    }
+    actual_names = {
+        path.stem for path in module_dir.iterdir()
+        if path.is_file() and path.suffix == ".tf" and not path.is_symlink()
+    } if module_dir.is_dir() and not module_dir.is_symlink() else set()
+    if actual_names != expected_names:
+        raise NtModuleError("native NT module feature inventory mismatch")
+    proof = {
+        "coptic": parent_fingerprints(coptic_tf_dir, "coptic"),
+        "greek": parent_fingerprints(greek_tf_dir, "greek"),
+    }
+    for feature in expected_names:
+        path = module_dir / f"{feature}.tf"
+        headers = {}
+        with path.open(encoding="utf-8") as stream:
+            for line in stream:
+                line = line.rstrip("\n")
+                if not line:
+                    break
+                if line.startswith("@") and "=" in line:
+                    key, value = line.split("=", 1)
+                    if key in headers:
+                        raise NtModuleError("duplicate module provenance metadata")
+                    headers[key] = value
+        if (headers.get("@copticNtRefSchema") != SCHEMA
+            or headers.get("@projection") != projection
+            or headers.get("@greekEdition") != GREEK_NT_EDITION):
+            raise NtModuleError("native NT module schema/projection mismatch")
+        for parent, features in PARENT_FEATURES.items():
+            for name in features:
+                key = f"@{parent}Parent{name[0].upper() + name[1:]}Sha256"
+                if headers.get(key) != proof[parent][name]:
+                    raise NtModuleError("native NT module parent fingerprint mismatch")
 
 def write_nt_modules(
     destination: Path, *,
