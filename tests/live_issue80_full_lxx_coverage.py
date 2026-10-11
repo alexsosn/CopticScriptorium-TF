@@ -6,6 +6,7 @@ Only deterministic aggregate metadata / bounded physical record IDs are saved.
 from __future__ import annotations
 
 import json
+from collections import Counter
 from pathlib import Path
 import re
 import sys
@@ -48,7 +49,15 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
             raise ValueError("LXX reference returned a non-verse TF node")
         return node
 
-    audit = CopticLxxCoverageAudit(source_commit=COPTIC_SOURCE_PIN, lookup=lookup)
+    def lxx_subverses(verse_node: int) -> tuple[str, ...]:
+        # Native LXX subverse nodes may cover all words in a Greek verse.
+        # Keep them separate from the existence of the enclosing verse node.
+        return tuple(str(node) for node in api.L.d(verse_node, otype="subverse"))
+
+    audit = CopticLxxCoverageAudit(
+        source_commit=COPTIC_SOURCE_PIN, lookup=lookup,
+        subverse_lookup=lxx_subverses,
+    )
     files: list[tuple[str, Path]] = []
     for path in coptic_root.rglob("*"):
         if not path.is_file() or ".git" in path.relative_to(coptic_root).parts:
@@ -106,6 +115,22 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         raise ValueError("unexpected Coptic undetermined source denominator")
     if report["totals"]["verse_position_events"] != 29:
         raise ValueError("missing or reclassified source-internal verse markers")
+    anomalies = report["ot_source_anomaly_cases"]
+    if anomalies["scanned_ot_records"] != 1574:
+        raise ValueError("OT anomaly scope no longer matches pinned source census")
+    if anomalies["counts"] != {
+        "gapped": 309,
+        "missing_or_nonpositive_literal": 153,
+    }:
+        raise ValueError(
+            f"OT anomalous verse-marker census differs from #107: {anomalies['counts']}"
+        )
+    if len(anomalies["cases"]) != 462:
+        raise ValueError("not all 462 OT anomaly occurrences were retained")
+    if any(case["greek_status"] == "not_checked" for case in anomalies["cases"]):
+        raise ValueError("LXX source anomaly analysis left cases unchecked")
+    if any(case["source_sha256"] is None for case in anomalies["cases"]):
+        raise ValueError("source-byte provenance missing from anomaly case")
     topology = report["marker_topology"]
     if topology["source_records"] != 2628:
         raise ValueError("missing source documents in verse-tag topology audit")
@@ -140,6 +165,9 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         "ot_word_statuses": report["ot_word_statuses"],
         "verse_position_events": report["totals"]["verse_position_events"],
         "marker_topology_categories": topology["categories"],
+        "ot_marker_anomaly_counts": anomalies["counts"],
+        "ot_marker_anomaly_cases": len(anomalies["cases"]),
+        "ot_greek_crosscheck_statuses": dict(sorted(Counter(case["greek_status"] for case in anomalies["cases"]).items())),
         "marker_topology_by_scope": {
             scope: {"source_records": row["source_records"],
                     "opening_verse_n_tags": row["opening_verse_n_tags"],

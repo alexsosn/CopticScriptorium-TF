@@ -13,6 +13,8 @@ from .lxx_reference import CANDIDATE_STATUSES, resolve_coptic_lxx_references
 from .model import DocumentModel
 from .ot_inventory import classify_biblical_record
 from .verse_marker_topology import VerseMarkerTopologyAudit
+from .ot_verse_anomalies import CopticOtVerseAnomalyBatch
+from .lxx_reference import _source_book
 
 COPTIC_SOURCE_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
 SCHEMA = "coptic_lxx_reference_coverage_v1"
@@ -37,11 +39,15 @@ class CopticLxxCoverageAudit:
         *,
         source_commit: str,
         lookup: Callable[[str, int, int], int | None],
+        subverse_lookup: Callable[[int], tuple[str, ...]] | None = None,
     ):
         if source_commit != COPTIC_SOURCE_PIN:
             raise ValueError("unsupported pinned Coptic source revision")
         self._source_commit = source_commit
         self._lookup = lookup
+        self._subverse_lookup = subverse_lookup
+        self._greek_anomalies_checked = False
+        self._ot_anomalies = CopticOtVerseAnomalyBatch(source_commit=source_commit)
         self._seen: dict[str, str] = {}
         self._source_scopes: Counter[str] = Counter()
         self._refs: Counter[str] = Counter()
@@ -104,6 +110,20 @@ class CopticLxxCoverageAudit:
         self._seen[key] = document.source_record_id
         evidence = classify_biblical_record(document.corpus, document.metadata)
         self._source_scopes[evidence.status] += 1
+        book, issue = _source_book(document) if evidence.status == "ot_candidate" else (None, None)
+        raw_cts = (document.metadata.get("document_cts_urn") or "")
+        edition = raw_cts.rsplit(":", 1)[0].rsplit(".", 1)[-1] if raw_cts else None
+        self._ot_anomalies.add(
+            document.source_text, document.source_record_id,
+            source_sha256=document.source_sha256,
+            scope=evidence.status, corpus=document.corpus,
+            cts_work=(
+                f"{evidence.cts_scope}.{evidence.cts_work}"
+                if evidence.cts_scope and evidence.cts_work else None
+            ),
+            chapter=document.metadata.get("chapter"), edition=edition,
+            lxx_book=(book if not issue else None),
+        )
         self._total_words += len(document.words)
         self._marker_topology.add(
             document.source_text, document.source_record_id, scope=evidence.status
@@ -172,6 +192,12 @@ class CopticLxxCoverageAudit:
         )
 
     def report(self) -> dict[str, object]:
+        if self._subverse_lookup is not None and not self._greek_anomalies_checked:
+            self._ot_anomalies.inspect_greek(
+                verse_lookup=self._lookup,
+                subverse_lookup=self._subverse_lookup,
+            )
+            self._greek_anomalies_checked = True
         def sorted_counts(counter: Counter[str]) -> dict[str, int]:
             return dict(sorted(counter.items()))
 
@@ -201,6 +227,7 @@ class CopticLxxCoverageAudit:
             },
             "source_scopes": sorted_counts(self._source_scopes),
             "marker_topology": self._marker_topology.report(),
+            "ot_source_anomaly_cases": self._ot_anomalies.report(),
             "ot_reference_statuses": sorted_counts(self._refs),
             "ot_word_statuses": sorted_counts(self._words),
             "ot_reference_reason_counts": sorted_counts(self._reasons),
