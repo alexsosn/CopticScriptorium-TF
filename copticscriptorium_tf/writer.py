@@ -103,6 +103,28 @@ def _metadata_feature_name(key: str) -> str:
     return f"meta__hex_{key.encode('utf-8').hex()}"
 
 
+def _source_attr_feature_name(tag: str, key: str) -> str:
+    """Injective, native node feature for one original source tag/key."""
+    if not _META_SAFE_RE.fullmatch(tag) or not isinstance(key, str) or not key:
+        raise ValueError("invalid original TT source attribute identity")
+    if _META_SAFE_RE.fullmatch(key):
+        return f"tt_attr_{tag}_{key}"
+    return f"tt_attr_{tag}__hex_{key.encode('utf-8').hex()}"
+
+
+def _source_attr_descriptors(graph: Graph) -> tuple[tuple[str, str, str], ...]:
+    descriptors: dict[str, tuple[str, str]] = {}
+    for node in graph.nodes:
+        for key, literal in node.source_attributes:
+            if not isinstance(literal, str):
+                raise ValueError("TT source attribute must have a string literal")
+            name = _source_attr_feature_name(node.otype, key)
+            prev = descriptors.setdefault(name, (node.otype, key))
+            if prev != (node.otype, key):
+                raise ValueError(f"TT source attribute feature name collision: {name}")
+    return tuple((name, tag, key) for name, (tag, key) in sorted(descriptors.items()))
+
+
 def _ud_key_feature_name(field: str, key: str) -> str:
     """Map a literal FEATS/MISC key to a deterministic TF-safe feature name.
 
@@ -441,6 +463,8 @@ def _projection_specs(graph: Graph):
         yield ("ud", spec)
     for descriptor in _ud_key_descriptors(graph):
         yield ("ud_key", descriptor)
+    for descriptor in _source_attr_descriptors(graph):
+        yield ("source_attr", descriptor)
     for feature_name in _EDGE_FEATURES:
         yield ("edge", feature_name)
     yield ("otext", None)
@@ -532,6 +556,18 @@ def _project_batch(graph: Graph, spec):
                 values = slot.ud.feats if field == "feat" else slot.ud.misc
                 _put_scalar(data, feature_name, slot.id, values.get(key), "str")
         metadata = _batch_metadata(graph, (feature_name, "str", False))
+        metadata[feature_name]["sourceKey"] = key
+        return {feature_name: data}, {}, metadata
+
+    if kind == "source_attr":
+        feature_name, tag, key = detail
+        data: dict[int, str] = {}
+        for node in graph.nodes:
+            if node.otype == tag:
+                attrs = dict(node.source_attributes)
+                _put_scalar(data, feature_name, node.id, attrs.get(key), "str")
+        metadata = _batch_metadata(graph, (feature_name, "str", False))
+        metadata[feature_name]["sourceTag"] = tag
         metadata[feature_name]["sourceKey"] = key
         return {feature_name: data}, {}, metadata
 
