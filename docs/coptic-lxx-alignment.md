@@ -95,6 +95,19 @@ and **per-record TT SHA-256**. A mismatched source-byte identity is not
 silently accepted as a same-number reference. Sahidic `ot.zech.coptot`
 and unrelated works/chapters are never shifted.
 
+**Measured post-crosswalk source/Greek coverage.** The real pinned full-corpus
+audit (CI run `38122380197`, job `114419601027`, exact Coptic/LXX
+upstream Git revisions) reports **21,117 distinct Greek verse-address IDs**
+and preserves all **2,394,354 Coptic word slots**. This is three fewer
+Greek IDs than the historical 21,120-address number-only baseline because
+the unreviewed tail loses unjustified Greek reference IDs. Native Coptic
+word statuses are: ordinary `reference_candidate` 1,071,829,
+`versification_candidate` 344, `unresolved` 12,807,
+`ambiguous` 257, `unclassified_corpus` 1,309,117. These statuses
+measure reproducible edition-qualified *reference candidates*, not a
+translation alignment. Full native TF reload acceptance is a separate CI
+gate.
+
 **Fail-closed remainder:** Because Bohairic Zechariah chapter 2 has
 source-specific numbering, **verses 2:7 onward remain `ambiguous`**
 until independently audited; they must not silently map to existing
