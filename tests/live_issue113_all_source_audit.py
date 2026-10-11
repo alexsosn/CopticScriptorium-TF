@@ -18,6 +18,7 @@ if str(ROOT) not in sys.path:
 from tf.fabric import Fabric
 from copticscriptorium_tf.nt_reference import resolve_coptic_sbl_references
 from copticscriptorium_tf.nt_reference_audit import CandidateAudit
+from copticscriptorium_tf.nt_source_diagnostics import NonCandidateInventory
 from copticscriptorium_tf.parser import parse_tt_record
 from copticscriptorium_tf.sbl_source_census import records, expected_sbl
 
@@ -64,6 +65,7 @@ def audit(coptic_root: Path, greek_root: Path) -> dict:
         return api.T.sectionFromNode(node)
 
     counter = CandidateAudit()
+    anomalies = NonCandidateInventory()
     for record, source_path, raw, packaging in records(coptic_root):
         originals = expected_sbl(raw)
         if not originals:
@@ -78,11 +80,23 @@ def audit(coptic_root: Path, greek_root: Path) -> dict:
             raise ValueError(f"TT source annotation literal/order changed: {record}")
         refs = resolve_coptic_sbl_references(doc, lookup=lookup)
         counter.add(record, originals, refs, reverse_lookup=reverse)
+        anomalies.add(record, originals, refs)
     result = counter.finish(
         expected_physical=EXPECTED_RECORDS,
         expected_annotated=EXPECTED_ANNOTATED,
         expected_kinds=EXPECTED_KINDS,
     )
+    result["noncandidate_source_shapes"] = anomalies.finish(
+        expected_statuses={
+            "reference_candidate": 2301,
+            "ambiguous": 437,
+            "unresolved": 9,
+        },
+        expected_annotated=EXPECTED_ANNOTATED,
+        expected_total=sum(EXPECTED_KINDS.values()),
+    )
+    if result["noncandidate_source_shapes"]["statuses"] != result["statuses"]:
+        raise ValueError("source diagnosis and Greek NT candidate audit statuses disagree")
     result["coptic_source_pin"] = COPTIC_PIN
     result["greek_parent_pin"] = GREEK_PIN
     return result
