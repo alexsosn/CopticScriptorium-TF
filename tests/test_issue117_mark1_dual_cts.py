@@ -36,7 +36,7 @@ def document(*, record=CANON, verse=3, vid_verse=None, include_vid=True,
         f'{meta}{verse_open}{editor_open}{vid_open}'
         f'<{kind} {kind}="{greek}">'
         '<norm_group norm_group="ⲁ">'
-        '<norm xml:id="u1" norm="ⲁ" func="root">ⲁ</norm>'
+        '<norm xml:id="u1" norm="ⲁ" new_sent="true" func="root">ⲁ</norm>'
         '</norm_group>'
     )
     if extra_word:
