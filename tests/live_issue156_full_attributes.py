@@ -7,7 +7,9 @@ or contents are published.
 from __future__ import annotations
 
 from collections import Counter
+import html
 import json
+import re
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -16,9 +18,27 @@ from zipfile import ZipFile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from copticscriptorium_tf.parser import (
-    TAG_RE, _scan_attrs, _visible_piece, parse_tt_record,
-)
+from copticscriptorium_tf.parser import TAG_RE, _visible_piece, parse_tt_record
+
+# Independently parse the original TT opening attributes: do not reuse
+# production _scan_attrs, whose mistakes this regression is meant to catch.
+_ORIGINAL_ATTR = re.compile(r'\\s+([A-Za-z_][A-Za-z0-9_.:-]*)\\s*=\\s*"([^"]*)"')
+
+
+def original_attributes(raw: str) -> tuple[tuple[str, str], ...]:
+    values = []
+    pos = 0
+    while pos < len(raw):
+        if not raw[pos:].strip():
+            break
+        match = _ORIGINAL_ATTR.match(raw, pos)
+        if match is None:
+            raise AssertionError(f"malformed source wrapper attribute at {pos}")
+        values.append((match[1], html.unescape(match[2])))
+        pos = match.end()
+    if len(set(key for key, _ in values)) != len(values):
+        raise AssertionError("duplicate original TT source attribute")
+    return tuple(sorted(values))
 from copticscriptorium_tf.graph import build_graph
 from copticscriptorium_tf.writer import write_graph, _source_attr_feature_name
 from tf.fabric import Fabric
@@ -56,10 +76,10 @@ def scan(raw: bytes, source: str):
         if name not in KINDS:
             continue
         if not closing:
-            attrs, _ = _scan_attrs(m.group(3))
+            attrs = original_attributes(m.group(3))
             row = {
                 "kind": name,
-                "attributes": tuple(sorted(attrs.items())),
+                "attributes": attrs,
                 "start_word_ordinal": closed_words+1 if in_norm else None,
                 "start_char": char_offset if in_norm else None,
                 "start_after_word_ordinal": closed_words,
