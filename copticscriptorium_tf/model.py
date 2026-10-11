@@ -5,6 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Mapping
 
+# Inside-norm TT wrappers requiring source-exact positional conservation.
+# Source evidence is not a certified whole-word morphological analysis.
+TOKEN_WRAPPER_TYPES = (
+    "morph", "norm_func", "norm_head", "norm_xml:id", "norm_new_sent",
+)
+
 
 @dataclass(frozen=True, slots=True)
 class Word:
@@ -148,3 +154,5 @@ class DocumentModel:
     sbl_annotations: tuple[SblAnnotation, ...] = ()
     # Separate upstream language wrapper occurrences; not SBL Greek text.
     language_annotations: tuple[SblAnnotation, ...] = ()
+    # One opening-ordered occurrence track for crossed token-internal TT tags.
+    token_annotations: tuple[SblAnnotation, ...] = ()
