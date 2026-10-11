@@ -97,5 +97,63 @@ class SourceAnomalyBatchTests(unittest.TestCase):
         self.assertEqual(batch.report()["cases"][0]["greek_status"], "source_reference_unclassified")
 
 
+    def test_invalid_marker_kinds_remain_distinguishable_and_reconcile(self):
+        batch, scope = self.make()
+        text = (
+            '<meta chapter="2">'
+            '<verse_n verse_n="1">'
+            '<verse_n verse_n="4">'  # a numeric gap, not an invalid marker
+            '<verse_n verse_n="0">'
+            '<verse_n verse_n="00">'
+            '<verse_n verse_n="-3">'
+            '<verse_n verse_n="">'
+            '<verse_n verse_n="not numbered">'
+            '<verse_n verse_n="٣">'
+            '<verse_n>'  # attribute entirely absent
+        )
+        batch.add(
+            text, "sahidic.ruth/sahidic.ruth:Ruth_02",
+            source_sha256=H, scope=scope, corpus="sahidic.ruth",
+            cts_work="ot.ruth", chapter="2", edition="test",
+            lxx_book="Ruth",
+        )
+        report = batch.report()
+        rows = report["cases"]
+        self.assertEqual([row["invalid_literal_class"] for row in rows], [
+            None,
+            "zero_literal", "zero_literal", "signed_nonpositive_literal",
+            "empty_literal", "nondecimal_literal", "nondecimal_literal",
+            "missing_attribute",
+        ])
+        self.assertEqual(report["invalid_literal_classes"], {
+            "empty_literal": 1,
+            "missing_attribute": 1,
+            "nondecimal_literal": 2,
+            "signed_nonpositive_literal": 1,
+            "zero_literal": 2,
+        })
+        self.assertEqual(sum(report["invalid_literal_classes"].values()),
+                         report["counts"]["missing_or_nonpositive_literal"])
+        self.assertEqual(report["counts"]["gapped"], 1)
+        self.assertEqual(report["by_work_edition_kind"]["ot.ruth|test|gapped"], 1)
+
+    def test_invalid_marker_subtype_does_not_guess_lxx_address(self):
+        batch, scope = self.make()
+        batch.add(
+            '<verse_n verse_n="0"><verse_n><verse_n verse_n="-1">',
+            "sahidic.ruth/ruth:one", source_sha256=H,
+            scope=scope, corpus="sahidic.ruth",
+            cts_work="ot.ruth", chapter="2", edition="test", lxx_book="Ruth",
+        )
+        batch.inspect_greek(
+            verse_lookup=lambda *key: self.fail("unbounded source reference must not query Greek"),
+            subverse_lookup=lambda node: self.fail("no Greek subverse inference"),
+        )
+        report = batch.report()
+        self.assertEqual([x["greek_status"] for x in report["cases"]],
+                         ["not_inferable"] * 3)
+        self.assertEqual([x["greek_missing_intermediate"] for x in report["cases"]],
+                         [[], [], []])
+
 if __name__ == "__main__":
     unittest.main()
