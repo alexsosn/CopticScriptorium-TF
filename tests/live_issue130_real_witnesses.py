@@ -80,7 +80,7 @@ def main(coptic_source: Path, greek_parent: Path) -> None:
             locations=[str(coptic_parent), str(modules / "coptic")],
             silent="deep",
         ).load(
-            "source_record_id source_word_ordinal coptic_lxx_ref_id "
+            "source_record_id source_word_ordinal verse_n coptic_lxx_ref_id "
             "coptic_lxx_ref_status", silent="deep"
         )
         greek = Fabric(
