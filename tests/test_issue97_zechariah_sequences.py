@@ -5,7 +5,8 @@ from types import SimpleNamespace
 import unittest
 
 from tests.live_issue97_zechariah_sequences import (
-    classify_cts, translation_tokens, normalized_tokens, compare_token_sequences,\n    motif_score,
+    classify_cts, translation_tokens, normalized_tokens, compare_token_sequences,
+    motif_score,
 )
 
 
