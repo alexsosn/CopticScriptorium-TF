@@ -16,3 +16,14 @@
 
 ## Scope
 This is a single batch that makes all **309** existing source-gap cases auditable. It does **not** invent LXX alignment evidence, add word slots, create new corpus copies, assign passage equivalence, or close Coptic #70/#75/#92/#108.
+
+## Independent adversarial review finding (pre-CI)
+The legacy human-readable aggregate key `work|edition` is **not injective**:
+a missing CTS work and a literal source value `<missing>` can display under
+the same key, and a literal work/edition containing `|` can also collide.
+Preserve `gapped_work_edition_groups` with separately typed nullable
+`source_cts_work` and `source_edition` as the authoritative grouping, tested
+against these adversarial cases. Keep `gapped_work_edition_counts` only as a
+backward-friendly **display aggregate**; never use it to deduplicate edition
+identities or drive alignment decisions. The full pinned CI reconciles the
+structured counts as well as the display counts against all 309 events.
