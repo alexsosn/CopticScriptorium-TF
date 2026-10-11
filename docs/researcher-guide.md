@@ -351,8 +351,7 @@ coptic = Fabric(
 lxx = Fabric(
     locations=[lxx_tf_dir, weft_lxx_dir], silent="deep"
 ).load(
-    "book chapter verse subverse coptic_lxx_ref_id "
-    "coptic_lxx_source_span_count", silent="deep"
+    "book chapter verse subverse coptic_lxx_ref_id", silent="deep"
 )
 
 result = find_coptic_witnesses(coptic, lxx, "Ruth", 2, 1)
@@ -364,7 +363,12 @@ Every `word_nodes` value in the returned Coptic witness spans is local to
 the **Coptic** warp; `result.lxx_node` belongs only to the Greek warp.
 The shared string `CenterBLC/LXX:1935:Ruth:2:1` joins them safely.
 Discontinuous Coptic runs and distinct source witnesses remain separate.
-The Greek module's declared count is a source **candidate span** count,
+The source-locked Greek module contains `coptic_lxx_ref_id` but **does not**
+provide `coptic_lxx_source_span_count`. The legacy two-module writer may
+provide that optional count; in that case load the count feature explicitly,
+and the helper validates its positive value. In the current source-locked
+module, `result.declared_coptic_source_span_count is None` rather than a
+fabricated count. Any declared count is a source **candidate span** count,
 not a token count, lexically aligned word count, or scholarly verification.
 
 The helper uses Text-Fabric's inverse feature index to avoid scanning every
