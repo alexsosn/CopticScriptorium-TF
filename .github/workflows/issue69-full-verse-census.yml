@@ -118,6 +118,29 @@ jobs:
           python tests/live_issue146_full_native.py "$RUNNER_TEMP/issue110-full-native/tf" pinned-coptic
           python tests/live_issue109_profile_gate.py "$RUNNER_TEMP/issue110-full-report.json"
 
+      # Adversarial release gate: adding new native non-slot node types changes
+      # local TF warp IDs. Regenerate BOTH reference wefts against that exact
+      # warp and reload independently, rather than trusting an old pilot.
+      - name: Checkout pinned read-only Greek NT parent for native weft compatibility
+        uses: actions/checkout@v4
+        with:
+          repository: alexsosn/sblgnt
+          ref: 4dd0207bda66133fdfa9740ff0aae7de61228700
+          path: pinned-greek
+          persist-credentials: false
+
+      - name: Verify reference-wrapper graph remains compatible with complete NT wefts
+        timeout-minutes: 7
+        run: |
+          python research/issue_120/full_nt_wefts.py project pinned-coptic pinned-greek \
+            --coptic-tf "$RUNNER_TEMP/issue110-full-native/tf" \
+            --wefts "$RUNNER_TEMP/issue146-native-nt-wefts" \
+            --output "$RUNNER_TEMP/issue146-weft-project.json"
+          python research/issue_120/full_nt_wefts.py verify pinned-coptic pinned-greek \
+            --coptic-tf "$RUNNER_TEMP/issue110-full-native/tf" \
+            --wefts "$RUNNER_TEMP/issue146-native-nt-wefts" \
+            --output "$RUNNER_TEMP/issue146-weft-verify.json"
+
       - name: Report full-source operational resource diagnostics
         if: always()
         run: |
