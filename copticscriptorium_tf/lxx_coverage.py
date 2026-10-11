@@ -12,6 +12,7 @@ from typing import Callable
 from .lxx_reference import CANDIDATE_STATUSES, resolve_coptic_lxx_references
 from .model import DocumentModel
 from .ot_inventory import classify_biblical_record
+from .verse_marker_topology import VerseMarkerTopologyAudit
 
 COPTIC_SOURCE_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
 SCHEMA = "coptic_lxx_reference_coverage_v1"
@@ -57,6 +58,7 @@ class CopticLxxCoverageAudit:
         self._total_words = 0
         self._ot_words = 0
         self._midword_events = 0
+        self._marker_topology = VerseMarkerTopologyAudit()
 
     @staticmethod
     def _new_group() -> dict[str, object]:
@@ -103,6 +105,7 @@ class CopticLxxCoverageAudit:
         evidence = classify_biblical_record(document.corpus, document.metadata)
         self._source_scopes[evidence.status] += 1
         self._total_words += len(document.words)
+        self._marker_topology.add(document.source_text, document.source_record_id)
         self._midword_events += sum(
             event.kind in {"verse_n_marker", "vid_n_marker", "verse_vid_marker"}
             for event in document.layout_events
@@ -195,6 +198,7 @@ class CopticLxxCoverageAudit:
                 "distinct_candidate_lxx_verses": len(self._candidate_greek_verses),
             },
             "source_scopes": sorted_counts(self._source_scopes),
+            "marker_topology": self._marker_topology.report(),
             "ot_reference_statuses": sorted_counts(self._refs),
             "ot_word_statuses": sorted_counts(self._words),
             "ot_reference_reason_counts": sorted_counts(self._reasons),
