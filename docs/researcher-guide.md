@@ -71,6 +71,7 @@ without a parallel JSON/XML structure.
 | line | physical-layout segment |
 | ed_line_n / ed_lb_n | numbered edition line annotations; preserve literal page/line numbering |
 | ed_page_n / ed_pg_n | numbered edition page annotations, distinct from manuscript pagination |
+| multiword | upstream TT grouping over existing normalized words; original Coptic word slots are unchanged |
 | verse_n_marker / vid_n_marker / verse_vid_marker | source reference marker inside an unsplit word, with exact character offset; not a whole-word verse membership |
 | entity | entity annotation spanning one or more words |
 | translation | English translation segment with its own text |
@@ -86,6 +87,36 @@ express:
   norm_group rather than through an orig child.
 
 These directions matter when using E.parent.f(), E.direct_word.f(), or TF Search.
+
+### Source multiword groupings
+
+A `multiword` node preserves the literal value of one upstream TT
+`<multiword multiword="...">` annotation. It groups existing normalized Coptic
+word slots; it does **not** add a single synthetic token or replace the
+individual source word morphology, dependency edges, or CoNLL-U annotations.
+
+~~~python
+for node in api.F.otype.s("multiword")[:10]:
+    print(
+        api.F.source_record_id.v(node),
+        api.F.source_ordinal.v(node),
+        api.F.value.v(node),             # original grouped Coptic surface label
+        api.F.render_mode.v(node),       # multiword_span / multiword_anchor
+        tuple(api.E.oslots.s(node)),     # existing Coptic word slots
+    )
+~~~
+
+`multiword_span` indicates fully covered words in the source annotation.
+`multiword_anchor` denotes a positional source event for which complete-word
+containment is not warranted; inspect the native start/end word and character
+offsets rather than interpreting `oslots` as semantic membership. The
+`value` can preserve original whitespace and must not be reconstructed by
+blindly concatenating normalized words. Upstream word-level TT `func`,
+`head_literal` and separate `ud_head` edges retain their own provenance;
+a source `multiword` tag does not prove a UD `fixed` dependency.
+
+The full source-data rationale and known limits are in
+`research/issue-143/RESEARCH_PLAN.md`.
 
 ## Normalized and diplomatic text
 
