@@ -6,6 +6,9 @@ on:
       - 'copticscriptorium_tf/nt_reference.py'
       - 'tests/test_issue113_nt_reference.py'
       - 'tests/live_issue113_nt_reference.py'
+      - 'tests/live_issue113_all_source_audit.py'
+      - 'tests/test_issue113_all_source_audit.py'
+      - 'copticscriptorium_tf/nt_reference_audit.py'
       - '.github/workflows/issue113-nt.yml'
   workflow_dispatch:
 
@@ -33,7 +36,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_issue113_*.py' -v
       - name: Install pinned native Text-Fabric
         run: python -m pip install 'text-fabric==13.1.0'
-      - name: Checkout pinned Coptic Mark / 1Cor TT evidence
+      - name: Checkout pinned complete physical TT evidence (sparse)
         uses: actions/checkout@v4
         with:
           repository: CopticScriptorium/corpora
@@ -42,9 +45,8 @@ jobs:
           filter: blob:none
           sparse-checkout-cone-mode: false
           sparse-checkout: |
-            /sahidica.mark/sahidica.mark_TT/Mark_02.tt
-            /sahidica.1corinthians/sahidica.1corinthians_TT/1Cor_02.tt
-            /coptic-treebank/coptic.treebank_TT/Mark_02.tt
+            /*/*_TT/**
+            /*/*_TT.zip
           persist-credentials: false
       - name: Checkout independent exact pinned Greek NT parent
         uses: actions/checkout@v4
@@ -53,5 +55,17 @@ jobs:
           ref: 4dd0207bda66133fdfa9740ff0aae7de61228700
           path: pinned-greek
           persist-credentials: false
-      - name: Verify real Coptic SBL wrappers against Greek verse nodes
+      - name: Verify real Mark/1Cor Greek NT verse candidates
         run: python tests/live_issue113_nt_reference.py pinned-coptic pinned-greek
+      - name: Audit all 2628 source TT records and 2747 NT SBL annotations
+        run: python tests/live_issue113_all_source_audit.py pinned-coptic pinned-greek > "$RUNNER_TEMP/nt-candidate-full-census.json"
+      - name: Show source-free full-corpus result
+        run: cat "$RUNNER_TEMP/nt-candidate-full-census.json"
+      - name: Upload source-free review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nt-candidate-full-source-census
+          path: ${{ runner.temp }}/nt-candidate-full-census.json
+          if-no-files-found: ignore
+          retention-days: 14
