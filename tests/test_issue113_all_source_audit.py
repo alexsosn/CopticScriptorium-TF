@@ -101,7 +101,8 @@ class AllSourceAuditTests(unittest.TestCase):
         report = a.finish(expected_physical=1, expected_annotated=1,
                           expected_kinds={"sbl_greek": 1})
         self.assertNotIn("λόγος", str(report))
-        self.assertNotIn("source_annotation", str(report))
+        self.assertNotIn("⸀λόγος· ", str(report))
+        self.assertIn("source_annotation_kinds", report)
 
 
 if __name__ == "__main__":
