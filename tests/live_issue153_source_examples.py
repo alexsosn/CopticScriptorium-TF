@@ -35,7 +35,13 @@ def main(root: Path) -> None:
             k: len(re.findall(rb"<" + re.escape(k.encode("ascii")) + rb"\s", raw))
             for k in KINDS
         })
-        observed = Counter(a.kind for a in doc.editorial_annotations)
+        # #153 audits only its twelve original single-literal wrapper kinds.
+        # Later #156 also places exact original gap/supplied/abbr occurrences
+        # into editorial_annotations. Those are distinct, source-conserved
+        # annotations; do not count them as unexpected #153 source openings.
+        observed = Counter(
+            a.kind for a in doc.editorial_annotations if a.kind in KINDS
+        )
         assert observed == +opening, (rel,opening,observed)
         assert [a.ordinal for a in doc.editorial_annotations] == list(
             range(1,len(doc.editorial_annotations)+1)
