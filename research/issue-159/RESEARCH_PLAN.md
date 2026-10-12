@@ -35,3 +35,11 @@ Parser currently uses opening-order `SblAnnotation` (one source literal plus exa
 - Actual source coverage reconciles to 8,827 source tag openings; all 2,628 source records parse and no word-slot changes
 - No sidecars/blob features, synthetic word creation or unsupported ontology identification
 - Exact-head CI + independent adversarial review + squash merge
+
+
+## Rebase research / adversarial integration correction (2026-10-12)
+- Issue #156's separately reviewed PR #157 was **already merged** at `f71886e12d86...` while this label work developed; it owns 4,647 original `gap/supplied/abbr` events, their independently typed native TF nodes and original source-attribute provenance. Its dispatch/import/validation edits overlap this branch textually, though the data are separate.
+- The previous #160 real pinned source audit failed **not on the 8,827 labels** but because the three selected raw example documents include witness CTS references outside that three-document sample. The production full-corpus witness relation derivation must **remain fail-closed**; the isolated label-node smoke explicitly builds with `document_relations=()`, testing precisely source shape and native warp.
+- This branch was recreated from the post-#157, post-#147 main and **three-way merged per source line**: both wrapper-family registrations, both parser opening/closing occurrence stacks, both document model fields, both graph node render states, both graph validations, existing intervention source-attribute projection, and all original tests. Old branch was not overwritten.
+- Independent new RED tests reject forged kinds in `entity_label_annotations` on the source model and require an original `gap reason="lost"` and source `entity_identity="Sarah"` **within the same Coptic norm token** to survive native TF reload simultaneously. This surfaced the need to register entity-label instances in `_check_document`'s source-annotation validation loop as well as the graph's node validator.
+- Full immutable 565-file / 2,628-record source scan is required to recheck exactly 8,827 labels and unchanged 2,394,354 word slots, plus the full streamed bilateral Coptic-LXX TF module gate that necessarily reruns on a changed warp. Do not merge on synthetic checks alone. Independently review source-attribute provenance and positional label integrity after CI.
