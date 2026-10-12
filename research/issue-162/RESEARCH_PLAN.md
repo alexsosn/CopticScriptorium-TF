@@ -1,0 +1,11 @@
+# Issue 162: six original TT page/paragraph/witness provenance annotation types
+
+Pinned source: CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5. Original source source-tag matrix: pb_coptic_id=714, p_n=386, p=293, p_source=157, pb_n=74, lb_nb=38; total 1662 source openings across 2628 original TT physical records, including ZIP.
+
+Real source samples: Pistis Sophia book 4 part 3 pb_coptic_id="ⲧ̅ⲛ̅ⲃ̅.ⲁ." (combining marks); Besa Exhortations p_n="I.1"; AP Ephrem 01 p="p"; Life Aphou 02 p_source="PATHS"; magical papyri Pap.Copt.Mag.I_7 lb_nb="1". Pb_n requires independently reading actual pinned source at full checkout, because large Thomas Gospel returns no lightweight GitHub file content.
+
+Research → RED → GREEN → native source parity → adversarial review:
+- Preserve original kind, decoded value, physical record and opening ordinal, start/end source word/char positions. Treat marked complete Coptic words as document_span; partial or zero-word attestation as positional document_anchor, never fabricated full-word membership. Separate all six source occurrences from canonical Coptic biblical references and Greek/LXX verse IDs. Respect crossed SGML-like TT markup.
+- RED fixture tests for literal combining characters, Roman reference label, crossed p_source/p and pb_n/lb_nb, original TT word/head untouched, midword anchor, missing/orphan/unclosed failure and clean native Text-Fabric reload. Implement six appended native non-slot otypes with own per-source opening ordinals.
+- Independently rescan every original source TT record (plain/ZIP) for exact source kind/decoded literal/source occurrence identity and start/end after-completed-norm word positions; require exactly all 1662 original events match reloaded TF. Retain 2394354 word slots, 2628 documents, preceding 8827 entity names, 4647 interventions, 10817 editorial, 16761 reference, 35148 multiword and 43735 edition, UD parity and RSS profiling in ONE pinned full conversion.
+- Independent skeptical review of actual source/code/CI on immutable head before merge. Parent issue 118 stays open. trans_horner (385 originals) is explicitly excluded pending an independent translation-specific schema audit. This branch is stacked on draft PR 161, so do not launch parallel expensive source CI before its merge.
