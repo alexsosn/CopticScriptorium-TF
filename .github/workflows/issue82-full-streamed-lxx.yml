@@ -6,6 +6,12 @@ on:
       - '.github/workflows/issue82-full-streamed-lxx.yml'
       - 'copticscriptorium_tf/lxx_module.py'
       - 'copticscriptorium_tf/lxx_versification.py'
+      # New native parent node types change the warp used by additive
+      # Coptic↔LXX wefts. Rebuild both modules on schema-changing PRs.
+      - 'copticscriptorium_tf/model.py'
+      - 'copticscriptorium_tf/parser.py'
+      - 'copticscriptorium_tf/_graph_core.py'
+      - 'copticscriptorium_tf/writer.py'
       - 'tests/test_issue82_streaming_modules.py'
       - 'tests/live_issue82_full_modules.py'
       - 'research/issue-82/**'
