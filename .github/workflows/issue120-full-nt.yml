@@ -16,6 +16,8 @@ on:
       - 'tests/test_issue120_*.py'
       - 'copticscriptorium_tf/nt_modules.py'
       - 'copticscriptorium_tf/nt_reference.py'
+      - 'tests/test_issue117_mark1_dual_cts.py'
+      - 'tests/live_issue117_mark1_cts.py'
       - 'copticscriptorium_tf/nt_paired_verse.py'
       - 'tests/live_issue117_paired.py'
       - 'tests/test_issue117_paired_verse.py'
@@ -31,7 +33,7 @@ permissions:
 
 jobs:
   full-native-nt-weft-gate:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'validate/issue120-full-native-nt-wefts' || github.event.pull_request.head.ref == 'validate/issue126-mark15-edition-absence' || github.event.pull_request.head.ref == 'feat/issue117-paired-1cor14-verse-evidence' || github.event.pull_request.head.ref == 'research/issue137-graph-storage-census'
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'validate/issue120-full-native-nt-wefts' || github.event.pull_request.head.ref == 'validate/issue126-mark15-edition-absence' || github.event.pull_request.head.ref == 'feat/issue117-paired-1cor14-verse-evidence' || github.event.pull_request.head.ref == 'validate/issue117-mark1-dual-cts' || github.event.pull_request.head.ref == 'research/issue137-graph-storage-census'
     runs-on: ubuntu-latest
     timeout-minutes: 100
     env:
@@ -56,6 +58,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_issue120_*.py' -v
           python -m unittest discover -s tests -p 'test_issue126_*.py' -v
           python -m unittest discover -s tests -p 'test_issue137_*.py' -v
+          python -m unittest discover -s tests -p 'test_issue117_mark1_dual_cts.py' -v
       - name: Checkout exact Coptic TT directories and ZIP packages
         uses: actions/checkout@v4
         with:
@@ -83,6 +86,8 @@ jobs:
         run: python tests/live_issue126_mark15.py upstream pinned-greek > "$RUNNER_TEMP/issue120-mark15-proof.json"
       - name: Verify complete pinned 1Cor14 dual-labelled source verse audit
         run: python tests/live_issue117_paired.py upstream pinned-greek > "$RUNNER_TEMP/issue120-1cor14-paired.json"
+      - name: Independently verify both original pinned Mark1 witnesses and Greek verse nodes
+        run: python tests/live_issue117_mark1_cts.py upstream pinned-greek > "$RUNNER_TEMP/issue120-mark1-dual-cts.json"
       - name: Run existing full 2628-document converter and clean native reload
         run: |
           PROFILE_ARGS=()
