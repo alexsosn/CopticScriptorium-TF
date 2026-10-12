@@ -101,13 +101,51 @@ def _positive_int(value: str | None) -> int | None:
 
 
 def _group_words(document: DocumentModel) -> tuple[tuple[Word, ...], ...]:
+    # A source chapter boundary is an independent structural event. Splitting
+    # here prevents two adjacent verse_n="1" runs from being fused when the
+    # editor resets verse numbering at an embedded chapter boundary.
+    boundaries = {
+        event.start_after_word_ordinal + 1
+        for event in document.reference_annotations
+        if event.kind == "chapter_n"
+    }
     groups: list[list[Word]] = []
     for word in document.words:
-        if not groups or groups[-1][-1].verse_n != word.verse_n:
+        if (
+            not groups
+            or groups[-1][-1].verse_n != word.verse_n
+            or word.ordinal in boundaries
+        ):
             groups.append([word])
         else:
             groups[-1].append(word)
     return tuple(tuple(group) for group in groups)
+
+
+def _embedded_chapter_risk(
+    document: DocumentModel,
+    group: tuple[Word, ...],
+    document_chapter: int | None,
+) -> str | None:
+    """Block unreviewed chapter transitions; do not assign a Greek chapter."""
+    first, last = group[0].ordinal, group[-1].ordinal
+    for event in document.reference_annotations:
+        if event.kind != "chapter_n":
+            continue
+        # A source marker after this group cannot invalidate earlier words.
+        if event.start_after_word_ordinal >= last:
+            continue
+        # A marker inside a norm has a real character offset, not a
+        # whole-word locus. A Greek verse address must not be fabricated.
+        if (
+            event.start_word_ordinal is not None
+            and first <= event.start_word_ordinal <= last
+        ):
+            return "source chapter_n starts inside an unsplit Coptic word"
+        marker_chapter = _positive_int(event.value)
+        if marker_chapter is None or marker_chapter != document_chapter:
+            return "source chapter_n conflicts with document chapter metadata"
+    return None
 
 
 def _unique_markers(group: tuple[Word, ...], field: str) -> set[str]:
@@ -171,6 +209,7 @@ def resolve_coptic_lxx_references(
         cts = next(iter(cts_set)) if len(cts_set) == 1 else None
         label = next(iter(label_set)) if len(label_set) == 1 else None
         chapter = _positive_int(document.metadata.get("chapter"))
+        embedded_chapter_issue = _embedded_chapter_risk(document, group, chapter)
         verse = _positive_int(raw_verse)
         reason: str = ""
         status: MappingStatus = "unresolved"
@@ -192,6 +231,8 @@ def resolve_coptic_lxx_references(
             )
         elif document_issue:
             status, reason = "ambiguous", document_issue
+        elif embedded_chapter_issue:
+            status, reason = "ambiguous", embedded_chapter_issue
         elif not chapter or not verse:
             status, reason = "unresolved", "no valid positive chapter/verse source reference"
         elif len(cts_set) > 1 or len(label_set) > 1:
