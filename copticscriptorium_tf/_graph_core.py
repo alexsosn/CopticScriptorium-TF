@@ -261,6 +261,7 @@ def _check_document(document: DocumentModel) -> None:
         *((item, "reference") for item in document.reference_annotations),
         *((item, "editorial") for item in document.editorial_annotations),
         *((item, "intervention") for item in document.intervention_annotations),
+        *((item, "entity_label") for item in document.entity_label_annotations),
     ):
         accepted_kinds = (
             TOKEN_WRAPPER_TYPES if expected_kind == "token" else
@@ -269,6 +270,7 @@ def _check_document(document: DocumentModel) -> None:
             REFERENCE_WRAPPER_TYPES if expected_kind == "reference" else
             EDITORIAL_WRAPPER_TYPES if expected_kind == "editorial" else
             INTERVENTION_WRAPPER_TYPES if expected_kind == "intervention" else
+            ENTITY_LABEL_WRAPPER_TYPES if expected_kind == "entity_label" else
             ("lang",) if expected_kind == "lang" else ("sbl_greek", "sbl_apparatus")
         )
         if not isinstance(annotation.value, str) or annotation.kind not in accepted_kinds:
