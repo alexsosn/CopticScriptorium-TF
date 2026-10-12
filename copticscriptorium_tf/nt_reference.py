@@ -106,6 +106,28 @@ def _git_blob_for_document(document: DocumentModel) -> str:
     return sha1(f"blob {len(raw)}".encode("ascii") + bytes((0,)) + raw).hexdigest()
 
 
+
+def _source_model_matches_original_tt(document: DocumentModel) -> bool:
+    """Do not let a genuine Git blob attest forged in-memory word/SBL objects."""
+    from .parser import parse_tt_record
+
+    original = parse_tt_record(
+        document.source_text.encode("utf-8"),
+        source_record_id=document.source_record_id,
+        source_path=document.source_path,
+        packaging=document.packaging,
+        upstream_repository=document.upstream_repository,
+        upstream_commit=document.upstream_commit,
+    )
+    return (
+        original.source_sha256 == document.source_sha256
+        and original.metadata == document.metadata
+        and original.metadata_duplicates == document.metadata_duplicates
+        and original.words == document.words
+        and original.sbl_annotations == document.sbl_annotations
+    )
+
+
 def _pinned_1cor1_short_vid(
     *, record: str, source_git_blob: str, ordinal: int, kind: str,
     chapter: int | None, verse: int | None,
@@ -255,7 +277,7 @@ def resolve_coptic_sbl_references(
                     source_git_blob=_git_blob_for_document(document),
                     ordinal=annotation.ordinal, kind=annotation.kind,
                     chapter=chapter, verse=verse, vid=vid, label=label,
-                )
+                ) and _source_model_matches_original_tt(document)
             if short_1cor1:
                 evidence = "book+chapter+document_cts_urn+verse_n+verse_vid+gitblob-verified-short-vid_n+" + annotation.kind
             # Actual Mark TT chapters may omit vid_n entirely. Accept that
