@@ -28,6 +28,12 @@ CTS_DOCUMENT = re.compile(r"^urn:cts:copticLit:nt\.([a-z0-9]+)\.sahidica_ed:([1-
 CTS_VERSE = re.compile(r"^urn:cts:copticLit:nt\.([a-z0-9]+)\.sahidica_ed:([1-9][0-9]*)\.([1-9][0-9]*)$")
 VERSE_LABEL = re.compile(r"^(41N|46N) ([1-9][0-9]*):([1-9][0-9]*)$")
 MORPHGNT_ABSENT = frozenset({("Mark", 15, 28), ("John", 7, 53)} | {("John", 8, n) for n in range(1, 12)})
+# Only these two source identities have the independently checked original
+# Mark 1 verse_n + CTS vid_n tags with no verse_vid layer.
+MARK1_DUAL_CTS_RECORDS = frozenset({
+    "sahidica.mark/sahidica.mark:Mark_01",
+    "coptic-treebank/coptic.treebank:Mark_01",
+})
 
 Status = Literal["reference_candidate", "unresolved", "ambiguous",
                  "edition_unavailable", "unclassified_source"]
@@ -183,13 +189,32 @@ def resolve_coptic_sbl_references(
         else:
             verse_cts = CTS_VERSE.fullmatch(vid) if vid is not None else None
             verse_label = VERSE_LABEL.fullmatch(label or "")
+            # Pinned Mark_01 source witnesses retain TWO agreeing original
+            # word-scope markers (verse_n and CTS vid_n), but omit the editor
+            # verse_vid layer. Unlike one-marker Mark10/11, these can support
+            # a verse-address candidate. Fail closed for crossed/shifted
+            # sbl_greek values that actually contain an editor ref.
+            dual_mark1_cts = (
+                document.source_record_id in MARK1_DUAL_CTS_RECORDS
+                and book == "Mark" and chapter == 1
+                and label is None
+                and verse_cts is not None
+                and not (annotation.kind == "sbl_greek" and (
+                    not (annotation.value or "").strip()
+                    or VERSE_LABEL.fullmatch((annotation.value or "").strip())
+                    or CTS_VERSE.fullmatch((annotation.value or "").strip())
+                ))
+            )
+            if dual_mark1_cts:
+                evidence = "book+chapter+document_cts_urn+verse_n+vid_n+" + annotation.kind
             # Actual Mark TT chapters may omit vid_n entirely. Accept that
             # absence only when the Coptic verse_n, document CTS and explicit
             # verse_vid editor reference corroborate each other.
-            if not doc_cts or not verse_label or (vid is not None and not verse_cts):
+            if not doc_cts or (not verse_label and not dual_mark1_cts) or (vid is not None and not verse_cts):
                 status, reason = "ambiguous", "missing or malformed source NT reference evidence"
             elif (doc_cts.group(1) != documented_work
-                  or verse_label.group(1) != documented_label
+                  or (verse_label is not None
+                      and verse_label.group(1) != documented_label)
                   or chapter is None or verse is None
                   or _positive(doc_cts.group(2)) != chapter
                   or (verse_cts is not None and (
@@ -197,8 +222,10 @@ def resolve_coptic_sbl_references(
                       or _positive(verse_cts.group(2)) != chapter
                       or _positive(verse_cts.group(3)) != verse
                   ))
-                  or _positive(verse_label.group(2)) != chapter
-                  or _positive(verse_label.group(3)) != verse):
+                  or (verse_label is not None and (
+                      _positive(verse_label.group(2)) != chapter
+                      or _positive(verse_label.group(3)) != verse
+                  ))):
                 status, reason = "ambiguous", "contradictory NT book/chapter/verse evidence"
             elif morphgnt_verse_is_absent(book, chapter, verse):
                 status, reason = "edition_unavailable", "verse absent from pinned MorphGNT edition"
