@@ -18,6 +18,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from copticscriptorium_tf.converter import convert_source_tree, _peak_rss_mb
+from copticscriptorium_tf.graph_storage import graph_storage_census
 
 UPSTREAM_REPOSITORY = "CopticScriptorium/corpora"
 UPSTREAM_COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
@@ -123,13 +124,15 @@ def _live_linux_rss_mb() -> float | None:
     return None
 
 
-def run(source_root: Path, work_root: Path, *, profile_memory: bool = False) -> dict[str, object]:
+def run(source_root: Path, work_root: Path, *, profile_memory: bool = False,
+        profile_graph: bool = False) -> dict[str, object]:
     tf_dir = work_root / "tf"
     if work_root.exists():
         shutil.rmtree(work_root)
     work_root.mkdir(parents=True)
 
     snapshots: list[dict[str, object]] = []
+    graph_measurements: list[dict[str, object]] = []
     started = monotonic()
 
     def measure(phase: str) -> None:
@@ -146,6 +149,8 @@ def run(source_root: Path, work_root: Path, *, profile_memory: bool = False) -> 
         upstream_repository=UPSTREAM_REPOSITORY,
         upstream_commit=UPSTREAM_COMMIT,
         phase_probe=measure if profile_memory else None,
+        graph_probe=(lambda graph: graph_measurements.append(
+            graph_storage_census(graph))) if profile_graph else None,
     )
     reload_report = _reload_and_check(tf_dir, result)
     if profile_memory:
@@ -158,6 +163,10 @@ def run(source_root: Path, work_root: Path, *, profile_memory: bool = False) -> 
     report["purpose"] = "converter/resource regression; not corpus certification"
     if profile_memory:
         report["memory_profile"] = snapshots
+    if profile_graph:
+        if len(graph_measurements) != 1:
+            raise RuntimeError("full native graph probe was not invoked exactly once")
+        report["graph_storage_profile"] = graph_measurements[0]
     return report
 
 
@@ -168,11 +177,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--profile-memory", action="store_true",
                         help="capture opt-in RSS/peak at conversion phase boundaries")
+    parser.add_argument("--profile-graph", action="store_true",
+                        help="capture source-free GraphSlot/Node/Edge storage histogram")
     args = parser.parse_args(argv)
 
     try:
         report = run(args.source_root, args.work_root,
-                     profile_memory=args.profile_memory)
+                     profile_memory=args.profile_memory,
+                     profile_graph=args.profile_graph)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(
             json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
