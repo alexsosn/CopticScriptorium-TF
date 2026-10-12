@@ -30,6 +30,7 @@ from .model import (
     ALTERNATE_REFERENCE_WRAPPER_TYPES,
     RESIDUAL_SOURCE_WRAPPER_TYPES,
     RESIDUAL_SOURCE_ATTRIBUTE,
+    HORNER_TRANSLATION_WRAPPER_TYPES,
     Translation,
     Word,
 )
@@ -146,6 +147,7 @@ def parse_tt_record(
         **{kind: [] for kind in DOCUMENT_SOURCE_WRAPPER_TYPES},
         **{kind: [] for kind in ALTERNATE_REFERENCE_WRAPPER_TYPES},
         **{kind: [] for kind in RESIDUAL_SOURCE_WRAPPER_TYPES},
+        **{kind: [] for kind in HORNER_TRANSLATION_WRAPPER_TYPES},
     }
     sbl_closed: list[dict[str, Any]] = []
     lang_closed: list[dict[str, Any]] = []
@@ -159,6 +161,7 @@ def parse_tt_record(
     document_source_closed: list[dict[str, Any]] = []
     alternate_reference_closed: list[dict[str, Any]] = []
     residual_closed: list[dict[str, Any]] = []
+    horner_translation_closed: list[dict[str, Any]] = []
     sbl_open_count = 0
     lang_open_count = 0
     token_open_count = 0
@@ -171,6 +174,7 @@ def parse_tt_record(
     document_source_open_count = 0
     alternate_reference_open_count = 0
     residual_open_count = 0
+    horner_translation_open_count = 0
     layout_events: list[LayoutEvent] = []
     current_word: dict[str, Any] | None = None
     # Preserve upstream literal verse references. They are not claimed to
@@ -272,6 +276,7 @@ def parse_tt_record(
                             "document_source" if name in DOCUMENT_SOURCE_WRAPPER_TYPES else
                             "alternate_reference" if name in ALTERNATE_REFERENCE_WRAPPER_TYPES else
                             "residual" if name in RESIDUAL_SOURCE_WRAPPER_TYPES else
+                            "horner_translation" if name in HORNER_TRANSLATION_WRAPPER_TYPES else
                             "lang" if name == "lang" else "sbl_")
                     raise ValueError(f"closing {kind} annotation without opening {name} in {source_record_id}")
                 item = sbl_open[name].pop()
@@ -313,6 +318,8 @@ def parse_tt_record(
                     alternate_reference_closed.append(item)
                 elif name in RESIDUAL_SOURCE_WRAPPER_TYPES:
                     residual_closed.append(item)
+                elif name in HORNER_TRANSLATION_WRAPPER_TYPES:
+                    horner_translation_closed.append(item)
                 else:
                     sbl_closed.append(item)
             elif name == "verse_n":
@@ -340,6 +347,9 @@ def parse_tt_record(
                 source_key = RESIDUAL_SOURCE_ATTRIBUTE[name]
                 if set(attrs) != {source_key}:
                     raise ValueError(f"residual {name} original source attribute mismatch in {source_record_id}")
+            elif name in HORNER_TRANSLATION_WRAPPER_TYPES:
+                if set(attrs) != {name}:
+                    raise ValueError(f"horner translation {name} original source attribute mismatch in {source_record_id}")
             elif name not in attrs:
                 kind = ("token" if name in TOKEN_WRAPPER_TYPES else
                         "edition" if name in EDITION_WRAPPER_TYPES else
@@ -351,6 +361,7 @@ def parse_tt_record(
                         "document_source" if name in DOCUMENT_SOURCE_WRAPPER_TYPES else
                         "alternate_reference" if name in ALTERNATE_REFERENCE_WRAPPER_TYPES else
                         "residual" if name in RESIDUAL_SOURCE_WRAPPER_TYPES else
+                        "horner_translation" if name in HORNER_TRANSLATION_WRAPPER_TYPES else
                         "lang" if name == "lang" else "sbl_")
                 raise ValueError(f"{kind} annotation {name} has no source value in {source_record_id}")
             # Preserve legacy SBL occurrence IDs. Source language wrappers
@@ -388,6 +399,9 @@ def parse_tt_record(
             elif name in RESIDUAL_SOURCE_WRAPPER_TYPES:
                 residual_open_count += 1
                 occurrence = residual_open_count
+            elif name in HORNER_TRANSLATION_WRAPPER_TYPES:
+                horner_translation_open_count += 1
+                occurrence = horner_translation_open_count
             else:
                 sbl_open_count += 1
                 occurrence = sbl_open_count
@@ -606,6 +620,8 @@ def parse_tt_record(
         raise ValueError(f"unclosed alternate_reference annotation in {source_record_id}")
     if any(sbl_open[kind] for kind in RESIDUAL_SOURCE_WRAPPER_TYPES):
         raise ValueError(f"unclosed residual annotation in {source_record_id}")
+    if any(sbl_open[kind] for kind in HORNER_TRANSLATION_WRAPPER_TYPES):
+        raise ValueError(f"unclosed horner translation annotation in {source_record_id}")
 
     if raw_words and (not sentence_starts or sentence_starts[0] != 1):
         raise ValueError(f"first word has no source sentence start in {source_record_id}")
@@ -756,6 +772,9 @@ def parse_tt_record(
         )),
         residual_annotations=tuple(SblAnnotation(**item) for item in sorted(
             residual_closed, key=lambda a: a["ordinal"]
+        )),
+        horner_translation_annotations=tuple(SblAnnotation(**item) for item in sorted(
+            horner_translation_closed, key=lambda a: a["ordinal"]
         )),
     )
 

@@ -79,6 +79,7 @@ without a parallel JSON/XML structure.
 | pb_coptic_id / p_n / p / p_source / pb_n / lb_nb | literal original page, paragraph and witness-provenance source tags, with positional span/anchor semantics |
 | verse / verse_n_vid_n / verse_n_vname / v_id / vid__n / chapter_name / ed_chapter_n / chapter_2 / ch_n / chapter | original alternate biblical/CTS/source reference literal spans or anchors; no inferred canonical LXX equivalence |
 | date_type / german / section_title / quote_ref / quote_type / gap_exent / hi / figDesc / figure / 18 other rare types | original low-frequency editorial/linguistic labels, preserving source attributes and span/anchor positions |
+| trans_horner | distinct original Horner English translation witness spanning source Coptic words; never overwritten by translation |
 | verse_n_marker / vid_n_marker / verse_vid_marker | source reference marker inside an unsplit word, with exact character offset; not a whole-word verse membership |
 | entity | entity annotation spanning one or more words |
 | translation | English translation segment with its own text |
@@ -360,6 +361,37 @@ and classification, not a verified biblical/LXX correspondence.
 Midword `figDesc` and `figure` are `residual_anchor` positional
 attestations, not claims that entire original Coptic words are figures.
 Source research: `research/issue-172/RESEARCH_PLAN.md`.
+
+### Horner's separate English translation witness
+
+The original `trans_horner` type, attested in *Pistis Sophia* book 1
+parts 1–3, is a **separate native non-slot TF node type** recording
+the literal English translation of Horner, not a Coptic word, a Greek
+verse label or a replacement for the existing original `translation`
+nodes. The three original plain TT files have 162, 136 and 87 events,
+respectively (385 total). All have genuine Coptic word ranges.
+
+~~~python
+for n in api.F.otype.s("trans_horner")[:5]:
+    print(
+        api.F.source_record_id.v(n),
+        api.F.source_ordinal.v(n),
+        api.F.value.v(n),         # exact original English Horner rendering
+        api.F.render_mode.v(n),   # horner_span / horner_anchor
+        tuple(api.E.oslots.s(n)),
+    )
+~~~
+
+In the pinned original TT, six Horner tags open *before* the corresponding
+source `translation` opening, owing to SGML-like crossed markup. Do
+not infer strict translation-node parenthood, cross-corpus alignment,
+or textual identity between Horner and the separately sourced English
+`translation`. Literal `...` source text is present rather than missing.
+`horner_span` means complete original Coptic norm words; a hypothetical
+partial-word annotation would be a positional `horner_anchor`.
+
+Primary-source research and exact release gate:
+`research/issue-173/RESEARCH_PLAN.md`.
 
 ## Normalized and diplomatic text
 
