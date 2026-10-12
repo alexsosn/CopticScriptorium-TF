@@ -103,7 +103,7 @@ def _git_blob_for_document(document: DocumentModel) -> str:
     raw = document.source_text.encode("utf-8")
     if sha256(raw).hexdigest() != document.source_sha256:
         raise ValueError("Coptic source bytes differ from document SHA256")
-    return sha1(f"blob {len(raw)}\\0".encode("ascii") + raw).hexdigest()
+    return sha1(f"blob {len(raw)}".encode("ascii") + bytes((0,)) + raw).hexdigest()
 
 
 def _pinned_1cor1_short_vid(
