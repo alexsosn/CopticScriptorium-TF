@@ -56,6 +56,8 @@ RESIDUAL_SOURCE_WRAPPER_TYPES = (
 )
 # Original <hi> has rend=... not hi=...; spelling is part of TT provenance.
 RESIDUAL_SOURCE_ATTRIBUTE = {k: ("rend" if k == "hi" else k) for k in RESIDUAL_SOURCE_WRAPPER_TYPES}
+# Source-alternative English translation for Pistis Sophia; distinct from translation.
+HORNER_WRAPPER_TYPES = ("trans_horner",)
 
 
 
@@ -220,3 +222,4 @@ class DocumentModel:
     document_source_annotations: tuple[SblAnnotation, ...] = ()
     alternate_reference_annotations: tuple[SblAnnotation, ...] = ()
     residual_annotations: tuple[SblAnnotation, ...] = ()
+    horner_annotations: tuple[SblAnnotation, ...] = ()
