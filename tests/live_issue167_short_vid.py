@@ -5,6 +5,7 @@ markers and independently pinned Greek NT verse-parent reverse sections.
 It emits source record IDs, counts and addresses only, no corpus text.
 """
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 import json
 import subprocess
@@ -105,6 +106,19 @@ def verify(coptic_root: Path, greek_root: Path) -> dict:
             raise ValueError("original 1Cor1:9 source/Greek target two-marker proof failed")
         if [r.source_ordinal for r in refs if "gitblob-verified-short-vid_n" in r.evidence] != [12]:
             raise ValueError("unreviewed short CTS marker promoted a source annotation")
+        # Independent adversarial pass: original bytes may be authentic while
+        # a caller mutates the in-memory parsed annotation or Coptic word.
+        altered = list(document.sbl_annotations)
+        altered[11] = replace(altered[11], value="forged source annotation")
+        modified = replace(document, sbl_annotations=tuple(altered))
+        if resolve_coptic_sbl_references(modified, lookup=lookup)[11].status == "reference_candidate":
+            raise ValueError("forged in-memory SBL annotation wrongly qualified by genuine source blob")
+        modified_words = list(document.words)
+        slot = ann.word_ordinals[0] - 1
+        modified_words[slot] = replace(modified_words[slot], norm="forged Coptic word")
+        modified = replace(document, words=tuple(modified_words))
+        if resolve_coptic_sbl_references(modified, lookup=lookup)[11].status == "reference_candidate":
+            raise ValueError("forged in-memory Coptic source word wrongly qualified by genuine blob")
         if any(r.status != "reference_candidate"
                and (r.target_node is not None or r.shared_id is not None)
                for r in refs):
