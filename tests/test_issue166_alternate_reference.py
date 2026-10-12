@@ -1,0 +1,108 @@
+"""#166 RED-first alternative source biblical/CTS reference preservation."""
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import unittest
+from tf.fabric import Fabric
+from copticscriptorium_tf.parser import parse_tt_record
+from copticscriptorium_tf.graph import build_graph, validate_graph
+from copticscriptorium_tf.writer import write_graph
+
+PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+KINDS = ("verse", "verse_n_vid_n", "verse_n_vname", "v_id", "vid__n",
+         "chapter_name", "ed_chapter_n", "chapter_2", "ch_n", "chapter")
+
+
+def parse(body):
+    return parse_tt_record(
+        ('<meta corpus="refs"><norm_group norm_group="x">'+body+'</norm_group>').encode(),
+        source_record_id="refs/refs:one",source_path="refs/refs_TT/one.tt",
+        upstream_repository="CopticScriptorium/corpora",upstream_commit=PIN,
+    )
+
+
+def word(i,text,root=False):
+    attrs='new_sent="true" func="root"' if root else 'func="obj" head="#u1"'
+    return f'<norm xml:id="u{i}" {attrs} norm="{text}">{text}</norm>'
+
+
+class AlternateSourceReferenceContract(unittest.TestCase):
+    def test_human_label_and_cts_label_independently_preserved(self):
+        doc=parse(
+            '<verse_n_vid_n verse_n_vid_n="urn:cts:copticLit:ot.jonah.coptot_ed:1.1">'
+            '<verse_n_vname verse_n_vname="Jonah 1:1">'
+            +word(1,"a",True)+word(2,"b")
+            +'</verse_n_vid_n></verse_n_vname>'
+        )
+        self.assertEqual([(a.kind,a.value,a.ordinal,a.word_ordinals)
+                          for a in doc.alternate_reference_annotations],[
+            ("verse_n_vid_n","urn:cts:copticLit:ot.jonah.coptot_ed:1.1",1,(1,2)),
+            ("verse_n_vname","Jonah 1:1",2,(1,2)),
+        ])
+        self.assertEqual(doc.words[1].dependency_head_ordinal,1)
+        graph=build_graph([doc])
+        self.assertFalse(validate_graph(graph))
+        self.assertEqual(len(graph.slots),2)
+        self.assertTrue(all(n.render_mode=="alternate_reference_span"
+                            for n in graph.nodes if n.otype in KINDS))
+
+    def test_source_verse_and_MWE_do_not_mutate_word_slots(self):
+        doc=parse('<verse verse="1 Corinthians 14:1">'
+                  '<multiword multiword="a b">'+word(1,"a",True)+word(2,"b")
+                  +'</multiword></verse>')
+        self.assertEqual(doc.alternate_reference_annotations[0].value,
+                         "1 Corinthians 14:1")
+        self.assertEqual(len(doc.words),2)
+        g=build_graph([doc])
+        self.assertFalse(validate_graph(g))
+        self.assertEqual(len([n for n in g.nodes if n.otype=="multiword"]),1)
+        self.assertEqual(len([n for n in g.nodes if n.otype=="verse"]),1)
+
+    def test_source_alias_double_underscore_never_normalized(self):
+        doc=parse('<v_id v_id="urn:cts:copticLit:shenoute.abraham.monbya:21.8">'
+                  '<vid__n vid__n="urn:cts:copticLit:ap.25.monbeg:1.1">'
+                  +word(1,"a",True)+'</v_id></vid__n>')
+        self.assertEqual([a.kind for a in doc.alternate_reference_annotations],
+                         ["v_id","vid__n"])
+        with TemporaryDirectory() as td:
+            dest=Path(td)/"tf"
+            write_graph(build_graph([doc]),dest)
+            api=Fabric(locations=[str(dest)],silent="deep").load(
+                "value source_ordinal render_mode dependency_head",silent="deep"
+            )
+            self.assertTrue(api)
+            self.assertEqual(api.F.otype.maxSlot,1)
+            self.assertEqual(api.F.value.v(api.F.otype.s("vid__n")[0]),
+                             "urn:cts:copticLit:ap.25.monbeg:1.1")
+
+    def test_edition_chapter_label_does_not_override_original_chapter(self):
+        doc=parse('<chapter_n chapter_n="0">'
+                  '<ed_chapter_n ed_chapter_n="1">'+word(1,"a",True)
+                  +'</chapter_n></ed_chapter_n>')
+        self.assertEqual(doc.reference_annotations[0].value,"0")
+        self.assertEqual(doc.alternate_reference_annotations[0].value,"1")
+        self.assertEqual(len(doc.words),1)
+
+    def test_midnorm_reference_is_source_position_only(self):
+        doc=parse('<norm xml:id="u1" new_sent="true" func="root" norm="abcd">'
+                  'a<chapter_name chapter_name="1 Corinthians 1">bc'
+                  '</chapter_name>d</norm>')
+        a=doc.alternate_reference_annotations[0]
+        self.assertEqual((a.start_char,a.end_char),(1,3))
+        self.assertEqual(a.word_ordinals,())
+        node=next(n for n in build_graph([doc]).nodes if n.otype=="chapter_name")
+        self.assertEqual((node.render_mode,node.slots),
+                         ("alternate_reference_anchor",(1,)))
+
+    def test_each_original_kind_missing_orphan_unclosed_fails_closed(self):
+        for kind in KINDS:
+            with self.subTest(kind=kind):
+                with self.assertRaisesRegex(ValueError,"without opening|closing"):
+                    parse(f'</{kind}>'+word(1,"a",True))
+                with self.assertRaisesRegex(ValueError,"unclosed"):
+                    parse(f'<{kind} {kind}="x">'+word(1,"a",True))
+                with self.assertRaisesRegex(ValueError,"no source value"):
+                    parse(f'<{kind}>'+word(1,"a",True)+f'</{kind}>')
+
+
+if __name__=="__main__":
+    unittest.main()
