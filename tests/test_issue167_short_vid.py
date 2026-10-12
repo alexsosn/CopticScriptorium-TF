@@ -4,6 +4,7 @@ import unittest
 
 from copticscriptorium_tf.nt_reference import (
     _pinned_1cor1_short_vid, _git_blob_for_document,
+    _source_model_matches_original_tt,
     resolve_coptic_sbl_references,
 )
 from copticscriptorium_tf.parser import parse_tt_record
@@ -65,6 +66,18 @@ class TruncatedOneCorinthiansCts(unittest.TestCase):
         self.assertEqual(c.status, "ambiguous")
         self.assertIsNone(c.target_node)
         self.assertEqual(c.source_vid_n, ".9")
+
+    def test_canonical_source_model_reparse_rejects_forged_annotation_and_words(self):
+        d=make_doc(book="1Cor",work="1cor",code="46N",chapter=1,verse=9)
+        self.assertTrue(_source_model_matches_original_tt(d))
+        bad_ann=replace(d.sbl_annotations[0],value="forged annotation")
+        self.assertFalse(_source_model_matches_original_tt(
+            replace(d,sbl_annotations=(bad_ann,))))
+        bad_word=replace(d.words[0],norm="forged Coptic token")
+        self.assertFalse(_source_model_matches_original_tt(
+            replace(d,words=(bad_word,))))
+        self.assertFalse(_source_model_matches_original_tt(
+            replace(d,metadata={**d.metadata,"book":"Mark"})))
 
     def test_source_text_mutation_without_digest_is_detected(self):
         d=make_doc(book="1Cor",work="1cor",code="46N",chapter=1,verse=9)
