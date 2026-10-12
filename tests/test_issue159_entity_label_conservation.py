@@ -157,6 +157,53 @@ class EntityLabelsNativeTFTests(unittest.TestCase):
         self.assertFalse(any(e.kind.startswith("ontology") or
                              e.kind.startswith("entity_label") for e in graph.edges))
 
+    def test_forged_entity_label_source_annotation_kind_fails_closed(self):
+        source = (
+            '<meta corpus="demo"><norm_group norm_group="x">'
+            '<norm xml:id="u1" new_sent="true" norm="a">'
+            '<entity_identity entity_identity="Sarah">a</entity_identity>'
+            '</norm></norm_group>'
+        )
+        document = parse(source)
+        annotation, = document.entity_label_annotations
+        poisoned = replace(
+            document, entity_label_annotations=(replace(annotation, kind="sbl_greek"),)
+        )
+        with self.assertRaisesRegex(ValueError, "invalid scholarly source annotation"):
+            build_graph((poisoned,))
+
+    def test_original_intervention_and_entity_label_share_token_without_data_loss(self):
+        source = (
+            '<meta corpus="demo"><norm_group norm_group="x">'
+            '<norm xml:id="u1" new_sent="true" norm="a">'
+            '<gap reason="lost"><entity_identity entity_identity="Sarah">'
+            'a</entity_identity></gap>'
+            '</norm></norm_group>'
+        )
+        document = parse(source)
+        self.assertEqual(
+            [(a.kind, a.value) for a in document.entity_label_annotations],
+            [("entity_identity", "Sarah")],
+        )
+        self.assertEqual(
+            [(a.kind, a.source_attributes) for a in document.intervention_annotations],
+            [("gap", (("reason", "lost"),))],
+        )
+        graph = build_graph((document,))
+        self.assertEqual(len(graph.slots), 1)
+        with TemporaryDirectory() as temp:
+            tf_dir = Path(temp) / "tf"
+            write_graph(graph, tf_dir)
+            api = Fabric(locations=[str(tf_dir)], silent="deep").load(
+                "value source_attr_gap_reason render_mode", silent="deep"
+            )
+            self.assertTrue(api)
+            (gap,) = api.F.otype.s("gap")
+            (label,) = api.F.otype.s("entity_identity")
+            self.assertEqual(api.F.source_attr_gap_reason.v(gap), "lost")
+            self.assertEqual(api.F.value.v(label), "Sarah")
+            self.assertEqual(api.F.otype.maxSlot, 1)
+
     def test_malformed_missing_unclosed_and_orphan_source_annotations_fail_closed(self):
         base = '<meta corpus="demo"><norm_group norm_group="x"><norm xml:id="u1" new_sent="true" norm="x">'
         end = 'x</norm></norm_group>'
