@@ -6,6 +6,7 @@ on:
       - '.github/workflows/issue70-real-lxx.yml'
       - 'tests/live_issue70_real_lxx.py'
       - 'tests/test_issue70_lxx_reference_candidates.py'
+      - 'tests/test_issue168_embedded_chapter_lxx.py'
       - 'copticscriptorium_tf/lxx_reference.py'
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - '.github/workflows/issue70-real-lxx.yml'
       - 'tests/live_issue70_real_lxx.py'
       - 'tests/test_issue70_lxx_reference_candidates.py'
+      - 'tests/test_issue168_embedded_chapter_lxx.py'
       - 'copticscriptorium_tf/lxx_reference.py'
 
 concurrency:
@@ -81,6 +83,7 @@ jobs:
         run: |
           python -m unittest tests.test_issue69_native_verse_references -v
           python -m unittest tests.test_issue70_lxx_reference_candidates -v
+          python -m unittest tests.test_issue168_embedded_chapter_lxx -v
 
       - name: Resolve real Ruth, Jonah and Habakkuk candidates against real LXX
         run: python tests/live_issue70_real_lxx.py real-coptic real-lxx/tf/1935
