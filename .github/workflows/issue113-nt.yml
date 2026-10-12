@@ -7,6 +7,8 @@ on:
       - 'copticscriptorium_tf/nt_paired_verse.py'
       - 'tests/test_issue117_paired_verse.py'
       - 'tests/live_issue117_paired.py'
+      - 'tests/test_issue117_mark1_dual_cts.py'
+      - 'tests/live_issue117_mark1_cts.py'
       - 'tests/test_issue113_nt_reference.py'
       - 'tests/live_issue113_nt_reference.py'
       - 'tests/live_issue113_all_source_audit.py'
@@ -73,6 +75,8 @@ jobs:
         run: python tests/live_issue113_nt_modules.py pinned-coptic pinned-greek
       - name: Inspect pinned 1Cor14 source word-label pairs against Greek parent
         run: python tests/live_issue117_paired.py pinned-coptic pinned-greek
+      - name: Verify dual CTS witnesses in pinned Mark1 with Greek parent reverse sections
+        run: python tests/live_issue117_mark1_cts.py pinned-coptic pinned-greek
       - name: Audit all 2628 source TT records and 2747 NT SBL annotations
         run: python tests/live_issue113_all_source_audit.py pinned-coptic pinned-greek > "$RUNNER_TEMP/nt-candidate-full-census.json"
       - name: Independently verify pinned Mark1/1Cor1 original TT attribute shapes
