@@ -76,6 +76,7 @@ without a parallel JSON/XML structure.
 | hi_rend / note / gap_reason / supplied_reason / note_note / gap_unit / supplied_source / gap_quantity / gap_extent / supplied_evidence / unclear_reason / unclear | literal editorial witness annotation spans/anchors over existing Coptic word slots |
 | gap / supplied / abbr | intervention/abbreviation wrappers with all original attributes in separate native scalar features |
 | entity_head_tok / entity_text / entity_identity / persName_type / placeName_type / placeName_ref / roleName_type / rs_type / org_type | source-attested entity/name labels with literal values and positions; no automatically verified ontology equivalence |
+| pb_coptic_id / p_n / p / p_source / pb_n / lb_nb | literal original page, paragraph and witness-provenance source tags, with positional span/anchor semantics |
 | verse_n_marker / vid_n_marker / verse_vid_marker | source reference marker inside an unsplit word, with exact character offset; not a whole-word verse membership |
 | entity | entity annotation spanning one or more words |
 | translation | English translation segment with its own text |
@@ -258,6 +259,37 @@ independent occurrence IDs rather than invented XML parent nesting.
 
 Primary source witnesses and restrictions are in
 `research/issue-159/RESEARCH_PLAN.md`.
+
+### Original page, paragraph and witness-provenance markers
+
+The original TT types `pb_coptic_id`, `p_n`, `p`, `p_source`,
+`pb_n` and `lb_nb` are preserved as **six native non-slot TF node
+types**, distinct from canonical book/chapter/verse or LXX mappings.
+Every node retains its original `source_record_id`, `source_ordinal`,
+decoded literal `value`, exact start/end word and word-relative character
+positions.
+
+~~~python
+for n in api.F.otype.s("pb_coptic_id")[:5]:
+    print(
+        api.F.source_record_id.v(n),
+        api.F.value.v(n),           # e.g. original Coptic page ID
+        api.F.render_mode.v(n),     # document_span / document_anchor
+        api.F.start_char.v(n),
+        api.F.end_char.v(n),
+        tuple(api.E.oslots.s(n)),
+    )
+~~~
+
+A `document_span` is a whole-word source range; `document_anchor`
+is only a positional marker. Literal Coptic combining characters, source
+Roman paragraph IDs such as `I.1` and witness provenance `PATHS` are
+not converted into invented integers, translations or authority links.
+Source annotations can cross verse, translation, page, entity and norm
+wrappers; no strict XML-tree nesting is assumed.
+
+See `research/issue-162/RESEARCH_PLAN.md`. The separate original
+`trans_horner` translation-specific family is not modeled in this batch.
 
 ## Normalized and diplomatic text
 
