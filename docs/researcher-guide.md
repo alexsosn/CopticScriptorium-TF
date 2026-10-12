@@ -79,6 +79,7 @@ without a parallel JSON/XML structure.
 | pb_coptic_id / p_n / p / p_source / pb_n / lb_nb | literal original page, paragraph and witness-provenance source tags, with positional span/anchor semantics |
 | verse / verse_n_vid_n / verse_n_vname / v_id / vid__n / chapter_name / ed_chapter_n / chapter_2 / ch_n / chapter | original alternate biblical/CTS/source reference literal spans or anchors; no inferred canonical LXX equivalence |
 | date_type / german / section_title / quote_ref / quote_type / gap_exent / hi / figDesc / figure / 18 other rare types | original low-frequency editorial/linguistic labels, preserving source attributes and span/anchor positions |
+| trans_horner | source-exact alternative English Horner translation witness text and positional span, separate from translation nodes |
 | verse_n_marker / vid_n_marker / verse_vid_marker | source reference marker inside an unsplit word, with exact character offset; not a whole-word verse membership |
 | entity | entity annotation spanning one or more words |
 | translation | English translation segment with its own text |
@@ -360,6 +361,41 @@ and classification, not a verified biblical/LXX correspondence.
 Midword `figDesc` and `figure` are `residual_anchor` positional
 attestations, not claims that entire original Coptic words are figures.
 Source research: `research/issue-172/RESEARCH_PLAN.md`.
+
+### Original Horner English translation witness for Pistis Sophia
+
+The 385 original TT source annotations named `trans_horner` are modeled
+as a **distinct native non-slot Text-Fabric node type**, preserving the
+literal English Horner translation and source word/character boundaries.
+They are not Coptic tokens and they do not overwrite the existing
+`translation` nodes or assert Greek, LXX, or NT text agreement.
+
+~~~python
+for n in api.F.otype.s("trans_horner")[:5]:
+    print(
+        api.F.source_record_id.v(n),
+        api.F.source_ordinal.v(n),
+        api.F.value.v(n),       # exact original Horner English source
+        api.F.render_mode.v(n), # horner_span or horner_anchor
+        tuple(api.E.oslots.s(n)),
+    )
+~~~
+
+Primary source inventory at the pinned upstream commit: Pistis Sophia
+book 1 part 1 has 162 Horner annotations, part 2 has 136, part 3
+has 87, and the other 25 TT files none. All are complete source word
+spans; the implementation also preserves positional `horner_anchor` for
+future or synthetic intra-word input. The first Horner text is
+"But it happened after that Jesus rose out of those who (are) dead,"
+while the existing translation of the same original Coptic words is
+"IT came to pass, when Jesus had risen from the dead,".
+
+Independent raw original source-range research finds that 376/385
+Horner spans share exact completed-norm-word boundaries with some
+existing translation and 9 do not; 6 are not even contained in a
+translation span. Thus **no inferred one-to-one translation-witness
+edge** is generated, even when original ranges coincide. See
+`research/issue-173/RESEARCH_PLAN.md` and exact original-source CI.
 
 ## Normalized and diplomatic text
 
