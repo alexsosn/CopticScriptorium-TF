@@ -41,6 +41,11 @@ ENTITY_SOURCE_WRAPPER_TYPES = (
 DOCUMENT_SOURCE_WRAPPER_TYPES = (
     "pb_coptic_id", "p_n", "p", "p_source", "pb_n", "lb_nb",
 )
+# Alternate upstream biblical/CTS identifiers: no inferred canonical crosswalk.
+ALTERNATE_REFERENCE_WRAPPER_TYPES = (
+    "verse", "verse_n_vid_n", "verse_n_vname", "v_id", "vid__n",
+    "chapter_name", "ed_chapter_n", "chapter_2", "ch_n", "chapter",
+)
 
 
 
@@ -203,3 +208,4 @@ class DocumentModel:
     # Original entity/name-label spans separate from interpreted entity nodes.
     entity_source_annotations: tuple[SblAnnotation, ...] = ()
     document_source_annotations: tuple[SblAnnotation, ...] = ()
+    alternate_reference_annotations: tuple[SblAnnotation, ...] = ()
