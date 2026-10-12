@@ -7,6 +7,7 @@ reference candidate, NOT certified Greek textual or word correspondence.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha1, sha256
 import re
 from typing import Callable, Literal
 
@@ -30,6 +31,11 @@ VERSE_LABEL = re.compile(r"^(41N|46N) ([1-9][0-9]*):([1-9][0-9]*)$")
 MORPHGNT_ABSENT = frozenset({("Mark", 15, 28), ("John", 7, 53)} | {("John", 8, n) for n in range(1, 12)})
 # Only these two source identities have the independently checked original
 # Mark 1 verse_n + CTS vid_n tags with no verse_vid layer.
+PINNED_1COR1_SHORT_VID_BLOB = "87b0c52de46be063c34aa343160103fa9603758a"
+PINNED_1COR1_SHORT_VID_RECORDS = frozenset({
+    "sahidica.1corinthians/sahidica.1corinthians:1Cor_01",
+    "coptic-treebank/coptic.treebank:1Cor_01",
+})
 MARK1_DUAL_CTS_RECORDS = frozenset({
     "sahidica.mark/sahidica.mark:Mark_01",
     "coptic-treebank/coptic.treebank:Mark_01",
@@ -89,6 +95,35 @@ def _source_verse_number(value: str | None, *, book: str | None, chapter: int | 
     if match.group(1) != expected_label or int(match.group(2)) != chapter:
         return None
     return int(match.group(3))
+
+
+
+def _git_blob_for_document(document: DocumentModel) -> str:
+    """Verify the original TT content, not an untrusted Git commit label."""
+    raw = document.source_text.encode("utf-8")
+    if sha256(raw).hexdigest() != document.source_sha256:
+        raise ValueError("Coptic source bytes differ from document SHA256")
+    return sha1(f"blob {len(raw)}\\0".encode("ascii") + raw).hexdigest()
+
+
+def _pinned_1cor1_short_vid(
+    *, record: str, source_git_blob: str, ordinal: int, kind: str,
+    chapter: int | None, verse: int | None,
+    vid: str | None, label: str | None,
+) -> bool:
+    """Only the TWO exact pinned physical 1Cor1:9 SBL witnesses may use '.9'.
+
+    The suffix is a defective original CTS field, NOT a general CTS syntax.
+    Require independent agreeing original verse_n and editor verse_vid,
+    original SBL ordinal/kind, and exact Git blob of the source document.
+    """
+    return (
+        record in PINNED_1COR1_SHORT_VID_RECORDS
+        and source_git_blob == PINNED_1COR1_SHORT_VID_BLOB
+        and type(ordinal) is int and ordinal == 12
+        and kind == "sbl_greek" and chapter == 1 and verse == 9
+        and vid == ".9" and label == "46N 1:9"
+    )
 
 
 def resolve_coptic_sbl_references(
@@ -207,10 +242,26 @@ def resolve_coptic_sbl_references(
             )
             if dual_mark1_cts:
                 evidence = "book+chapter+document_cts_urn+verse_n+vid_n+" + annotation.kind
+            short_1cor1 = False
+            if (
+                document.source_record_id in PINNED_1COR1_SHORT_VID_RECORDS
+                and annotation.kind == "sbl_greek"
+                and annotation.ordinal == 12
+                and book == "1_Corinthians" and chapter == 1 and verse == 9
+                and vid == ".9" and label == "46N 1:9"
+            ):
+                short_1cor1 = _pinned_1cor1_short_vid(
+                    record=document.source_record_id,
+                    source_git_blob=_git_blob_for_document(document),
+                    ordinal=annotation.ordinal, kind=annotation.kind,
+                    chapter=chapter, verse=verse, vid=vid, label=label,
+                )
+            if short_1cor1:
+                evidence = "book+chapter+document_cts_urn+verse_n+verse_vid+gitblob-verified-short-vid_n+" + annotation.kind
             # Actual Mark TT chapters may omit vid_n entirely. Accept that
             # absence only when the Coptic verse_n, document CTS and explicit
             # verse_vid editor reference corroborate each other.
-            if not doc_cts or (not verse_label and not dual_mark1_cts) or (vid is not None and not verse_cts):
+            if not doc_cts or (not verse_label and not dual_mark1_cts) or (vid is not None and not verse_cts and not short_1cor1):
                 status, reason = "ambiguous", "missing or malformed source NT reference evidence"
             elif (doc_cts.group(1) != documented_work
                   or (verse_label is not None
