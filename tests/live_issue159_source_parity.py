@@ -103,7 +103,12 @@ def main(root: Path):
     assert word_slots == 2394354, (word_slots, "canonical word slots changed")
     assert counts == Counter(EXPECTED), (dict(counts), EXPECTED)
     assert len(samples) == len(FOCUS), "missing real crossed/nested source witnesses"
-    graph = build_graph(samples)
+    # Narrow, independently pinned examples are intentionally NOT a complete
+    # scholarly witness collection. Auto-derived witness CTS edges demand the
+    # referenced physical records and appropriately fail on this subset.
+    # The gate below tests label-node conservation, not document witnesses;
+    # do not forge external witness targets into this three-record graph.
+    graph = build_graph(samples, document_relations=())
     assert len(graph.slots) == sum(len(doc.words) for doc in samples)
     with TemporaryDirectory(prefix="issue159-native-") as temp:
         output = Path(temp) / "tf"
