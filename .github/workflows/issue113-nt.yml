@@ -9,6 +9,9 @@ on:
       - 'tests/live_issue117_paired.py'
       - 'tests/test_issue117_mark1_dual_cts.py'
       - 'tests/live_issue117_mark1_cts.py'
+      - 'tests/test_issue167_short_vid.py'
+      - 'tests/live_issue167_short_vid.py'
+      - 'research/issue_167/**'
       - 'tests/test_issue113_nt_reference.py'
       - 'tests/live_issue113_nt_reference.py'
       - 'tests/live_issue113_all_source_audit.py'
@@ -50,6 +53,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -p 'test_issue113_*.py' -v
           python -m unittest discover -s tests -p 'test_issue117_*.py' -v
+          python -m unittest discover -s tests -p 'test_issue167_*.py' -v
       - name: Checkout pinned complete physical TT evidence (sparse)
         uses: actions/checkout@v4
         with:
@@ -75,6 +79,8 @@ jobs:
         run: python tests/live_issue113_nt_modules.py pinned-coptic pinned-greek
       - name: Inspect pinned 1Cor14 source word-label pairs against Greek parent
         run: python tests/live_issue117_paired.py pinned-coptic pinned-greek
+      - name: Verify exact original 1Cor1:9 short CTS suffix against pinned Greek parent
+        run: python tests/live_issue167_short_vid.py pinned-coptic pinned-greek
       - name: Verify dual CTS witnesses in pinned Mark1 with Greek parent reverse sections
         run: python tests/live_issue117_mark1_cts.py pinned-coptic pinned-greek
       - name: Audit all 2628 source TT records and 2747 NT SBL annotations
