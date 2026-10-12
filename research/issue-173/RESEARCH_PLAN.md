@@ -1,0 +1,9 @@
+Issue #173 research and RED-first test plan.
+
+Pinned original CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5. Primary source Pistis Sophia book1 part1,2,3 TT Git blobs 9294caf1, f8804acb, 6496701b have exactly 162+136+87 = 385 balanced trans_horner opening/closing pairs. All have one original trans_horner attribute. Their word spans run from 5 to 261 original Coptic norm slots, none zero, some literal values exactly three dots. Book1 parts4-8 have none. Horner text is a distinct English translation witness from existing translation annotation. Six of 385 Horner openings precede their nearest translation opening in crossed SGML-like upstream source markup; never require XML parent nesting.
+
+Research -> RED tests: assert independent Horner English literal and existing translation for same original Coptic word slots, original CTS/edition source positions and opening ordinal, crossed Horner opening before existing translation, legitimate three-dot literal, intra-norm source anchor, orphan/missing/duplicate/unknown original attribute rejection, no TT word/head mutation, Fabric write/reload.
+
+GREEN: append exactly one native non-slot trans_horner otype with source_record_id, source_ordinal, original decoded value, original word/character start/end coordinates, horner_span vs horner_anchor. Keep existing translation and Arabic distinct. No invented equivalence, no opaque XML/JSON blob.
+
+Full pinned one-checkout original TT conversion and independent complete raw-original scanner matches all 385 original source event kind/value/opening ordinal/record/after-completed-norm boundaries with native reloaded TF across 2628 plain+ZIP files. Preserve 2394354 Coptic word slots, prior 82 additional source kinds, all complete TT tag parity, CoNLL-U full parity and six-phase memory. Fresh independent skeptical review plus all applicable exact-head CI before merge; issue #118 remains open.
