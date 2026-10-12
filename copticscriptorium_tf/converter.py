@@ -18,7 +18,7 @@ from typing import Any, Callable
 
 from ._atomic import publish_path_no_clobber as _publish_summary_no_clobber
 from .conllu import attach_conllu_supplements
-from .graph import build_graph
+from .graph import Graph, build_graph
 from .parser import parse_source_tree
 from .writer import write_graph
 
@@ -93,6 +93,7 @@ def convert_source_tree(
     upstream_repository: str,
     upstream_commit: str,
     phase_probe: Callable[[str], None] | None = None,
+    graph_probe: Callable[[Graph], None] | None = None,
 ) -> ConversionResult:
     """Convert one supported TT source tree to a native local TF dataset.
 
@@ -141,6 +142,10 @@ def convert_source_tree(
     edges = len(graph.edges)
     if phase_probe is not None:
         phase_probe("graph_built")
+    if graph_probe is not None:
+        # Opt-in: inspect the already-built native graph in place. Never
+        # retain it in an additional cache or change the default code path.
+        graph_probe(graph)
 
     # The graph is self-contained. Do not retain the complete parser model while
     # the writer constructs another large representation for Fabric.save().
