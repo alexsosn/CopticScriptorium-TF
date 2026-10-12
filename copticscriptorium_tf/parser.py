@@ -25,6 +25,7 @@ from .model import (
     EDITORIAL_WRAPPER_TYPES,
     INTERVENTION_WRAPPER_TYPES,
     INTERVENTION_WRAPPER_KEYS,
+    ENTITY_LABEL_WRAPPER_TYPES,
     Translation,
     Word,
 )
@@ -137,6 +138,7 @@ def parse_tt_record(
         **{kind: [] for kind in REFERENCE_WRAPPER_TYPES},
         **{kind: [] for kind in EDITORIAL_WRAPPER_TYPES},
         **{kind: [] for kind in INTERVENTION_WRAPPER_TYPES},
+        **{kind: [] for kind in ENTITY_LABEL_WRAPPER_TYPES},
     }
     sbl_closed: list[dict[str, Any]] = []
     lang_closed: list[dict[str, Any]] = []
@@ -146,6 +148,7 @@ def parse_tt_record(
     reference_closed: list[dict[str, Any]] = []
     editorial_closed: list[dict[str, Any]] = []
     intervention_closed: list[dict[str, Any]] = []
+    entity_label_closed: list[dict[str, Any]] = []
     sbl_open_count = 0
     lang_open_count = 0
     token_open_count = 0
@@ -154,6 +157,7 @@ def parse_tt_record(
     reference_open_count = 0
     editorial_open_count = 0
     intervention_open_count = 0
+    entity_label_open_count = 0
     layout_events: list[LayoutEvent] = []
     current_word: dict[str, Any] | None = None
     # Preserve upstream literal verse references. They are not claimed to
@@ -249,6 +253,7 @@ def parse_tt_record(
                             "edition" if name in EDITION_WRAPPER_TYPES else
                             "multiword" if name in MULTIWORD_WRAPPER_TYPES else
                             "reference" if name in REFERENCE_WRAPPER_TYPES else
+                            "entity label" if name in ENTITY_LABEL_WRAPPER_TYPES else
                             "editorial" if name in EDITORIAL_WRAPPER_TYPES else
                             "intervention" if name in INTERVENTION_WRAPPER_TYPES else
                             "lang" if name == "lang" else "sbl_")
@@ -284,6 +289,8 @@ def parse_tt_record(
                     editorial_closed.append(item)
                 elif name in INTERVENTION_WRAPPER_TYPES:
                     intervention_closed.append(item)
+                elif name in ENTITY_LABEL_WRAPPER_TYPES:
+                    entity_label_closed.append(item)
                 else:
                     sbl_closed.append(item)
             elif name == "verse_n":
@@ -312,6 +319,7 @@ def parse_tt_record(
                         "edition" if name in EDITION_WRAPPER_TYPES else
                         "multiword" if name in MULTIWORD_WRAPPER_TYPES else
                         "reference" if name in REFERENCE_WRAPPER_TYPES else
+                        "entity label" if name in ENTITY_LABEL_WRAPPER_TYPES else
                         "editorial" if name in EDITORIAL_WRAPPER_TYPES else
                         "intervention" if name in INTERVENTION_WRAPPER_TYPES else
                         "lang" if name == "lang" else "sbl_")
@@ -339,6 +347,9 @@ def parse_tt_record(
             elif name in INTERVENTION_WRAPPER_TYPES:
                 intervention_open_count += 1
                 occurrence = intervention_open_count
+            elif name in ENTITY_LABEL_WRAPPER_TYPES:
+                entity_label_open_count += 1
+                occurrence = entity_label_open_count
             else:
                 sbl_open_count += 1
                 occurrence = sbl_open_count
@@ -548,6 +559,8 @@ def parse_tt_record(
         raise ValueError(f"unclosed editorial annotation in {source_record_id}")
     if any(sbl_open[kind] for kind in INTERVENTION_WRAPPER_TYPES):
         raise ValueError(f"unclosed intervention annotation in {source_record_id}")
+    if any(sbl_open[kind] for kind in ENTITY_LABEL_WRAPPER_TYPES):
+        raise ValueError(f"unclosed entity label annotation in {source_record_id}")
 
     if raw_words and (not sentence_starts or sentence_starts[0] != 1):
         raise ValueError(f"first word has no source sentence start in {source_record_id}")
@@ -686,6 +699,9 @@ def parse_tt_record(
         )),
         intervention_annotations=tuple(SblAnnotation(**item) for item in sorted(
             intervention_closed, key=lambda a: a["ordinal"]
+        )),
+        entity_label_annotations=tuple(SblAnnotation(**item) for item in sorted(
+            entity_label_closed, key=lambda a: a["ordinal"]
         )),
     )
 
