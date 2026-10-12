@@ -26,6 +26,7 @@ from .model import (
     INTERVENTION_WRAPPER_TYPES,
     INTERVENTION_WRAPPER_KEYS,
     ENTITY_SOURCE_WRAPPER_TYPES,
+    DOCUMENT_SOURCE_WRAPPER_TYPES,
     Translation,
     Word,
 )
@@ -139,6 +140,7 @@ def parse_tt_record(
         **{kind: [] for kind in EDITORIAL_WRAPPER_TYPES},
         **{kind: [] for kind in INTERVENTION_WRAPPER_TYPES},
         **{kind: [] for kind in ENTITY_SOURCE_WRAPPER_TYPES},
+        **{kind: [] for kind in DOCUMENT_SOURCE_WRAPPER_TYPES},
     }
     sbl_closed: list[dict[str, Any]] = []
     lang_closed: list[dict[str, Any]] = []
@@ -149,6 +151,7 @@ def parse_tt_record(
     editorial_closed: list[dict[str, Any]] = []
     intervention_closed: list[dict[str, Any]] = []
     entity_source_closed: list[dict[str, Any]] = []
+    document_source_closed: list[dict[str, Any]] = []
     sbl_open_count = 0
     lang_open_count = 0
     token_open_count = 0
@@ -158,6 +161,7 @@ def parse_tt_record(
     editorial_open_count = 0
     intervention_open_count = 0
     entity_source_open_count = 0
+    document_source_open_count = 0
     layout_events: list[LayoutEvent] = []
     current_word: dict[str, Any] | None = None
     # Preserve upstream literal verse references. They are not claimed to
@@ -256,6 +260,7 @@ def parse_tt_record(
                             "editorial" if name in EDITORIAL_WRAPPER_TYPES else
                             "intervention" if name in INTERVENTION_WRAPPER_TYPES else
                             "entity_source" if name in ENTITY_SOURCE_WRAPPER_TYPES else
+                            "document_source" if name in DOCUMENT_SOURCE_WRAPPER_TYPES else
                             "lang" if name == "lang" else "sbl_")
                     raise ValueError(f"closing {kind} annotation without opening {name} in {source_record_id}")
                 item = sbl_open[name].pop()
@@ -291,6 +296,8 @@ def parse_tt_record(
                     intervention_closed.append(item)
                 elif name in ENTITY_SOURCE_WRAPPER_TYPES:
                     entity_source_closed.append(item)
+                elif name in DOCUMENT_SOURCE_WRAPPER_TYPES:
+                    document_source_closed.append(item)
                 else:
                     sbl_closed.append(item)
             elif name == "verse_n":
@@ -322,6 +329,7 @@ def parse_tt_record(
                         "editorial" if name in EDITORIAL_WRAPPER_TYPES else
                         "intervention" if name in INTERVENTION_WRAPPER_TYPES else
                         "entity_source" if name in ENTITY_SOURCE_WRAPPER_TYPES else
+                        "document_source" if name in DOCUMENT_SOURCE_WRAPPER_TYPES else
                         "lang" if name == "lang" else "sbl_")
                 raise ValueError(f"{kind} annotation {name} has no source value in {source_record_id}")
             # Preserve legacy SBL occurrence IDs. Source language wrappers
@@ -350,6 +358,9 @@ def parse_tt_record(
             elif name in ENTITY_SOURCE_WRAPPER_TYPES:
                 entity_source_open_count += 1
                 occurrence = entity_source_open_count
+            elif name in DOCUMENT_SOURCE_WRAPPER_TYPES:
+                document_source_open_count += 1
+                occurrence = document_source_open_count
             else:
                 sbl_open_count += 1
                 occurrence = sbl_open_count
@@ -561,6 +572,8 @@ def parse_tt_record(
         raise ValueError(f"unclosed intervention annotation in {source_record_id}")
     if any(sbl_open[kind] for kind in ENTITY_SOURCE_WRAPPER_TYPES):
         raise ValueError(f"unclosed entity_source annotation in {source_record_id}")
+    if any(sbl_open[kind] for kind in DOCUMENT_SOURCE_WRAPPER_TYPES):
+        raise ValueError(f"unclosed document_source annotation in {source_record_id}")
 
     if raw_words and (not sentence_starts or sentence_starts[0] != 1):
         raise ValueError(f"first word has no source sentence start in {source_record_id}")
@@ -702,6 +715,9 @@ def parse_tt_record(
         )),
         entity_source_annotations=tuple(SblAnnotation(**item) for item in sorted(
             entity_source_closed, key=lambda a: a["ordinal"]
+        )),
+        document_source_annotations=tuple(SblAnnotation(**item) for item in sorted(
+            document_source_closed, key=lambda a: a["ordinal"]
         )),
     )
 

@@ -38,6 +38,9 @@ ENTITY_SOURCE_WRAPPER_TYPES = (
     "persName_type", "placeName_type", "placeName_ref",
     "roleName_type", "rs_type", "org_type",
 )
+DOCUMENT_SOURCE_WRAPPER_TYPES = (
+    "pb_coptic_id", "p_n", "p", "p_source", "pb_n", "lb_nb",
+)
 
 
 
@@ -199,3 +202,4 @@ class DocumentModel:
     intervention_annotations: tuple[SblAnnotation, ...] = ()
     # Original entity/name-label spans separate from interpreted entity nodes.
     entity_source_annotations: tuple[SblAnnotation, ...] = ()
+    document_source_annotations: tuple[SblAnnotation, ...] = ()
