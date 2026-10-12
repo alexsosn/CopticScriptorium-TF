@@ -32,6 +32,12 @@ INTERVENTION_WRAPPER_KEYS = {
     "abbr": frozenset(("type",)),
 }
 INTERVENTION_WRAPPER_TYPES = tuple(INTERVENTION_WRAPPER_KEYS)
+# Source entity/name labels; no automatically certified ontology identity.
+ENTITY_SOURCE_WRAPPER_TYPES = (
+    "entity_head_tok", "entity_text", "entity_identity",
+    "persName_type", "placeName_type", "placeName_ref",
+    "roleName_type", "rs_type", "org_type",
+)
 
 
 
@@ -191,3 +197,5 @@ class DocumentModel:
     editorial_annotations: tuple[SblAnnotation, ...] = ()
     # Source-exact multi-attribute gap/supplied/abbr interventions.
     intervention_annotations: tuple[SblAnnotation, ...] = ()
+    # Original entity/name-label spans separate from interpreted entity nodes.
+    entity_source_annotations: tuple[SblAnnotation, ...] = ()
