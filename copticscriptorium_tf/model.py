@@ -19,6 +19,12 @@ REFERENCE_WRAPPER_TYPES = (
     "chapter_n", "marcion_chapter_n", "marcion_verse_n",
     "petermann_chapter_n", "petermann_verse_n",
 )
+# Source entity/name-label annotation occurrences, never ontology equivalences.
+ENTITY_LABEL_WRAPPER_TYPES = (
+    "entity_head_tok", "entity_text", "entity_identity",
+    "persName_type", "placeName_type", "placeName_ref",
+    "roleName_type", "rs_type", "org_type",
+)
 # Single-literal, source-preserving editorial witness annotations.
 EDITORIAL_WRAPPER_TYPES = (
     "hi_rend", "note", "gap_reason", "supplied_reason", "note_note",
@@ -191,3 +197,5 @@ class DocumentModel:
     editorial_annotations: tuple[SblAnnotation, ...] = ()
     # Source-exact multi-attribute gap/supplied/abbr interventions.
     intervention_annotations: tuple[SblAnnotation, ...] = ()
+    # Exact source entity/name labels (no unsourced ontology or entity edge).
+    entity_label_annotations: tuple[SblAnnotation, ...] = ()
