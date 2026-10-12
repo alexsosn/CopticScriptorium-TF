@@ -77,6 +77,7 @@ without a parallel JSON/XML structure.
 | gap / supplied / abbr | intervention/abbreviation wrappers with all original attributes in separate native scalar features |
 | entity_head_tok / entity_text / entity_identity / persName_type / placeName_type / placeName_ref / roleName_type / rs_type / org_type | source-attested entity/name labels with literal values and positions; no automatically verified ontology equivalence |
 | pb_coptic_id / p_n / p / p_source / pb_n / lb_nb | literal original page, paragraph and witness-provenance source tags, with positional span/anchor semantics |
+| verse / verse_n_vid_n / verse_n_vname / v_id / vid__n / chapter_name / ed_chapter_n / chapter_2 / ch_n / chapter | original alternate biblical/CTS/source reference literal spans or anchors; no inferred canonical LXX equivalence |
 | verse_n_marker / vid_n_marker / verse_vid_marker | source reference marker inside an unsplit word, with exact character offset; not a whole-word verse membership |
 | entity | entity annotation spanning one or more words |
 | translation | English translation segment with its own text |
@@ -290,6 +291,39 @@ wrappers; no strict XML-tree nesting is assumed.
 
 See `research/issue-162/RESEARCH_PLAN.md`. The separate original
 `trans_horner` translation-specific family is not modeled in this batch.
+
+### Alternate original biblical and CTS source references
+
+Ten original TT source tag families are conserved as native non-slot TF nodes:
+`verse`, `verse_n_vid_n`, `verse_n_vname`, `v_id`, `vid__n`,
+`chapter_name`, `ed_chapter_n`, `chapter_2`, `ch_n`, and
+`chapter`. These preserve **378** original source opening occurrences on
+the pinned corpus. Original CTS labels and human-readable reference names
+may overlap; the source is not asserting that they identify the same
+canonical Greek or LXX passage.
+
+~~~python
+for n in api.F.otype.s("verse_n_vid_n")[:5]:
+    print(
+        api.F.source_record_id.v(n),
+        api.F.source_ordinal.v(n),
+        api.F.value.v(n),
+        api.F.render_mode.v(n),    # alternate_reference_span / _anchor
+        tuple(api.E.oslots.s(n)),
+    )
+~~~
+
+`alternate_reference_span` means source markup covers whole canonical
+Coptic norm words; `alternate_reference_anchor` preserves a source-only
+position (including a fragment inside one word). Labels such as
+`verse="1 Corinthians 14:1"`, `verse_n_vname="Jonah 1:1"`,
+`v_id="urn:cts:copticLit:shenoute.abraham.monbya:21.8"` and
+`vid__n` (two underscores) are kept *exactly* as original source types
+and decoded values. They are not merged into the separate native
+`verse_n`/`vid_n` reference evidence or an inferred LXX map.
+
+Research and exact source-conservation contract:
+`research/issue-166/RESEARCH_PLAN.md`.
 
 ## Normalized and diplomatic text
 
