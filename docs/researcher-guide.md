@@ -77,6 +77,7 @@ without a parallel JSON/XML structure.
 | gap / supplied / abbr | intervention/abbreviation wrappers with all original attributes in separate native scalar features |
 | verse_n_marker / vid_n_marker / verse_vid_marker | source reference marker inside an unsplit word, with exact character offset; not a whole-word verse membership |
 | entity | entity annotation spanning one or more words |
+| entity_head_tok / entity_text / entity_identity / persName_type / placeName_type / placeName_ref / roleName_type / rs_type / org_type | source-original entity/name-label annotations, preserved as independent word/character-positioned nodes; not ontology links |
 | translation | English translation segment with its own text |
 | arabic_translation | Arabic translation segment with its own text |
 
@@ -391,6 +392,35 @@ for entity, head in api.S.search(query, silent="deep"):
 The head must lie inside the entity's measured word span. The
 entity_head_occurrences() cookbook recipe returns entity, head, and span
 together.
+
+### Source entity/name labels versus resolved identities
+
+The nine independent source wrapper types `entity_head_tok`, `entity_text`,
+`entity_identity`, `persName_type`, `placeName_type`, `placeName_ref`,
+`roleName_type`, `rs_type`, and `org_type` are preserved separately
+from canonical `entity` nodes. Each is a native non-slot TF node whose
+`value` is the exact decoded source attribute. Its `source_record_id`,
+`source_ordinal`, `start_word_ordinal/start_char` and
+`end_word_ordinal/end_char` retain physical provenance and boundaries.
+`render_mode=entity_label_span` means measured whole-word coverage;
+`entity_label_anchor` means source position is too narrow or crossed
+to justify whole-word ownership, with the original character offsets
+still available.
+
+~~~python
+labels = [
+    (node, api.F.value.v(node), api.F.start_word_ordinal.v(node),
+     api.F.start_char.v(node), api.F.source_record_id.v(node))
+    for node in api.F.otype.s("placeName_ref")
+]
+~~~
+
+A source literal such as `paths:places:32` is **not** automatically a
+validated ontology link; a source `entity_identity="Sarah"` is
+**not** a reconciled unique person. Even an overlapping `entity` node
+does not justify inventing an entity-label edge unless independently
+sourced. Native TF source positions permit subsequent evidence-based
+linking without conflating conflicting witnesses.
 
 ## Translations
 
