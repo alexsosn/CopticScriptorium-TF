@@ -46,6 +46,16 @@ ALTERNATE_REFERENCE_WRAPPER_TYPES = (
     "verse", "verse_n_vid_n", "verse_n_vname", "v_id", "vid__n",
     "chapter_name", "ed_chapter_n", "chapter_2", "ch_n", "chapter",
 )
+# Source-attested one-attribute long-tail editorial/translation wrappers.
+RESIDUAL_SOURCE_WRAPPER_TYPES = (
+    "date_type", "german", "section_title", "quote_ref", "quote_type",
+    "gap_exent", "ignore_note", "ed_page", "sup", "supplied_quantity",
+    "supplied_unit", "sic", "surplus", "source_lang", "pb", "add_place",
+    "pb_id", "sub", "gap_reasaon", "gap_reasonn", "hi", "surplus_reason",
+    "cb", "del_rend", "figDesc", "figure", "pb_coptic_xml",
+)
+# Original <hi> has rend=... not hi=...; spelling is part of TT provenance.
+RESIDUAL_SOURCE_ATTRIBUTE = {k: ("rend" if k == "hi" else k) for k in RESIDUAL_SOURCE_WRAPPER_TYPES}
 
 
 
@@ -209,3 +219,4 @@ class DocumentModel:
     entity_source_annotations: tuple[SblAnnotation, ...] = ()
     document_source_annotations: tuple[SblAnnotation, ...] = ()
     alternate_reference_annotations: tuple[SblAnnotation, ...] = ()
+    residual_annotations: tuple[SblAnnotation, ...] = ()

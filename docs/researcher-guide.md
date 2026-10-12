@@ -78,6 +78,7 @@ without a parallel JSON/XML structure.
 | entity_head_tok / entity_text / entity_identity / persName_type / placeName_type / placeName_ref / roleName_type / rs_type / org_type | source-attested entity/name labels with literal values and positions; no automatically verified ontology equivalence |
 | pb_coptic_id / p_n / p / p_source / pb_n / lb_nb | literal original page, paragraph and witness-provenance source tags, with positional span/anchor semantics |
 | verse / verse_n_vid_n / verse_n_vname / v_id / vid__n / chapter_name / ed_chapter_n / chapter_2 / ch_n / chapter | original alternate biblical/CTS/source reference literal spans or anchors; no inferred canonical LXX equivalence |
+| date_type / german / section_title / quote_ref / quote_type / gap_exent / hi / figDesc / figure / 18 other rare types | original low-frequency editorial/linguistic labels, preserving source attributes and span/anchor positions |
 | verse_n_marker / vid_n_marker / verse_vid_marker | source reference marker inside an unsplit word, with exact character offset; not a whole-word verse membership |
 | entity | entity annotation spanning one or more words |
 | translation | English translation segment with its own text |
@@ -324,6 +325,41 @@ and decoded values. They are not merged into the separate native
 
 Research and exact source-conservation contract:
 `research/issue-166/RESEARCH_PLAN.md`.
+
+### Original small editorial, linguistic and quotation source wrappers
+
+Twenty-seven low-frequency source tags are modeled as **native non-slot TF
+otypes**, preserving 308 original pinned TT opening events. These are
+attested source values, not inferred textual interpretations. They include
+`date_type`, `german`, `section_title`, `quote_ref`,
+`quote_type`, `source_lang`, `figDesc`, `figure`, and
+rare gap/typographic variants.
+
+~~~python
+for n in api.F.otype.s("quote_ref")[:5]:
+    print(
+        api.F.source_record_id.v(n),
+        api.F.source_ordinal.v(n),
+        api.F.value.v(n),       # original text, e.g. "Sal.72 , 22.23"
+        api.F.render_mode.v(n), # residual_span / residual_anchor
+        api.F.start_char.v(n),
+        tuple(api.E.oslots.s(n)),
+    )
+~~~
+
+Important literal source distinctions: `hi` has original TT
+attribute `rend` (not `hi`), whereas other tags in this bounded
+family have one matching source attribute. Original misspellings such as
+`gap_exent`, `gap_reasaon`, and `gap_reasonn` remain **distinct**
+otypes and are not silently merged into `gap_extent`/`gap_reason`.
+German translations remain their own upstream source annotation family,
+not Coptic words or an overwrite of existing `translation` nodes.
+`quote_ref` and `quote_type` preserve the original quotation's label
+and classification, not a verified biblical/LXX correspondence.
+
+Midword `figDesc` and `figure` are `residual_anchor` positional
+attestations, not claims that entire original Coptic words are figures.
+Source research: `research/issue-172/RESEARCH_PLAN.md`.
 
 ## Normalized and diplomatic text
 
