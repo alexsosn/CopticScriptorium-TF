@@ -33,7 +33,7 @@ permissions:
 
 jobs:
   full-native-nt-weft-gate:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'validate/issue120-full-native-nt-wefts' || github.event.pull_request.head.ref == 'validate/issue126-mark15-edition-absence' || github.event.pull_request.head.ref == 'feat/issue117-paired-1cor14-verse-evidence' || github.event.pull_request.head.ref == 'validate/issue117-mark1-dual-cts' || github.event.pull_request.head.ref == 'research/issue137-graph-storage-census'
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'validate/issue120-full-native-nt-wefts' || github.event.pull_request.head.ref == 'validate/issue126-mark15-edition-absence' || github.event.pull_request.head.ref == 'feat/issue117-paired-1cor14-verse-evidence' || github.event.pull_request.head.ref == 'validate/issue117-mark1-dual-cts' || github.event.pull_request.head.ref == 'validate/issue117-mark1-cts-rebased-20261012' || github.event.pull_request.head.ref == 'research/issue137-graph-storage-census'
     runs-on: ubuntu-latest
     timeout-minutes: 100
     env:
