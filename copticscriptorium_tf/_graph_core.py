@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Iterable, Iterator, Sequence
 
-from .model import DocumentModel, LayoutEvent, SupplementalWord, TOKEN_WRAPPER_TYPES, EDITION_WRAPPER_TYPES, MULTIWORD_WRAPPER_TYPES, REFERENCE_WRAPPER_TYPES, EDITORIAL_WRAPPER_TYPES
+from .model import DocumentModel, LayoutEvent, SupplementalWord, TOKEN_WRAPPER_TYPES, EDITION_WRAPPER_TYPES, MULTIWORD_WRAPPER_TYPES, REFERENCE_WRAPPER_TYPES, EDITORIAL_WRAPPER_TYPES, INTERVENTION_WRAPPER_TYPES, INTERVENTION_WRAPPER_KEYS
 
 NODE_TYPE_ORDER = (
     "document", "sentence", "orig_group", "norm_group", "orig",
@@ -18,6 +18,7 @@ NODE_TYPE_ORDER = (
     *MULTIWORD_WRAPPER_TYPES,
     *REFERENCE_WRAPPER_TYPES,
     *EDITORIAL_WRAPPER_TYPES,
+    *INTERVENTION_WRAPPER_TYPES,
 )
 LAYOUT_TYPES = {"page", "column", "line"}
 VERSE_POSITION_TYPES = {"verse_n_marker", "vid_n_marker", "verse_vid_marker"}
@@ -73,6 +74,7 @@ class GraphNode:
     section_address: tuple[str, ...] = ()
     metadata: tuple[tuple[str, str], ...] = ()
     metadata_duplicates: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    source_attributes: tuple[tuple[str, str], ...] = ()
     parent_node_id: int | None = None
     direct_word_slots: tuple[int, ...] = ()
     entity_class: str | None = None
@@ -257,6 +259,7 @@ def _check_document(document: DocumentModel) -> None:
         *((item, "multiword") for item in document.multiword_annotations),
         *((item, "reference") for item in document.reference_annotations),
         *((item, "editorial") for item in document.editorial_annotations),
+        *((item, "intervention") for item in document.intervention_annotations),
     ):
         accepted_kinds = (
             TOKEN_WRAPPER_TYPES if expected_kind == "token" else
@@ -264,10 +267,20 @@ def _check_document(document: DocumentModel) -> None:
             MULTIWORD_WRAPPER_TYPES if expected_kind == "multiword" else
             REFERENCE_WRAPPER_TYPES if expected_kind == "reference" else
             EDITORIAL_WRAPPER_TYPES if expected_kind == "editorial" else
+            INTERVENTION_WRAPPER_TYPES if expected_kind == "intervention" else
             ("lang",) if expected_kind == "lang" else ("sbl_greek", "sbl_apparatus")
         )
         if not isinstance(annotation.value, str) or annotation.kind not in accepted_kinds:
             raise ValueError(f"invalid scholarly source annotation in {document.source_record_id}")
+        if expected_kind == "intervention":
+            attrs = annotation.source_attributes
+            if (not attrs or tuple(sorted(attrs)) != attrs or
+                    len(set(key for key, _ in attrs)) != len(attrs) or
+                    set(dict(attrs)) - INTERVENTION_WRAPPER_KEYS[annotation.kind] or
+                    any(not isinstance(v, str) for _, v in attrs)):
+                raise ValueError(f"invalid intervention original source attributes in {document.source_record_id}")
+        elif annotation.source_attributes:
+            raise ValueError(f"unexpected annotation attributes in {document.source_record_id}")
         start, end = annotation.start_after_word_ordinal, annotation.end_after_word_ordinal
         if not (0 <= start <= end <= word_count):
             raise ValueError(f"invalid sbl_ source annotation offsets in {document.source_record_id}")
@@ -508,9 +521,10 @@ def build_graph(
                     )
                     entity_ids[(record, item.ordinal)] = node.id
                     entity_heads.append((node.id, document, item.head_word_ordinal))
-            elif otype in {"sbl_greek", "sbl_apparatus", "lang"} or otype in TOKEN_WRAPPER_TYPES or otype in EDITION_WRAPPER_TYPES or otype in MULTIWORD_WRAPPER_TYPES or otype in REFERENCE_WRAPPER_TYPES or otype in EDITORIAL_WRAPPER_TYPES:
+            elif otype in {"sbl_greek", "sbl_apparatus", "lang"} or otype in TOKEN_WRAPPER_TYPES or otype in EDITION_WRAPPER_TYPES or otype in MULTIWORD_WRAPPER_TYPES or otype in REFERENCE_WRAPPER_TYPES or otype in EDITORIAL_WRAPPER_TYPES or otype in INTERVENTION_WRAPPER_TYPES:
                 source_items = (
-                    document.editorial_annotations if otype in EDITORIAL_WRAPPER_TYPES
+                    document.intervention_annotations if otype in INTERVENTION_WRAPPER_TYPES
+                    else document.editorial_annotations if otype in EDITORIAL_WRAPPER_TYPES
                     else document.reference_annotations if otype in REFERENCE_WRAPPER_TYPES
                     else document.multiword_annotations if otype in MULTIWORD_WRAPPER_TYPES
                     else document.edition_annotations if otype in EDITION_WRAPPER_TYPES
@@ -536,9 +550,12 @@ def build_graph(
                         otype, source_record_id=record,
                         source_ordinal=item.ordinal, slot_ranges=_ranges(locus),
                         value=item.value,
+                        source_attributes=item.source_attributes,
                         sbl_verse_n=item.source_verse_n if otype in {"sbl_greek", "sbl_apparatus"} else None,
                         render_mode=(
-                            ("editorial_span" if whole_words else "editorial_anchor")
+                            ("intervention_span" if whole_words else "intervention_anchor")
+                            if otype in INTERVENTION_WRAPPER_TYPES
+                            else ("editorial_span" if whole_words else "editorial_anchor")
                             if otype in EDITORIAL_WRAPPER_TYPES
                             else ("reference_span" if whole_words else "reference_anchor")
                             if otype in REFERENCE_WRAPPER_TYPES
@@ -742,15 +759,17 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
                 errors.append(f"{node.otype} node {node.id} must render own text")
         if node.otype in LAYOUT_TYPES and (node.render_mode != "own_text" or node.text is None):
             errors.append(f"layout node {node.id} must render own text")
-        if node.otype in {"sbl_greek", "sbl_apparatus", "lang"} or node.otype in TOKEN_WRAPPER_TYPES or node.otype in EDITION_WRAPPER_TYPES or node.otype in MULTIWORD_WRAPPER_TYPES or node.otype in REFERENCE_WRAPPER_TYPES or node.otype in EDITORIAL_WRAPPER_TYPES:
-            annotation = ("editorial" if node.otype in EDITORIAL_WRAPPER_TYPES else
+        if node.otype in {"sbl_greek", "sbl_apparatus", "lang"} or node.otype in TOKEN_WRAPPER_TYPES or node.otype in EDITION_WRAPPER_TYPES or node.otype in MULTIWORD_WRAPPER_TYPES or node.otype in REFERENCE_WRAPPER_TYPES or node.otype in EDITORIAL_WRAPPER_TYPES or node.otype in INTERVENTION_WRAPPER_TYPES:
+            annotation = ("intervention" if node.otype in INTERVENTION_WRAPPER_TYPES else
+                          "editorial" if node.otype in EDITORIAL_WRAPPER_TYPES else
                           "reference" if node.otype in REFERENCE_WRAPPER_TYPES else
                           "multiword" if node.otype in MULTIWORD_WRAPPER_TYPES else
                           "edition" if node.otype in EDITION_WRAPPER_TYPES else
                           "token" if node.otype in TOKEN_WRAPPER_TYPES else
                           "lang" if node.otype == "lang" else "sbl_")
             valid_modes = (
-                {"editorial_span", "editorial_anchor"} if node.otype in EDITORIAL_WRAPPER_TYPES
+                {"intervention_span", "intervention_anchor"} if node.otype in INTERVENTION_WRAPPER_TYPES
+                else {"editorial_span", "editorial_anchor"} if node.otype in EDITORIAL_WRAPPER_TYPES
                 else {"reference_span", "reference_anchor"} if node.otype in REFERENCE_WRAPPER_TYPES
                 else {"multiword_span", "multiword_anchor"} if node.otype in MULTIWORD_WRAPPER_TYPES
                 else {"edition_span", "edition_anchor"} if node.otype in EDITION_WRAPPER_TYPES
@@ -766,8 +785,16 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
                 errors.append(f"{annotation} annotation node {node.id} lacks boundary positions")
             elif node.start_after_word_ordinal > node.end_after_word_ordinal:
                 errors.append(f"{annotation} annotation node {node.id} has inverted bounds")
-            if node.render_mode in {"sbl_anchor", "lang_anchor", "token_annotation_anchor", "edition_anchor", "multiword_anchor", "reference_anchor", "editorial_anchor"} and len(node.slots) != 1:
+            if node.render_mode in {"sbl_anchor", "lang_anchor", "token_annotation_anchor", "edition_anchor", "multiword_anchor", "reference_anchor", "editorial_anchor", "intervention_anchor"} and len(node.slots) != 1:
                 errors.append(f"{annotation} anchor node {node.id} must link one source word")
+        if node.otype in INTERVENTION_WRAPPER_TYPES:
+            original = node.source_attributes
+            if (not original or tuple(sorted(original)) != original or
+                    len(set(k for k, _ in original)) != len(original) or
+                    set(dict(original)) - INTERVENTION_WRAPPER_KEYS[node.otype]):
+                errors.append(f"intervention node {node.id} has invalid original source attrs")
+        elif node.source_attributes:
+            errors.append(f"non-intervention node {node.id} has invented source attrs")
         if node.otype in VERSE_POSITION_TYPES:
             if node.label is None or node.start_char is None or node.start_char <= 0:
                 errors.append(f"source position node {node.id} lacks a mid-word value/offset")

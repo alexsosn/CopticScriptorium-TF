@@ -25,6 +25,14 @@ EDITORIAL_WRAPPER_TYPES = (
     "gap_unit", "supplied_source", "gap_quantity", "gap_extent",
     "supplied_evidence", "unclear_reason", "unclear",
 )
+# Exact source-attribute dictionaries for ambiguous interventions/abbreviations.
+INTERVENTION_WRAPPER_KEYS = {
+    "gap": frozenset(("gap", "extent", "reason", "unit")),
+    "supplied": frozenset(("supplied", "source", "reason")),
+    "abbr": frozenset(("type",)),
+}
+INTERVENTION_WRAPPER_TYPES = tuple(INTERVENTION_WRAPPER_KEYS)
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +122,8 @@ class SblAnnotation:
     end_word_ordinal: int | None
     end_char: int | None
     end_after_word_ordinal: int
+    # Every original TT source attribute, including optional and empty values.
+    source_attributes: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,3 +189,5 @@ class DocumentModel:
     reference_annotations: tuple[SblAnnotation, ...] = ()
     # Source-attested editorial markup; no restored-text interpretation.
     editorial_annotations: tuple[SblAnnotation, ...] = ()
+    # Source-exact multi-attribute gap/supplied/abbr interventions.
+    intervention_annotations: tuple[SblAnnotation, ...] = ()

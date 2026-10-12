@@ -74,6 +74,7 @@ without a parallel JSON/XML structure.
 | multiword | upstream TT grouping over existing normalized words; original Coptic word slots are unchanged |
 | chapter_n / marcion_chapter_n / marcion_verse_n / petermann_chapter_n / petermann_verse_n | original source edition reference labels, never inferred canonical Bible alignments |
 | hi_rend / note / gap_reason / supplied_reason / note_note / gap_unit / supplied_source / gap_quantity / gap_extent / supplied_evidence / unclear_reason / unclear | literal editorial witness annotation spans/anchors over existing Coptic word slots |
+| gap / supplied / abbr | intervention/abbreviation wrappers with all original attributes in separate native scalar features |
 | verse_n_marker / vid_n_marker / verse_vid_marker | source reference marker inside an unsplit word, with exact character offset; not a whole-word verse membership |
 | entity | entity annotation spanning one or more words |
 | translation | English translation segment with its own text |
@@ -180,10 +181,48 @@ a Coptic source word is a one-slot anchor with native character boundaries.
 Crossed note/gap source tags are modeled by independent occurrence stacks,
 not falsely normalized into one XML tree.
 
-The multi-attribute TT `gap`, `supplied` and `abbr type` tags are
-**not included** in this family; their other attributes require separate
-native feature modeling rather than silently dropping provenance.
+The TT `gap`, `supplied` and `abbr type` tags belong to a separate
+multi-attribute source family; they are **not** the single-value editorial
+source events above. Their individual attributes are preserved as native
+scalar features (see next section), rather than flattened into `value`.
 Research and source coverage assumptions: `research/issue-153/RESEARCH_PLAN.md`.
+
+### Original multi-attribute gap, supplied and abbr wrappers
+
+TT `gap`, `supplied` and `abbr` carry potentially more than one original
+source attribute. Their node types are native **non-slot** TF annotations,
+and their original source attribute values are materialized individually:
+
+| Native node type | Original attribute keys / TF features |
+| --- | --- |
+| `gap` | `source_attr_gap_gap`, `source_attr_gap_extent`, `source_attr_gap_reason`, `source_attr_gap_unit` |
+| `supplied` | `source_attr_supplied_supplied`, `source_attr_supplied_source`, `source_attr_supplied_reason` |
+| `abbr` | `source_attr_abbr_type` |
+
+~~~python
+for n in api.F.otype.s("gap")[:5]:
+    print(
+        api.F.source_record_id.v(n),
+        api.F.source_ordinal.v(n),
+        api.F.render_mode.v(n),  # intervention_span / intervention_anchor
+        api.F.source_attr_gap_extent.v(n),
+        api.F.source_attr_gap_reason.v(n),
+        api.F.source_attr_gap_unit.v(n),
+        tuple(api.E.oslots.s(n)), # existing norm words only
+    )
+~~~
+
+Feature absence means its original source tag omitted that key; it **does
+not mean the key had an empty string literal**. A present empty value is
+retained as an explicit TF node feature value. Source attribute metadata
+records the original TT tag and attribute key. The convenient `value`
+may use the main source `gap`/`supplied` label or `abbr type` where
+available; query the named scalar attributes for authoritative provenance.
+No abbreviation expansion, text restoration, Coptic token retokenization,
+UD dependency or Greek/LXX mapping follows merely from these tags.
+
+The original source constraints and coverage gates are in
+`research/issue-156/RESEARCH_PLAN.md`.
 
 ## Normalized and diplomatic text
 

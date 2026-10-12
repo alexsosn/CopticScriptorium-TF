@@ -61,6 +61,16 @@ _SCALAR_FEATURES = (
 )
 
 # (feature name, SupplementalWord attribute, TF value type)
+_SOURCE_ATTR_FEATURES = tuple(
+    (f"source_attr_{otype}_{key}", otype, key)
+    for otype, keys in (
+        ("gap", ("gap", "extent", "reason", "unit")),
+        ("supplied", ("supplied", "source", "reason")),
+        ("abbr", ("type",)),
+    )
+    for key in keys
+)
+
 _UD_FEATURES = (
     ("ud_lemma", "lemma", "str"),
     ("ud_upos", "upos", "str"),
@@ -434,6 +444,8 @@ def _projection_specs(graph: Graph):
     yield ("warp", None)
     for spec in _SCALAR_FEATURES:
         yield ("scalar", spec)
+    for feature in _SOURCE_ATTR_FEATURES:
+        yield ("source_attr", feature)
     yield ("diplomatic", None)
     for descriptor in _metadata_descriptors(graph):
         yield ("metadata", descriptor)
@@ -486,6 +498,23 @@ def _project_batch(graph: Graph, spec):
             {},
             _batch_metadata(graph, (feature_name, value_type, False)),
         )
+
+    if kind == "source_attr":
+        feature_name, original_tag, original_key = detail
+        data: dict[int, str] = {}
+        for node in graph.nodes:
+            if node.otype != original_tag:
+                continue
+            values = dict(node.source_attributes)
+            # An absent TT source attribute is not an empty-string feature.
+            if original_key in values:
+                data[node.id] = values[original_key]
+        if not data:
+            return {}, {}, {"": _global_metadata(graph)}
+        meta = _batch_metadata(graph, (feature_name, "str", False))
+        meta[feature_name]["originalSourceTag"] = original_tag
+        meta[feature_name]["originalSourceAttribute"] = original_key
+        return {feature_name: data}, {}, meta
 
     if kind == "diplomatic":
         data = _diplomatic_feature_data(graph)

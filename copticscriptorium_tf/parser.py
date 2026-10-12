@@ -23,6 +23,8 @@ from .model import (
     MULTIWORD_WRAPPER_TYPES,
     REFERENCE_WRAPPER_TYPES,
     EDITORIAL_WRAPPER_TYPES,
+    INTERVENTION_WRAPPER_TYPES,
+    INTERVENTION_WRAPPER_KEYS,
     Translation,
     Word,
 )
@@ -134,6 +136,7 @@ def parse_tt_record(
         **{kind: [] for kind in MULTIWORD_WRAPPER_TYPES},
         **{kind: [] for kind in REFERENCE_WRAPPER_TYPES},
         **{kind: [] for kind in EDITORIAL_WRAPPER_TYPES},
+        **{kind: [] for kind in INTERVENTION_WRAPPER_TYPES},
     }
     sbl_closed: list[dict[str, Any]] = []
     lang_closed: list[dict[str, Any]] = []
@@ -142,6 +145,7 @@ def parse_tt_record(
     multiword_closed: list[dict[str, Any]] = []
     reference_closed: list[dict[str, Any]] = []
     editorial_closed: list[dict[str, Any]] = []
+    intervention_closed: list[dict[str, Any]] = []
     sbl_open_count = 0
     lang_open_count = 0
     token_open_count = 0
@@ -149,6 +153,7 @@ def parse_tt_record(
     multiword_open_count = 0
     reference_open_count = 0
     editorial_open_count = 0
+    intervention_open_count = 0
     layout_events: list[LayoutEvent] = []
     current_word: dict[str, Any] | None = None
     # Preserve upstream literal verse references. They are not claimed to
@@ -245,6 +250,7 @@ def parse_tt_record(
                             "multiword" if name in MULTIWORD_WRAPPER_TYPES else
                             "reference" if name in REFERENCE_WRAPPER_TYPES else
                             "editorial" if name in EDITORIAL_WRAPPER_TYPES else
+                            "intervention" if name in INTERVENTION_WRAPPER_TYPES else
                             "lang" if name == "lang" else "sbl_")
                     raise ValueError(f"closing {kind} annotation without opening {name} in {source_record_id}")
                 item = sbl_open[name].pop()
@@ -276,6 +282,8 @@ def parse_tt_record(
                     reference_closed.append(item)
                 elif name in EDITORIAL_WRAPPER_TYPES:
                     editorial_closed.append(item)
+                elif name in INTERVENTION_WRAPPER_TYPES:
+                    intervention_closed.append(item)
                 else:
                     sbl_closed.append(item)
             elif name == "verse_n":
@@ -293,12 +301,19 @@ def parse_tt_record(
         if name in sbl_open:
             if name in TOKEN_WRAPPER_TYPES and current_word is None:
                 raise ValueError(f"token annotation {name} opening outside norm in {source_record_id}")
-            if name not in attrs:
+            if name in INTERVENTION_WRAPPER_TYPES:
+                unknown = set(attrs) - INTERVENTION_WRAPPER_KEYS[name]
+                if unknown:
+                    raise ValueError(f"unknown source attributes for intervention {name}: {sorted(unknown)}")
+                if not attrs:
+                    raise ValueError(f"intervention {name} has no source attribute in {source_record_id}")
+            elif name not in attrs:
                 kind = ("token" if name in TOKEN_WRAPPER_TYPES else
                         "edition" if name in EDITION_WRAPPER_TYPES else
                         "multiword" if name in MULTIWORD_WRAPPER_TYPES else
                         "reference" if name in REFERENCE_WRAPPER_TYPES else
                         "editorial" if name in EDITORIAL_WRAPPER_TYPES else
+                        "intervention" if name in INTERVENTION_WRAPPER_TYPES else
                         "lang" if name == "lang" else "sbl_")
                 raise ValueError(f"{kind} annotation {name} has no source value in {source_record_id}")
             # Preserve legacy SBL occurrence IDs. Source language wrappers
@@ -321,13 +336,21 @@ def parse_tt_record(
             elif name in EDITORIAL_WRAPPER_TYPES:
                 editorial_open_count += 1
                 occurrence = editorial_open_count
+            elif name in INTERVENTION_WRAPPER_TYPES:
+                intervention_open_count += 1
+                occurrence = intervention_open_count
             else:
                 sbl_open_count += 1
                 occurrence = sbl_open_count
             sbl_open[name].append({
                 "ordinal": occurrence,
                 "kind": name,
-                "value": attrs[name],  # empty string is present, not missing
+                "value": (
+                    attrs.get("type", "") if name == "abbr"
+                    else attrs.get(name, "") if name in INTERVENTION_WRAPPER_TYPES
+                    else attrs[name]
+                ),  # exact originals remain in source_attributes
+                "source_attributes": tuple(sorted(attrs.items())) if name in INTERVENTION_WRAPPER_TYPES else (),
                 "source_verse_n": current_verse_n,
                 "start_word_ordinal": current_word["ordinal"] if current_word else None,
                 "start_char": current_offset() if current_word else None,
@@ -523,6 +546,8 @@ def parse_tt_record(
         raise ValueError(f"unclosed reference annotation in {source_record_id}")
     if any(sbl_open[kind] for kind in EDITORIAL_WRAPPER_TYPES):
         raise ValueError(f"unclosed editorial annotation in {source_record_id}")
+    if any(sbl_open[kind] for kind in INTERVENTION_WRAPPER_TYPES):
+        raise ValueError(f"unclosed intervention annotation in {source_record_id}")
 
     if raw_words and (not sentence_starts or sentence_starts[0] != 1):
         raise ValueError(f"first word has no source sentence start in {source_record_id}")
@@ -658,6 +683,9 @@ def parse_tt_record(
         )),
         editorial_annotations=tuple(SblAnnotation(**item) for item in sorted(
             editorial_closed, key=lambda a: a["ordinal"]
+        )),
+        intervention_annotations=tuple(SblAnnotation(**item) for item in sorted(
+            intervention_closed, key=lambda a: a["ordinal"]
         )),
     )
 
