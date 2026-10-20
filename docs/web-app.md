@@ -1,8 +1,12 @@
 # Local Text-Fabric web application
 
-CopticScriptorium-TF includes a configuration-only app for the standard
+CopticScriptorium-TF includes a local app for the standard
 Text-Fabric 13.1.0 browser. It reads the same native `.tf` files produced by
 the converter; there is no second semantic store and no JSON/XML sidecar model.
+A narrowly scoped `app/app.py` compatibility hook preserves the **one-level
+physical-document section model** when standard browser search-result links
+are rendered. It changes no TF nodes, features, section identifiers, or query
+semantics; multi-level corpora continue to use Text-Fabric's default link logic.
 
 ## Launch
 
@@ -95,8 +99,9 @@ api = Fabric(locations=["/path/to/output-tf"], silent="deep").load(
 )
 ```
 
-The browser configuration changes presentation defaults only. It does not
-change node IDs, sections, text formats, graph edges, or conversion semantics.
+The browser app adjusts presentation defaults and supplies the one-section
+result-link adapter described above. It does not change node IDs, source
+sections, text formats, graph edges, or conversion semantics.
 
 ## Scope
 

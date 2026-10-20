@@ -107,7 +107,7 @@ def _graph():
 
 
 class WebAppContractTests(unittest.TestCase):
-    def test_app_is_config_only_and_declares_local_research_defaults(self):
+    def test_app_has_source_faithful_onelevel_link_hook_and_research_defaults(self):
         self.assertTrue(APP_CONFIG.is_file(), "issue #58 requires app/config.yaml")
         # The live #182 HTTP failure requires a minimal link compatibility hook.
         # Native TF annotation/node semantics still belong solely to the writer.
