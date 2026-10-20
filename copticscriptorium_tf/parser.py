@@ -582,6 +582,7 @@ def parse_tt_record(
                 {
                     "text": attrs.get("arabic") or attrs.get("arabic_translation") or "",
                     "word_ordinals": locus,
+                    "source_tag": name,
                 }
             )
 
@@ -693,7 +694,10 @@ def parse_tt_record(
             locus = tuple(raw_item["word_ordinals"])
             if not locus:
                 raise ValueError(f"translation has no word locus in {source_record_id}")
-            result.append(Translation(len(result) + 1, raw_item["text"], locus))
+            result.append(Translation(
+                len(result) + 1, raw_item["text"], locus,
+                source_tag=raw_item.get("source_tag"),
+            ))
         return tuple(result)
 
     origs = tuple(
