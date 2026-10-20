@@ -139,40 +139,46 @@ For edition-pinned **Coptic OT ↔ LXX verse reference candidates** (not Greek/C
 
 ## Native TF model
 
-The sole slot type is `word`. Non-slot node types are:
+The sole slot type is `word`. The corpus has one canonical word-slot sequence; original SGML-like source annotation wrappers never manufacture extra lexical slots. Non-slot structural and textual node types include `document`, `sentence`, `orig_group`, `norm_group`, `orig`, `page`, `column`, `line`, `verse_n_marker`, `vid_n_marker`, `verse_vid_marker`, `entity`, `translation`, `arabic_translation`. The original `lang`, `sbl_greek` and `sbl_apparatus` layers are also native annotation nodes, not overwritten canonical word features.
 
-- `document`, `sentence`;
-- `orig_group`, `norm_group`, `orig`;
-- `page`, `column`, `line`;
-- `verse_n_marker`, `vid_n_marker`, `verse_vid_marker` (precise token-internal biblical source reference events);
-- `entity`;
-- `translation`, `arabic_translation`.
+Word features include `source_record_id`, `source_word_ordinal`, `source_id`, `norm`, `lemma`, `pos`, `func`, `source_text`, `scholarly_id`, `corpus`, `dataset`, `source_path`, `source_sha256`, `packaging`. Entity nodes carry `entity_class` and `identity`; native translation nodes retain their own English or Arabic `own_text`. Document metadata is available as scalar `meta_*` features, with deterministic suffixes for repeated upstream attributes. Source annotations have their own `value`, original ordinals and boundaries; `render_mode` distinguishes whole-word spans from position-only anchors.
 
-Frequently useful node/slot features include `source_record_id`, `source_word_ordinal`, `source_id`, `norm`, `lemma`, `pos`, `func`, `source_text`, `scholarly_id`, `corpus`, `dataset`, `source_path`, `source_sha256`, `packaging`, `entity_class`, `identity`, and `own_text`. Document metadata is projected as deterministic scalar `meta_*` features, including occurrence-suffixed features when a source metadata attribute is repeated.
+Native edges include `parent`, `direct_word`, `dependency_head`, `ud_head`, `entity_head`, `same_scholarly`, `documented_overlap`, `witness`, together with valued relation/provenance features. Validated CoNLL-U adds only separately named `ud_*`, `ud_feat_*`, `ud_misc_*` and `ud_head`; it does not overwrite TT morphology or dependency features.
 
-Native edge features include `parent`, `direct_word`, `dependency_head`, `ud_head`, `entity_head`, `same_scholarly`, `documented_overlap`, and `witness`, plus the valued relation-evidence features listed above.
+### Original-source annotation node families
 
-The supplemental UD layer adds word features `ud_lemma`, `ud_upos`, `ud_xpos`, `ud_deprel`, `ud_head_ordinal`, one `ud_feat_<key>` per FEATS key (for example `ud_feat_pron_type`, `ud_feat_number_psor`) and one `ud_misc_<key>` per MISC key, plus document features `conllu_status`, `conllu_source_path` and `conllu_source_sha256`. `dependency_head` remains TT-only; CoNLL-U heads, including those TT lacks, are on `ud_head`. See the researcher guide for status values and query examples.
+The current converter represents the following **83 original TT source-tag kinds** as their own typed, native non-slot Text-Fabric nodes. These augment the 18 core original source-tag kinds reflected in words, groups, page/line structure, translations, SBL/language annotations and related TF features; a source tag does not necessarily correspond one-to-one to a node type. Names are the exact original type labels, including source spelling variants.
 
-When present, optional word features `verse_n`, `vid_n`, and `verse_vid` preserve literal upstream Coptic Bible references. Token-internal reference changes are distinct native marker nodes with `label` and `start_char`, not fabricated whole-word or LXX alignments; see the [researcher guide](docs/researcher-guide.md#biblical-source-references-and-lxx-alignment-boundaries).
+| Source family | Native TF node types | What the source evidence preserves |
+| --- | --- | --- |
+| Token-internal (5) | `morph`, `norm_func`, `norm_head`, `norm_xml:id`, `norm_new_sent` | Source positions within or across `norm` tokens |
+| Edition pagination (4) | `ed_line_n`, `ed_lb_n`, `ed_page_n`, `ed_pg_n` | Editorial numbering, not canonical biblical verses |
+| Source multiword (1) | `multiword` | Grouping without creating word slots |
+| Historical reference (5) | `chapter_n`, `marcion_chapter_n`, `marcion_verse_n`, `petermann_chapter_n`, `petermann_verse_n` | Marcion/Petermann and source chapter/verse labels |
+| Editorial witness (12) | `hi_rend`, `note`, `gap_reason`, `supplied_reason`, `note_note`, `gap_unit`, `supplied_source`, `gap_quantity`, `gap_extent`, `supplied_evidence`, `unclear_reason`, `unclear` | Notes, gaps, supplied/unclear and rendering evidence |
+| Intervention attributes (3) | `gap`, `supplied`, `abbr` | Native nodes with original multi-attribute provenance |
+| Entity/name labels (9) | `entity_head_tok`, `entity_text`, `entity_identity`, `persName_type`, `placeName_type`, `placeName_ref`, `roleName_type`, `rs_type`, `org_type` | Original labels, not automatically certified ontology IDs |
+| Document layout/provenance (6) | `pb_coptic_id`, `p_n`, `p`, `p_source`, `pb_n`, `lb_nb` | Source paragraphs, pages and identifiers |
+| Alternative reference (10) | `verse`, `verse_n_vid_n`, `verse_n_vname`, `v_id`, `vid__n`, `chapter_name`, `ed_chapter_n`, `chapter_2`, `ch_n`, `chapter` | Literal source CTS/biblical reference variants |
+| Residual annotated source (27) | `date_type`, `german`, `section_title`, `quote_ref`, `quote_type`, `gap_exent`, `ignore_note`, `ed_page`, `sup`, `supplied_quantity`, `supplied_unit`, `sic`, `surplus`, `source_lang`, `pb`, `add_place`, `pb_id`, `sub`, `gap_reasaon`, `gap_reasonn`, `hi`, `surplus_reason`, `cb`, `del_rend`, `figDesc`, `figure`, `pb_coptic_xml` | Low-frequency original editorial/translation tags |
+| Alternative English Horner (1) | `trans_horner` | Original English witness, separate from ordinary translation |
 
-Available text formats depend on the source content. The writer emits `text-orig-full` for normalized word text, `text-diplomatic-full` when diplomatic/original surfaces exist, and node-default own-text formats for translations and layout nodes.
+These labels preserve the original source words, literals, source record IDs, annotation order and full-word/character positions where applicable. They do not themselves assert that English translations are aligned word-for-word with Coptic, nor that alternative biblical/edition references prove Greek/Coptic textual correspondence. In particular, `trans_horner` is a distinct English translation witness, **not a Greek/Coptic word alignment**. Literal source tags may overlap or cross (the upstream TT markup is not generally well-formed XML). Source fidelity requires both the original event and an independent pinned-source parity test; the table is a discoverability index, not a guarantee that upstream scholarship is complete.
+
+Optional source `verse_n`, `vid_n` and `verse_vid` remain literal Coptic word features. Midword transitions are represented by `verse_n_marker`, `vid_n_marker` and `verse_vid_marker` nodes with the precise `start_char`, never as newly inferred whole-word LXX mappings. For annotation semantics, example queries and citations, see the [researcher guide](docs/researcher-guide.md); for candidate-only Coptic OT↔LXX verse-address joins, see [the bilateral module guide](docs/coptic-lxx-alignment.md).
 
 ## Measured full-corpus footprint
 
-On the pinned upstream snapshot `CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`, the reviewed full-source regression produced:
+The same pinned Coptic Scriptorium upstream revision (`CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`) has **2,628 physical TT source records and 2,394,354 canonical Coptic word slots** in both runs below. The resource numbers are from **separate GitHub Actions workloads on October 12, 2026**, and are not controlled paired benchmarks; they must be remeasured after further converter changes.
 
-- 2,628 physical source records;
-- 2,394,354 word slots;
-- 3,854,785 non-slot nodes;
-- 2,505,872 graph edges;
-- 130 TF files totaling 618,769,322 bytes;
-- 7,157.1 MiB peak process RSS;
-- about 7m47s for the GitHub Actions smoke including conversion and clean reload.
+| Verified run and input workload | Native output on CI disk | Lifetime peak process RSS | Evidence |
+| --- | --- | --- | --- |
+| Full native TT source conservation and clean Text-Fabric reload (including all 385 `trans_horner` annotations) | 143 TF files, 669,347,470 bytes | 7,847.0 MiB | [Source/native CI run 38258054937](https://github.com/alexsosn/CopticScriptorium-TF/actions/runs/38258054937), job 114841142280 |
+| Full TT **plus independently validated CoNLL-U supplementation** and native UD head edges | 174 TF files, 794,868,039 bytes | 8,758.7 MiB | [CoNLL-U parity run 38258055163](https://github.com/alexsosn/CopticScriptorium-TF/actions/runs/38258055163), job 114841790478 |
 
-These are reproducible measurements for that pinned source revision and CI environment, not fixed corpus invariants or hardware-independent performance guarantees. The earlier implementation peaked at 11,075.7 MiB; issue #26 reduced the retained-memory high-water mark while preserving output semantics.
+The separate CoNLL-U run attached **2,104,966 supplemented words in 2,361 source records**; 227 source records had placeholder CoNLL-U and 40 had malformed CoNLL-U. It emitted 2,034,751 `ud_head` edges, of which 52,773 TT-absent heads are present solely in the UD layer. Those figures refer to the reviewed pin and do not imply that upstream CoNLL-U data is always available or scholarly verified.
 
-The CoNLL-U supplementation integration (issue #66) was verified on the same pinned upstream source: 2,361 documents and 2,104,966 word slots receive a separate UD layer, with 52,773 head relations absent from TT. This adds `ud_head`, `ud_*`, `ud_feat_*`, `ud_misc_*`, and document-level supplement provenance. Resource/size figures are release-specific and must be remeasured after other native annotations are enabled.
+Output size is not a memory budget. Actual peak RSS is much larger than the serialized TF files, and full-corpus acquisition and the context-fabric client can require additional resources. For lightweight exploration, convert a source subset first; use the full-corpus and Agora integration jobs for complete-source correctness gates.
 
 ## Agora integration status
 
@@ -288,7 +294,7 @@ If the destination already exists, choose a fresh output path. The direct conver
 
 For load failures, use the package-pinned `text-fabric==13.1.0` environment and load the generated directory itself. Feature names are ordinary `*.tf` filenames and can be inspected before deciding which subset to load.
 
-For full-corpus conversion, allow materially more memory than the serialized ~619 MB output size: the measured reviewed run peaked at roughly 7.0 GiB RSS. Smaller source subsets require less, but no fixed scaling ratio is promised.
+For full-corpus conversion, budget beyond the 8,758.7 MiB peak RSS observed for the pinned TT+CoNLL-U workload and leave capacity for acquisition, the host, and Text-Fabric reload. A TT-only run on a different job used 7,847.0 MiB. These are measured examples, not minimum hardware requirements or reliable scaling ratios.
 
 Converter errors describe input/serialization failures. They are not reclassified as claims that upstream Coptic Scriptorium scholarship is wrong.
 
@@ -298,10 +304,11 @@ Active changes follow research/plan → RED tests → minimal implementation →
 
 Current release-facing follow-ups are:
 
-- #66 — add validated CoNLL-U supplementation to native conversion;
-- #70 / #75 / #92 — audit Coptic↔LXX versification, missing/ambiguous references and candidate-only textual semantics;
-- #18 — maintain researcher-facing installation, feature/query, and Agora instructions;
-- #11 — parent first-usable-release epic.
+- #177 — independent autonomous-agent researcher journey through the installed converter, native TF queries and Agora/Context-Fabric;
+- #118 — reconcile native preservation evidence for all 101 original TT tag kinds, without turning baseline inventory labels into invented semantics;
+- #70 / #75 / #92 — continue source-evidence-backed Coptic↔LXX versification and ambiguity research;
+- #109 / #148 — investigate the measured full-corpus memory footprint before making performance claims;
+- #11 — complete the remaining first-usable-release epic acceptance.
 
 ## License
 
