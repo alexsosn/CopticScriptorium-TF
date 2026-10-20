@@ -13,3 +13,7 @@
 5. Separate logically independent adversarial review on primary source/parity and edge cases before merging. Keep broader #184 open for `morph.lang` / core attribute issues even if this scoped repair passes.
 
 This is user-facing provenance detail inside researcher-queryable native TF, not a new code framework. No new materializer or bulk semantic inference.
+
+## Original-source runner and full reload acceptance
+
+Added `tests/live_issue187_entity_source_parity.py` to the existing exact pinned source full-census workflow. It independently scans the original `doc-papyri/.../cpr.31.14.tt` for all 12 `entity.text` occurrences and compares their actual decoded source literal/order with parser values; after the full 2,628-document native TF build it independently checks `source_attr_entity_text`, source byte SHA, source ordinal, and exact Coptic oslots locus. The runner reports only source IDs, aggregate counts and pass/fail; no original lexical values or generated TF files uploaded.
