@@ -15,8 +15,8 @@ import re
 from copticscriptorium_tf.parser import parse_tt_record
 
 PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
-KIND_PATTERN = re.compile(r"<(arabic|arabic_translation)\\s+([^>]*?)>")
-ATTR_PATTERN = re.compile(r'\\s+([a-z_]+)="([^"]*)"')
+KIND_PATTERN = re.compile(r"<(arabic|arabic_translation)\s+([^>]*?)>")
+ATTR_PATTERN = re.compile(r'\s+([a-z_]+)="([^"]*)"')
 FILES = {
     "AP/apophthegmata.patrum_TT/AP.044.w670.temptation.tt": (
         "AP/apophthegmata.patrum:AP.044.w670.temptation",

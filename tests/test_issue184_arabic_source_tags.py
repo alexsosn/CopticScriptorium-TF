@@ -92,6 +92,22 @@ class OriginalArabicTagConservationTests(unittest.TestCase):
         self.assertIn("original_source_tag", script)
         self.assertNotIn("print(source_text)", script)
 
+    def test_independent_source_scanner_recognizes_actual_tag_openings(self):
+        import runpy
+        scanner = runpy.run_path(str(
+            Path(__file__).resolve().parents[1] /
+            "tests/live_issue184_arabic_source_parity.py"
+        ))
+        pattern = scanner["KIND_PATTERN"]
+        source = (
+            '<arabic arabic="first">'
+            '<arabic_translation arabic_translation="second">'
+        )
+        self.assertEqual([match.group(1) for match in pattern.finditer(source)],
+                         ["arabic", "arabic_translation"])
+        attrs = scanner["ATTR_PATTERN"]
+        self.assertEqual(attrs.findall(' arabic="first"'), [("arabic", "first")])
+
     def test_existing_english_translation_is_not_relabelled_arabic(self):
         source = SOURCE.replace(
             '<arabic arabic="Arabic A">', '<translation translation="English A">'

@@ -17,3 +17,7 @@ This PR changes one native feature and the source model's optional provenance fi
 ## Independent original-source runner acceptance
 
 Added `tests/live_issue184_arabic_source_parity.py` to existing exact pinned sparse Git TT full-census workflow. It scans both AP originals separately from parser (3 `arabic_translation` openings in AP.044, 5 `arabic` openings in AP.054), compares raw opener spelling and decoded literal order to parser results, and after complete 2,628-record/2,394,354-slot clean TF reload compares `original_source_tag`, `own_text`, physical source SHA and original word locus. No upstream Arabic/Coptic strings or TF binaries are uploaded. The full workflow already downloads the pinned TT snapshot; no separate heavy corpus job needed.
+
+## Adversarial pre-review fix
+
+Independent review #5587479893 detected that the initial raw Python regex contained doubled backslashes before `s`, which would search for literal `\\s` rather than whitespace. Replaced them with single-backslash whitespace classes, added a focused scanner recognition test for both original opening spellings and attribute extraction. Never interpret an empty regex result as a source-level absence without checking scanner operation. The actual immutable pinned-source run must still pass.
