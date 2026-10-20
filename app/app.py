@@ -39,7 +39,7 @@ def _install_one_level_adapter(app):
     section_types = tuple(api.T.sectionTypes)
     if section_types != ("document",):
         return
-    if tuple(api.T.sectionFeatures) != ("source_record_id",):
+    if tuple(api.T.sectionFeats) != ("source_record_id",):
         raise ValueError("one-level document browser requires source_record_id section feature")
     app.sectionStrFromNode = MethodType(_original_document_section, app)
 

@@ -15,3 +15,7 @@
 ## Scope
 - No converter format changes; extend the already vetted bounded source smoke, not build more test orchestration.
 - The pinned Text-Fabric browser route receives real user form data via loopback WSGI; current upstream implementation shape is background research, exact supported pinned wheel must be checked by CI.
+
+## Actual pinned TF API correction after RED app compatibility tests
+
+Exact job 39390216479 (full suite) and 39390216631 (installed wheel) caught that the first scoped adapter confused `api.T.sectionFeatures` (the **loaded list of node-to-literal value mappings**) with `api.T.sectionFeats` (actual configured **feature names**, e.g. `('source_record_id',)`). The genuine single-level TF data model was valid; the browser adapter erroneously rejected it. After inspecting upstream `tf/core/text.py` constructor lines 398–448, change the guard to `sectionFeats`. Focused fake TF API now models both separate objects and asserts that native `sectionFeatures` mappings are unchanged. This is not a source corpus or graph output change.

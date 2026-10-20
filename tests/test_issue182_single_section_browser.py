@@ -19,7 +19,8 @@ def fake_app(*, types=("document",), features=("source_record_id",),
              ancestors=(100,), label="sample/sample:record"):
     node_types = {1: "word", 2: "sentence", 3: "trans_horner", 100: "document"}
     api = SimpleNamespace(
-        T=SimpleNamespace(sectionTypes=types, sectionFeatures=features),
+        T=SimpleNamespace(sectionTypes=types, sectionFeats=features,
+                          sectionFeatures=({100: label},)),
         F=SimpleNamespace(
             otype=SimpleNamespace(v=node_types.get),
             source_record_id=SimpleNamespace(
@@ -48,7 +49,8 @@ class SingleSectionBrowserLinkTests(unittest.TestCase):
         self.assertEqual(app.sectionStrFromNode(100), "sample/sample:record")
         # The underlying Text-Fabric API is not modified.
         self.assertEqual(app.api.T.sectionTypes, ("document",))
-        self.assertEqual(app.api.T.sectionFeatures, ("source_record_id",))
+        self.assertEqual(app.api.T.sectionFeats, ("source_record_id",))
+        self.assertEqual(app.api.T.sectionFeatures, ({100: "sample/sample:record"},))
 
     def test_other_tf_section_models_retain_upstream_link_behavior(self):
         module = self._module()
