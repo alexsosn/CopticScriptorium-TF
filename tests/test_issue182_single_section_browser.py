@@ -21,7 +21,8 @@ def fake_app(*, types=("document",), features=("source_record_id",),
     api = SimpleNamespace(
         T=SimpleNamespace(sectionTypes=types, sectionFeats=features,
                           sectionFeatures=({100: label},),
-                          sectionTuple=lambda node, **kwargs: ("unchanged_upstream",)),
+                          sectionTuple=lambda node, **kwargs: ("unchanged_upstream",),
+                          nodeFromSection=lambda section: 100),
         F=SimpleNamespace(
             otype=SimpleNamespace(v=node_types.get),
             source_record_id=SimpleNamespace(
@@ -52,10 +53,11 @@ class SingleSectionBrowserLinkTests(unittest.TestCase):
                     app.api.F.source_record_id.v(document), "sample/sample:record"
                 )
         self.assertEqual(app.api.T.sectionTuple(1, fillup=True), (100,))
-        # The underlying Text-Fabric API is not modified.
+        # Native section types, stored section labels and reverse IDs remain unchanged.
         self.assertEqual(app.api.T.sectionTypes, ("document",))
         self.assertEqual(app.api.T.sectionFeats, ("source_record_id",))
         self.assertEqual(app.api.T.sectionFeatures, ({100: "sample/sample:record"},))
+        self.assertEqual(app.api.T.nodeFromSection(("sample/sample:record",)), 100)
 
     def test_other_tf_section_models_retain_upstream_link_behavior(self):
         module = self._module()
@@ -71,7 +73,7 @@ class SingleSectionBrowserLinkTests(unittest.TestCase):
                 app = fake_app(ancestors=parents)
                 module["_install_one_level_adapter"](app)
                 with self.assertRaisesRegex(ValueError, "unique enclosing document"):
-                    app.sectionStrFromNode(1)
+                    app.api.T.sectionTuple(1)
 
     def test_only_exact_document_id_based_onelevel_warp_is_supported(self):
         module = self._module()
@@ -81,7 +83,7 @@ class SingleSectionBrowserLinkTests(unittest.TestCase):
         app = fake_app(label="")
         module["_install_one_level_adapter"](app)
         with self.assertRaisesRegex(ValueError, "missing physical document label"):
-            app.sectionStrFromNode(1)
+            app.api.T.sectionTuple(1)
 
 
 if __name__ == "__main__":
