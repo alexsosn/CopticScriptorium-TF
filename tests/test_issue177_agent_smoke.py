@@ -41,6 +41,8 @@ class InstalledResearcherJourneyContract(unittest.TestCase):
         self.assertNotIn("import copticscriptorium_tf.", script)
         self.assertNotIn("print(raw", script)
         self.assertNotIn("proc.stderr[-", script)
+        self.assertNotIn('result["upstream_commit"]', script)
+        self.assertIn('result["slots"]', script)
         self.assertIn("stderr_sha256", script)
 
 

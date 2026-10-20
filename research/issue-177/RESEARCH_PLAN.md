@@ -20,3 +20,7 @@
 ## Independent adversarial pre-review repair
 
 The first implementation used to include raw subprocess stderr on failure in CI exceptions. Such exceptions can inadvertently echo original TT witness text. A regression contract now disallows the raw stderr slice; on failure the user journey records command name, exit code and only a short SHA256 fingerprint of stderr. The negative empty-source test checks its actual error phrase internally without printing it. Browser `--check` is only a non-serving setup test, not graphical UI exploration.
+
+## Live first-run finding (real source, not synthetic)
+
+Exact CI run 39384884291 (job 118502250165) actually installed wheel, acquired both immutable TT files, converted them without failure, then failed because the smoke script incorrectly expected `upstream_commit` in `ConversionResult.to_dict()` operational summary. The actual `ConversionResult` model deliberately has no such summary field. Provenance is instead validated by the workflow’s exact pinned Git checkout plus converter `--upstream-commit` argument and native per-document `source_sha256` equals independently hashed upstream bytes. Replaced the forged summary expectation with actual `slots` invariant; added a regression assertion. No converter change.
