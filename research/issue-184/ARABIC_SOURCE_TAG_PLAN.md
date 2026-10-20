@@ -13,3 +13,7 @@ Current `parser.py` merges both spellings in a shared `arabic_stack` and `Transl
 5. Leave #184 open for the distinct secondary `morph.lang` and other core multi-attribute provenance research; don't claim comprehensive 101-tag losslessness.
 
 This PR changes one native feature and the source model's optional provenance field, not grouping/segmentation.
+
+## Independent original-source runner acceptance
+
+Added `tests/live_issue184_arabic_source_parity.py` to existing exact pinned sparse Git TT full-census workflow. It scans both AP originals separately from parser (3 `arabic_translation` openings in AP.044, 5 `arabic` openings in AP.054), compares raw opener spelling and decoded literal order to parser results, and after complete 2,628-record/2,394,354-slot clean TF reload compares `original_source_tag`, `own_text`, physical source SHA and original word locus. No upstream Arabic/Coptic strings or TF binaries are uploaded. The full workflow already downloads the pinned TT snapshot; no separate heavy corpus job needed.

@@ -76,6 +76,22 @@ class OriginalArabicTagConservationTests(unittest.TestCase):
             )
             self.assertFalse(list(output.glob("*.json")) + list(output.glob("*.xml")))
 
+    def test_full_pinned_source_parity_is_part_of_actual_release_gate(self):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / ".github/workflows/issue69-full-verse-census.yml").read_text(
+            encoding="utf-8"
+        )
+        script = (root / "tests/live_issue184_arabic_source_parity.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("live_issue184_arabic_source_parity.py pinned-coptic", workflow)
+        self.assertIn("--native", workflow)
+        self.assertIn("AP.044.w670.temptation.tt", script)
+        self.assertIn("AP.054.daniel.04.tt", script)
+        self.assertIn("2_394_354", script)
+        self.assertIn("original_source_tag", script)
+        self.assertNotIn("print(source_text)", script)
+
     def test_existing_english_translation_is_not_relabelled_arabic(self):
         source = SOURCE.replace(
             '<arabic arabic="Arabic A">', '<translation translation="English A">'
