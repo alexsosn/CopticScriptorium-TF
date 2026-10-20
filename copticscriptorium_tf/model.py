@@ -124,6 +124,8 @@ class Entity:
     head_literal: str
     head_word_ordinal: int
     word_ordinals: tuple[int, ...]
+    # Exact original <entity text=...> attribute, not rendered/norm text.
+    source_text_literal: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
