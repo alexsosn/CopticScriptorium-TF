@@ -81,7 +81,7 @@ def browser_http_smoke(tf_root: Path, expected_words: int) -> dict[str, object]:
 
         # Submit through the actual TF browser query handler. The source page
         # and Coptic word text must not be printed, persisted or uploaded.
-        encoded = urlencode({"query": "word", "batch": "5"}).encode("ascii")
+        encoded = urlencode({"query": "word", "batch": "5", "condenseType": "document"}).encode("ascii")
         request = Request(
             address + "/query",
             data=encoded,
