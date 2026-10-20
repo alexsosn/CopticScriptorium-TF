@@ -76,6 +76,23 @@ class ResearcherReadmeNativeSchemaTests(unittest.TestCase):
         self.assertIn("The sole slot type is `word`", native_section)
         self.assertIn("not a Greek/Coptic word alignment", native_section)
 
+    def test_researcher_query_and_rendering_contracts_survive_readme_refresh(self):
+        text = README.read_text(encoding="utf-8")
+        native = text.split("## Native TF model", 1)[1].split(
+            "## Measured full-corpus footprint", 1
+        )[0]
+        for feature in (
+            "ud_lemma", "ud_upos", "ud_xpos", "ud_deprel", "ud_head_ordinal",
+            "ud_feat_pron_type", "ud_feat_number_psor",
+            "conllu_status", "conllu_source_path", "conllu_source_sha256",
+            "text-orig-full", "text-diplomatic-full",
+        ):
+            with self.subTest(native_feature_or_format=feature):
+                self.assertIn(f"`{feature}`", native)
+        self.assertIn("`dependency_head` remains TT-only", native)
+        self.assertIn("translation", native)
+        self.assertIn("layout", native)
+
     def test_footprints_are_labeled_by_measured_workload_not_stale_release_claim(self):
         text = README.read_text(encoding="utf-8")
         section = text.split("## Measured full-corpus footprint", 1)[1].split(
