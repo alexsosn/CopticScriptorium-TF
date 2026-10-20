@@ -40,6 +40,8 @@ class InstalledResearcherJourneyContract(unittest.TestCase):
         self.assertNotIn("from copticscriptorium_tf.", script)
         self.assertNotIn("import copticscriptorium_tf.", script)
         self.assertNotIn("print(raw", script)
+        self.assertNotIn("proc.stderr[-", script)
+        self.assertIn("stderr_sha256", script)
 
 
 if __name__ == "__main__":

@@ -32,7 +32,7 @@ def run(argv: list[str], *, workdir: Path, expected: int = 0) -> subprocess.Comp
         raise RuntimeError(
             "installed public command failed, exit="
             + str(proc.returncode) + ": " + Path(argv[0]).name
-            + "; stderr tail=" + proc.stderr[-600:]
+            + "; stderr_sha256=" + sha256(proc.stderr.encode("utf-8", "replace")).hexdigest()[:16]
         )
     if expected != 0 and proc.returncode == 0:
         raise AssertionError("invalid user input unexpectedly succeeded")

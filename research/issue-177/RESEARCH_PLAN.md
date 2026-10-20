@@ -16,3 +16,7 @@
 
 ## Bounds
 - Separate `workflow_dispatch` enabled; scope two original TT files, no unbounded original source checkout; timeout 30 minutes. Latest upstream is irrelevant; only reviewed pinned commit is used. No generated data redistribution, original source text emitted to logs, or network after handoff.
+
+## Independent adversarial pre-review repair
+
+The first implementation used to include raw subprocess stderr on failure in CI exceptions. Such exceptions can inadvertently echo original TT witness text. A regression contract now disallows the raw stderr slice; on failure the user journey records command name, exit code and only a short SHA256 fingerprint of stderr. The negative empty-source test checks its actual error phrase internally without printing it. Browser `--check` is only a non-serving setup test, not graphical UI exploration.
