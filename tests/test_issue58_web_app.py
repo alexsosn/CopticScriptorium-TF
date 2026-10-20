@@ -109,7 +109,9 @@ def _graph():
 class WebAppContractTests(unittest.TestCase):
     def test_app_is_config_only_and_declares_local_research_defaults(self):
         self.assertTrue(APP_CONFIG.is_file(), "issue #58 requires app/config.yaml")
-        self.assertFalse((APP_DIR / "app.py").exists(), "custom app hooks are not needed")
+        # The live #182 HTTP failure requires a minimal link compatibility hook.
+        # Native TF annotation/node semantics still belong solely to the writer.
+        self.assertTrue((APP_DIR / "app.py").exists(), "missing one-level browser hook")
 
         config = yaml.safe_load(APP_CONFIG.read_text(encoding="utf-8"))
         self.assertEqual(config["apiVersion"], 3)
