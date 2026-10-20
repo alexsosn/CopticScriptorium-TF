@@ -41,6 +41,8 @@ def audit_tt(
     examples: dict[str, list[str]],
     empty_attrs: Counter,
     duplicate_attrs: Counter,
+    *,
+    watched_examples: dict[tuple[str, str], list[str]] | None = None,
 ) -> int:
     text = raw.decode("utf-8")
     norm_depth = 0
@@ -62,6 +64,10 @@ def audit_tt(
             inside_norm[tag] += 1
         for key, value in attr.items():
             by_tag_attr[(tag, key)] += 1
+            if watched_examples is not None and tag == "morph" and key == "lang":
+                identifiers = watched_examples.setdefault((tag, key), [])
+                if source_id not in identifiers and len(identifiers) < 3:
+                    identifiers.append(source_id)
             if value == "":
                 empty_attrs[(tag, key)] += 1
         for key, occurrences in duplicates.items():
@@ -93,6 +99,7 @@ def run(root: Path) -> None:
     by_tag_attr, by_tag_collection = Counter(), Counter()
     empty_attrs, duplicate_attrs = Counter(), Counter()
     examples: dict[str, list[str]] = {}
+    watched_examples: dict[tuple[str, str], list[str]] = {}
     docs = opens = 0
     for rel, path in sorted(selected):
         corpus = rel.split("/", 1)[0]
@@ -106,6 +113,7 @@ def run(root: Path) -> None:
                         zf.read(member), identifier, by_tag, inside_norm,
                         by_tag_attr, by_tag_collection, examples,
                         empty_attrs, duplicate_attrs,
+                        watched_examples=watched_examples,
                     )
                     docs += 1
         else:
@@ -113,6 +121,7 @@ def run(root: Path) -> None:
                 path.read_bytes(), rel, by_tag, inside_norm,
                 by_tag_attr, by_tag_collection, examples,
                 empty_attrs, duplicate_attrs,
+                watched_examples=watched_examples,
             )
             docs += 1
     assert docs == 2628, (docs, "pinned source record count mismatch")
@@ -136,7 +145,17 @@ def run(root: Path) -> None:
             "repeated_attribute_surplus": sum(n for (t, _key), n in duplicate_attrs.items() if t == tag),
             "sample_source_records": examples.get(tag, []),
         })
+    attribute_watch_tags = ("morph", "norm", "entity", "verse_n", "norm_group", "meta")
+    source_attribute_pair_counts = {
+        tag: {key: count for (_tag, key), count in sorted(by_tag_attr.items())
+              if _tag == tag}
+        for tag in attribute_watch_tags
+    }
+    # These are physical source identifiers, not language words or quotations.
+    morph_lang_source_records = watched_examples.get(("morph", "lang"), [])
     print(json.dumps({
+        "source_attribute_pair_counts": source_attribute_pair_counts,
+        "morph_lang_source_records": morph_lang_source_records,
         "source_commit": PIN,
         "selected_tt_git_blobs": len(selected),
         "source_records": docs,
