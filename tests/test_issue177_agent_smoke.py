@@ -26,6 +26,29 @@ class InstalledResearcherJourneyContract(unittest.TestCase):
         self.assertIn("persist-credentials: false", workflow)
         self.assertNotIn("--source /path/to", workflow)
 
+    def test_real_browser_http_query_journey_is_exercised(self):
+        script = SCRIPT.read_text(encoding="utf-8")
+        # Real loopback WSGI request/response, rather than only --check.
+        for fragment in (
+            "from tf.browser.web import setup as setup_browser",
+            "from werkzeug.serving import make_server",
+            "from urllib.request import Request, urlopen",
+            "from urllib.parse import urlencode",
+            "127.0.0.1",
+            '"/query"',
+            'method="POST"',
+            '"nResults"',
+            '"status"',
+            '"http_browser_search"',
+        ):
+            with self.subTest(browser_contract=fragment):
+                self.assertIn(fragment, script)
+        self.assertIn('"condenseType": "document"', script)
+        self.assertIn("server.shutdown()", script)
+        self.assertIn("server.server_close()", script)
+        self.assertNotIn("print(page_html)", script)
+        self.assertNotIn("print(query_html)", script)
+
     def test_smoke_uses_public_cli_fabric_and_browser_not_converter_internals(self):
         script = SCRIPT.read_text(encoding="utf-8")
         for required in (

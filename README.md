@@ -35,8 +35,9 @@ The JSON summary contains operational counts, phase timings, output size, peak p
 
 ## Browse locally
 
-The installed wheel includes the corpus-specific configuration for the standard
-Text-Fabric web application. Point the installed launcher at any freshly
+The installed wheel includes the corpus-specific configuration and a minimal
+single-section result-link compatibility hook for the standard Text-Fabric web
+application. Point the installed launcher at any freshly
 generated TF directory:
 
 ```bash

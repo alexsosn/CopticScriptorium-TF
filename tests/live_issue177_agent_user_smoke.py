@@ -6,6 +6,13 @@ launcher and normal Text-Fabric interface. Report metadata/counts only.
 from __future__ import annotations
 
 from hashlib import sha256
+from importlib.resources import files as resource_files
+from threading import Thread
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+from tf.browser.web import setup as setup_browser
+from werkzeug.serving import make_server
 import json
 from pathlib import Path
 import subprocess
@@ -37,6 +44,75 @@ def run(argv: list[str], *, workdir: Path, expected: int = 0) -> subprocess.Comp
     if expected != 0 and proc.returncode == 0:
         raise AssertionError("invalid user input unexpectedly succeeded")
     return proc
+
+
+def browser_http_smoke(tf_root: Path, expected_words: int) -> dict[str, object]:
+    """Use the installed TF browser over real loopback HTTP, no converter imports.
+
+    The response is examined privately; only status and counts are returned.
+    """
+    installed_app = resource_files("copticscriptorium_tf").joinpath("tf_app")
+    assert installed_app.joinpath("config.yaml").is_file(), (
+        "the installed wheel omitted the actual browser application"
+    )
+    app = setup_browser(
+        False,
+        f"app:{installed_app}",
+        f"--locations={tf_root}",
+        "--modules=.",
+    )
+    assert app is not None, "standard TF browser app initialization failed"
+    assert "/query" in {rule.rule for rule in app.url_map.iter_rules()}, (
+        "installed app has no researcher /query endpoint"
+    )
+    server = make_server("127.0.0.1", 0, app)
+    service = Thread(target=server.serve_forever, daemon=True)
+    service.start()
+    address = f"http://127.0.0.1:{server.server_port}"
+    try:
+        # Load the page that would be presented to the local researcher.
+        with urlopen(address + "/", timeout=45) as response:
+            page = response.read(2_000_000)
+            assert response.status == 200, "local TF page returned non-200"
+            assert "text/html" in response.headers.get("Content-Type", ""), (
+                "local TF home page was not rendered as HTML"
+            )
+        assert b"<html" in page.lower(), "browser homepage has no HTML skeleton"
+
+        # Submit through the actual TF browser query handler. The source page
+        # and Coptic word text must not be printed, persisted or uploaded.
+        encoded = urlencode({"query": "word", "batch": "5", "condenseType": "document"}).encode("ascii")
+        request = Request(
+            address + "/query",
+            data=encoded,
+            method="POST",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        with urlopen(request, timeout=90) as response:
+            payload = json.loads(response.read(2_000_000))
+            assert response.status == 200, "browser query returned non-200"
+        assert isinstance(payload, dict), "browser query did not return JSON"
+        assert payload.get("status") is True, (
+            "browser rejected valid user query, without exposing response text"
+        )
+        assert payload.get("nResults") == expected_words, (
+            "TF browser query count disagrees with independent native word slots"
+        )
+        assert isinstance(payload.get("table"), str) and "<" in payload["table"], (
+            "browser has a count but did not render native result markup"
+        )
+        return {
+            "http_browser_home": "pass",
+            "http_browser_search": "pass",
+            "http_browser_result_count": payload["nResults"],
+            "http_browser_query": "word",
+            "http_browser_loopback_only": True,
+        }
+    finally:
+        server.shutdown()
+        service.join(timeout=15)
+        server.server_close()
+        assert not service.is_alive(), "browser server did not shut down"
 
 
 def main(source: Path, bin_dir: Path, scratch: Path) -> None:
@@ -118,6 +194,7 @@ def main(source: Path, bin_dir: Path, scratch: Path) -> None:
     )
 
     run([browser, str(root), "--check"], workdir=scratch)
+    http_result = browser_http_smoke(root, api.F.otype.maxSlot)
 
     # Negative real installed CLI journey: no phantom native corpus published.
     empty = scratch / "empty-original-tree"
@@ -146,6 +223,7 @@ def main(source: Path, bin_dir: Path, scratch: Path) -> None:
         "native_dependency_query": True,
         "normalized_text_format": "text-orig-full",
         "browser_check": "pass",
+        **http_result,
         "missing_tt_error": "actionable_no_partial_output",
         "mode": "TT-only; original CONLLU absent",
     }, sort_keys=True))
