@@ -850,8 +850,8 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
                     len(set(k for k, _ in original)) != len(original) or
                     set(dict(original)) - INTERVENTION_WRAPPER_KEYS[node.otype]):
                 errors.append(f"intervention node {node.id} has invalid original source attrs")
-        elif node.source_attributes:
-            errors.append(f"non-intervention node {node.id} has invented source attrs")
+        elif node.otype != "entity" and node.source_attributes:
+            errors.append(f"non-intervention/non-entity node {node.id} has invented source attrs")
         if node.otype in VERSE_POSITION_TYPES:
             if node.label is None or node.start_char is None or node.start_char <= 0:
                 errors.append(f"source position node {node.id} lacks a mid-word value/offset")
