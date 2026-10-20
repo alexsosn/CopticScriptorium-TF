@@ -4,8 +4,9 @@ CopticScriptorium-TF includes a local app for the standard
 Text-Fabric 13.1.0 browser. It reads the same native `.tf` files produced by
 the converter; there is no second semantic store and no JSON/XML sidecar model.
 A narrowly scoped `app/app.py` compatibility hook preserves the **one-level
-physical-document section model** when standard browser search-result links
-are rendered. It changes no TF nodes, features, section identifiers, or query
+physical-document section model** when standard browser search-result tables
+are rendered. It operates only on the loaded browser app's in-memory section
+lookup and never edits the generated TF corpus. It changes no TF nodes, features, section identifiers, or query
 semantics; multi-level corpora continue to use Text-Fabric's default link logic.
 
 ## Launch

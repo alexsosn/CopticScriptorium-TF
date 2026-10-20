@@ -4,20 +4,16 @@ The native corpus has exactly one real section kind: physical document.
 Text-Fabric's standard search-result link formatter assumes a second section
 kind for word/annotation nodes, raising IndexError during HTTP query rendering.
 Keep the native TF warp and all physical source identities unchanged. Only the
-browser app's string-link formatter is overridden for this exact one-level
-model; multi-level Text-Fabric corpora use the untouched standard formatter.
+browser app's in-memory section-tuple lookup is overridden for this exact
+one-level model; multi-level Text-Fabric corpora use the untouched standard formatter.
 """
 from __future__ import annotations
-
-from types import MethodType
 
 from tf.advanced.app import App
 
 
-def _original_document_section(app, node, *, lang="en", lastSlot=False,
-                               fillup=False, level=None):
-    """Return the real source-record label containing one native TF node."""
-    api = app.api
+def _native_document_node(api, node):
+    """Resolve the one real physical document without inventing section levels."""
     if api.F.otype.v(node) == "document":
         document = node
     else:
@@ -28,11 +24,11 @@ def _original_document_section(app, node, *, lang="en", lastSlot=False,
     literal = api.F.source_record_id.v(document)
     if not isinstance(literal, str) or not literal:
         raise ValueError("browser section is missing physical document label")
-    return literal
+    return document
 
 
 def _install_one_level_adapter(app):
-    """Do not patch Text-Fabric core or change section identity/slot metadata."""
+    """Patch only this app's in-memory TF section lookup; preserve native warp."""
     api = getattr(app, "api", None)
     if api is None:
         return
@@ -41,7 +37,15 @@ def _install_one_level_adapter(app):
         return
     if tuple(api.T.sectionFeats) != ("source_record_id",):
         raise ValueError("one-level document browser requires source_record_id section feature")
-    app.sectionStrFromNode = MethodType(_original_document_section, app)
+
+    # Text-Fabric 13.1.0's sectionTuple indexes sectionTypes[1] for a word or
+    # annotation even when exactly one level exists. Standard browser results
+    # call T.sectionFromNode → sectionTuple directly, not only app links.
+    # The native T.nodeFromSection and original TF section data stay intact.
+    def native_single_section_tuple(node, lastSlot=False, fillup=False):
+        return (_native_document_node(api, node),)
+
+    api.T.sectionTuple = native_single_section_tuple
 
 
 class TfApp(App):

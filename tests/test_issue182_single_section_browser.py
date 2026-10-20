@@ -20,7 +20,8 @@ def fake_app(*, types=("document",), features=("source_record_id",),
     node_types = {1: "word", 2: "sentence", 3: "trans_horner", 100: "document"}
     api = SimpleNamespace(
         T=SimpleNamespace(sectionTypes=types, sectionFeats=features,
-                          sectionFeatures=({100: label},)),
+                          sectionFeatures=({100: label},),
+                          sectionTuple=lambda node, **kwargs: ("unchanged_upstream",)),
         F=SimpleNamespace(
             otype=SimpleNamespace(v=node_types.get),
             source_record_id=SimpleNamespace(
@@ -43,10 +44,14 @@ class SingleSectionBrowserLinkTests(unittest.TestCase):
         module = self._module()
         app = fake_app()
         module["_install_one_level_adapter"](app)
-        self.assertEqual(app.sectionStrFromNode(1), "sample/sample:record")
-        self.assertEqual(app.sectionStrFromNode(2), "sample/sample:record")
-        self.assertEqual(app.sectionStrFromNode(3), "sample/sample:record")
-        self.assertEqual(app.sectionStrFromNode(100), "sample/sample:record")
+        for native_node in (1, 2, 3, 100):
+            with self.subTest(native_node=native_node):
+                self.assertEqual(app.api.T.sectionTuple(native_node), (100,))
+                document = app.api.T.sectionTuple(native_node)[0]
+                self.assertEqual(
+                    app.api.F.source_record_id.v(document), "sample/sample:record"
+                )
+        self.assertEqual(app.api.T.sectionTuple(1, fillup=True), (100,))
         # The underlying Text-Fabric API is not modified.
         self.assertEqual(app.api.T.sectionTypes, ("document",))
         self.assertEqual(app.api.T.sectionFeats, ("source_record_id",))
@@ -57,6 +62,7 @@ class SingleSectionBrowserLinkTests(unittest.TestCase):
         app = fake_app(types=("document", "verse"), features=("source_record_id", "n"))
         module["_install_one_level_adapter"](app)
         self.assertEqual(app.sectionStrFromNode(1), "original")
+        self.assertEqual(app.api.T.sectionTuple(1), ("unchanged_upstream",))
 
     def test_missing_or_multiple_parent_document_fails_without_inventing_label(self):
         module = self._module()
