@@ -131,6 +131,8 @@ class Translation:
     ordinal: int
     text: str
     word_ordinals: tuple[int, ...]
+    # Original TT opener <arabic> vs <arabic_translation>, not a new node kind.
+    source_tag: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

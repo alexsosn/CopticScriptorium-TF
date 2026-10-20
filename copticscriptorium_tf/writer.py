@@ -37,6 +37,7 @@ _SCALAR_FEATURES = (
     ("source_ordinal", None, "source_ordinal", "int"),
     ("value", None, "value", "str"),
     ("own_text", None, "text", "str"),
+    ("original_source_tag", None, "source_tag", "str"),
     ("label", None, "label", "str"),
     ("scholarly_id", None, "scholarly_id", "str"),
     ("corpus", None, "corpus", "str"),

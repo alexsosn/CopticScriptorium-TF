@@ -69,6 +69,8 @@ class GraphNode:
     slot_ranges: tuple[tuple[int, int], ...]
     value: str | None = None
     text: str | None = None
+    # Exact upstream opener of a language-specific translation when ambiguous.
+    source_tag: str | None = None
     label: str | None = None
     scholarly_id: str | None = None
     corpus: str | None = None
@@ -612,7 +614,8 @@ def build_graph(
                         raise ValueError(f"{otype} has no word locus in {record}")
                     add(otype, source_record_id=record, source_ordinal=item.ordinal,
                         slot_ranges=_ranges(gslots(document, item.word_ordinals)),
-                        text=item.text, render_mode="own_text")
+                        text=item.text, source_tag=item.source_tag,
+                        render_mode="own_text")
         count = len(nodes) - before
         if count:
             node_ranges.append(NodeRange(otype, range_start, range_start + count - 1, count))
@@ -782,6 +785,10 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
         for slot_id in _iter_ranges(node.slot_ranges):
             if slot_document[slot_id] != owner.id:
                 errors.append(f"{node.otype} node {node.id} crosses physical documents")
+        if node.source_tag is not None:
+            if (node.otype != "arabic_translation"
+                    or node.source_tag not in {"arabic", "arabic_translation"}):
+                errors.append(f"node {node.id} has invalid original Arabic source tag")
         if node.otype in {"translation", "arabic_translation"}:
             if not node.slot_ranges:
                 errors.append(f"{node.otype} node {node.id} lacks measured word locus")
