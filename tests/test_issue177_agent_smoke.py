@@ -43,7 +43,7 @@ class InstalledResearcherJourneyContract(unittest.TestCase):
         ):
             with self.subTest(browser_contract=fragment):
                 self.assertIn(fragment, script)
-        self.assertIn(\'"condenseType": "document"\', script)
+        self.assertIn('"condenseType": "document"', script)
         self.assertIn("server.shutdown()", script)
         self.assertIn("server.server_close()", script)
         self.assertNotIn("print(page_html)", script)
