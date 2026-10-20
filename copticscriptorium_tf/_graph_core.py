@@ -535,6 +535,10 @@ def build_graph(
                         slot_ranges=_ranges(gslots(document, item.word_ordinals)),
                         parent_node_id=parent, entity_class=item.entity_class,
                         identity=item.identity, head_literal=item.head_literal,
+                        source_attributes=(
+                            (("text", item.source_text_literal),)
+                            if item.source_text_literal is not None else ()
+                        ),
                     )
                     entity_ids[(record, item.ordinal)] = node.id
                     entity_heads.append((node.id, document, item.head_word_ordinal))
@@ -789,6 +793,12 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
             if (node.otype != "arabic_translation"
                     or node.source_tag not in {"arabic", "arabic_translation"}):
                 errors.append(f"node {node.id} has invalid original Arabic source tag")
+        if node.otype == "entity":
+            attrs = node.source_attributes
+            if (len(attrs) > 1 or any(
+                key != "text" or not isinstance(value, str) for key, value in attrs
+            )):
+                errors.append(f"entity node {node.id} has invalid original source text attribute")
         if node.otype in {"translation", "arabic_translation"}:
             if not node.slot_ranges:
                 errors.append(f"{node.otype} node {node.id} lacks measured word locus")

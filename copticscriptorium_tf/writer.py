@@ -68,6 +68,7 @@ _SOURCE_ATTR_FEATURES = tuple(
         ("gap", ("gap", "extent", "reason", "unit")),
         ("supplied", ("supplied", "source", "reason")),
         ("abbr", ("type",)),
+        ("entity", ("text",)),
     )
     for key in keys
 )

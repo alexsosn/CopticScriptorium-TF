@@ -564,6 +564,7 @@ def parse_tt_record(
                     "entity_class": attrs.get("entity"),
                     "identity": attrs.get("identity"),
                     "head_literal": attrs.get("head_tok"),
+                    "source_text_literal": attrs.get("text"),
                     "word_ordinals": locus,
                 }
             )
@@ -685,6 +686,7 @@ def parse_tt_record(
                 head_literal=head_literal,
                 head_word_ordinal=head_ordinal,
                 word_ordinals=locus,
+                source_text_literal=raw_entity.get("source_text_literal"),
             )
         )
 
