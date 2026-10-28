@@ -80,6 +80,22 @@ class MorphLangOriginalAttributeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "morph.*attributes|unexpected"):
             parse('<morph lang="Greek">a</morph>bcdef')
 
+    def test_independent_raw_scanner_handles_original_quoted_values(self):
+        import runpy
+        source = (Path(__file__).resolve().parents[1] /
+                  "tests/live_issue189_morph_lang_parity.py")
+        runner = runpy.run_path(str(source))
+        self.assertIsNot(
+            runner["RAW_TAG"],
+            __import__("copticscriptorium_tf.parser", fromlist=["TAG_RE"]).TAG_RE,
+        )
+        self.assertEqual(
+            runner["original_attrs"](' morph="a&amp;b" lang=""'),
+            {"morph": "a&b", "lang": ""},
+        )
+        with self.assertRaisesRegex(AssertionError, "duplicate"):
+            runner["original_attrs"](' morph="a" morph="b"')
+
     def test_pinned_source_full_native_gate_is_required(self):
         root = Path(__file__).resolve().parents[1]
         workflow = (root / ".github/workflows/issue69-full-verse-census.yml").read_text(encoding="utf-8")

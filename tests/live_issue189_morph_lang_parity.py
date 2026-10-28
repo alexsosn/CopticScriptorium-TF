@@ -6,13 +6,36 @@ counts and source IDs only. The native scanner never synthesizes lang labels.
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 from hashlib import sha256
+from html import unescape
 from pathlib import Path
+import re
 from zipfile import ZipFile
 
-from copticscriptorium_tf.model import TOKEN_WRAPPER_TYPES
-from copticscriptorium_tf.parser import TAG_RE, _scan_attrs, parse_tt_record
+from copticscriptorium_tf.parser import parse_tt_record
+
+# Deliberately independent of parser.TAG_RE, parser._scan_attrs and model
+# wrapper declarations: comparing a parser against itself is not source parity.
+RAW_TAG = re.compile(r"<(/?)([A-Za-z_][A-Za-z0-9_.:-]*)([^>]*)>")
+RAW_ATTR = re.compile(r'\\s+([A-Za-z_][A-Za-z0-9_.:-]*)\\s*=\\s*"([^"]*)"')
+TOKEN_SOURCE_TAGS = frozenset(
+    ("morph", "norm_func", "norm_head", "norm_xml:id", "norm_new_sent")
+)
+
+
+def original_attrs(fragment: str):
+    observed = {}
+    offset = 0
+    while offset < len(fragment):
+        if not fragment[offset:].strip():
+            break
+        match = RAW_ATTR.match(fragment, offset)
+        assert match is not None, "malformed original source attribute"
+        key = match.group(1)
+        assert key not in observed, "duplicate original source attribute"
+        observed[key] = unescape(match.group(2))
+        offset = match.end()
+    return observed
 
 PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
 SAMPLE = {
@@ -58,13 +81,12 @@ def compare(root: Path, native: Path | None):
         ordinal = 0
         attested = []
         text = raw.decode("utf-8")
-        for m in TAG_RE.finditer(text):
-            if m.group(1) or m.group(2) not in TOKEN_WRAPPER_TYPES:
+        for m in RAW_TAG.finditer(text):
+            if m.group(1) or m.group(2) not in TOKEN_SOURCE_TAGS:
                 continue
             ordinal += 1
             if m.group(2) == "morph":
-                attrs, duplicates = _scan_attrs(m.group(3))
-                assert not duplicates
+                attrs = original_attrs(m.group(3))
                 assert set(attrs) in ({"morph"}, {"morph", "lang"})
                 if "lang" in attrs:
                     entry = (record_id, ordinal)
