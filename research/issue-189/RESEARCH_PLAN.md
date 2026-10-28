@@ -10,3 +10,7 @@ The pinned original TT source at `CopticScriptorium/corpora@3ac067f1709a0012daf3
 4. Logically independent skeptical source/code/diff and actual CI review on exact final head; merge only after all applicable gates green. Keep #184 open for other source attr gaps.
 
 No generic sidecar, no broad serializer, no inferred Greek/Coptic lexical equivalence. Scope is 284 original attested labels on existing source morph annotations.
+
+## Pinned source→native acceptance
+
+The existing Git sparse source+full native workflow now independently scans all original 565 TT blob paths (ZIP members included) for the source `<morph>` opener with an exact `lang` attr, counts exactly 284, checks the first three independent Sahidic Genesis originals, compares original opening ordinal among all token tags and decoded literal to frozen parser annotations on every affected source document, and after the complete 2,628-record/2,394,354-slot clean Fabric reload compares sparse `source_attr_morph_lang`, exact original morph value, native source ordinal, absence elsewhere and SHA256 for each affected document. CI logs counts only; no original texts uploaded. Do not conflate an attribute with nested independent `<lang>` tags.
