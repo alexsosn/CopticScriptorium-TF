@@ -17,7 +17,7 @@ from copticscriptorium_tf.parser import parse_tt_record
 # Deliberately independent of parser.TAG_RE, parser._scan_attrs and model
 # wrapper declarations: comparing a parser against itself is not source parity.
 RAW_TAG = re.compile(r"<(/?)([A-Za-z_][A-Za-z0-9_.:-]*)([^>]*)>")
-RAW_ATTR = re.compile(r'\\s+([A-Za-z_][A-Za-z0-9_.:-]*)\\s*=\\s*"([^"]*)"')
+RAW_ATTR = re.compile(r'\s+([A-Za-z_][A-Za-z0-9_.:-]*)\s*=\s*"([^"]*)"')
 TOKEN_SOURCE_TAGS = frozenset(
     ("morph", "norm_func", "norm_head", "norm_xml:id", "norm_new_sent")
 )
