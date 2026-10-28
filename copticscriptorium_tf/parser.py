@@ -337,6 +337,9 @@ def parse_tt_record(
         if name in sbl_open:
             if name in TOKEN_WRAPPER_TYPES and current_word is None:
                 raise ValueError(f"token annotation {name} opening outside norm in {source_record_id}")
+            if name == "morph":
+                if set(attrs) - {"morph", "lang"} or "morph" not in attrs:
+                    raise ValueError(f"morph original source attributes mismatch in {source_record_id}")
             if name in INTERVENTION_WRAPPER_TYPES:
                 unknown = set(attrs) - INTERVENTION_WRAPPER_KEYS[name]
                 if unknown:
@@ -414,7 +417,11 @@ def parse_tt_record(
                     else attrs[RESIDUAL_SOURCE_ATTRIBUTE[name]] if name in RESIDUAL_SOURCE_WRAPPER_TYPES
                     else attrs[name]
                 ),  # exact originals remain in source_attributes
-                "source_attributes": tuple(sorted(attrs.items())) if name in INTERVENTION_WRAPPER_TYPES else (),
+                "source_attributes": (
+                    tuple(sorted(attrs.items()))
+                    if name in INTERVENTION_WRAPPER_TYPES or (name == "morph" and "lang" in attrs)
+                    else ()
+                ),
                 "source_verse_n": current_verse_n,
                 "start_word_ordinal": current_word["ordinal"] if current_word else None,
                 "start_char": current_offset() if current_word else None,
