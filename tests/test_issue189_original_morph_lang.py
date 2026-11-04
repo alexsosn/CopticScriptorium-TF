@@ -85,10 +85,13 @@ class MorphLangOriginalAttributeTests(unittest.TestCase):
         source = (Path(__file__).resolve().parents[1] /
                   "tests/live_issue189_morph_lang_parity.py")
         runner = runpy.run_path(str(source))
-        self.assertIsNot(
-            runner["RAW_TAG"],
-            __import__("copticscriptorium_tf.parser", fromlist=["TAG_RE"]).TAG_RE,
-        )
+        # re.compile caches identical patterns process-wide. Object identity
+        # cannot establish independent source-scanning logic; check code paths.
+        scanner_names = runner["compare"].__code__.co_names
+        self.assertIn("RAW_TAG", scanner_names)
+        self.assertIn("original_attrs", scanner_names)
+        self.assertNotIn("TAG_RE", scanner_names)
+        self.assertNotIn("_scan_attrs", scanner_names)
         self.assertEqual(
             runner["original_attrs"](' morph="a&amp;b" lang=""'),
             {"morph": "a&b", "lang": ""},

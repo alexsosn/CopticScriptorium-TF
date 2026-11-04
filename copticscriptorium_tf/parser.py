@@ -338,8 +338,20 @@ def parse_tt_record(
             if name in TOKEN_WRAPPER_TYPES and current_word is None:
                 raise ValueError(f"token annotation {name} opening outside norm in {source_record_id}")
             if name == "morph":
-                if set(attrs) - {"morph", "lang"} or "morph" not in attrs:
-                    raise ValueError(f"morph original source attributes mismatch in {source_record_id}")
+                # Keep the established missing-value contract for all token
+                # annotations, and validate extra morph keys separately.
+                if "morph" not in attrs:
+                    if not attrs:
+                        raise ValueError(
+                            f"token annotation morph has no source value in {source_record_id}"
+                        )
+                    raise ValueError(
+                        f"morph original source attributes mismatch in {source_record_id}"
+                    )
+                if set(attrs) - {"morph", "lang"}:
+                    raise ValueError(
+                        f"morph original source attributes mismatch in {source_record_id}"
+                    )
             if name in INTERVENTION_WRAPPER_TYPES:
                 unknown = set(attrs) - INTERVENTION_WRAPPER_KEYS[name]
                 if unknown:
