@@ -289,7 +289,17 @@ def _check_document(document: DocumentModel) -> None:
         )
         if not isinstance(annotation.value, str) or annotation.kind not in accepted_kinds:
             raise ValueError(f"invalid scholarly source annotation in {document.source_record_id}")
-        if expected_kind == "intervention":
+        if annotation.kind == "morph":
+            attrs = annotation.source_attributes
+            if attrs and (
+                tuple(sorted(attrs)) != attrs or
+                len(attrs) != 2 or
+                dict(attrs).get("morph") != annotation.value or
+                "lang" not in dict(attrs) or
+                not all(isinstance(v, str) for _, v in attrs)
+            ):
+                raise ValueError(f"invalid morph original source attributes in {document.source_record_id}")
+        elif expected_kind == "intervention":
             attrs = annotation.source_attributes
             if (not attrs or tuple(sorted(attrs)) != attrs or
                     len(set(key for key, _ in attrs)) != len(attrs) or
@@ -850,6 +860,15 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
                     len(set(k for k, _ in original)) != len(original) or
                     set(dict(original)) - INTERVENTION_WRAPPER_KEYS[node.otype]):
                 errors.append(f"intervention node {node.id} has invalid original source attrs")
+        elif node.otype == "morph":
+            attrs = node.source_attributes
+            if attrs and (
+                tuple(sorted(attrs)) != attrs or len(attrs) != 2 or
+                dict(attrs).get("morph") != node.value or
+                "lang" not in dict(attrs) or
+                not all(isinstance(v, str) for _, v in attrs)
+            ):
+                errors.append(f"morph node {node.id} has invalid original source attrs")
         elif node.otype != "entity" and node.source_attributes:
             errors.append(f"non-intervention/non-entity node {node.id} has invented source attrs")
         if node.otype in VERSE_POSITION_TYPES:

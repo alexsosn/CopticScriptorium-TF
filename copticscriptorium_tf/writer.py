@@ -69,6 +69,7 @@ _SOURCE_ATTR_FEATURES = tuple(
         ("supplied", ("supplied", "source", "reason")),
         ("abbr", ("type",)),
         ("entity", ("text",)),
+        ("morph", ("lang",)),
     )
     for key in keys
 )
