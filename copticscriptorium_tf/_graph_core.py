@@ -58,6 +58,8 @@ class GraphSlot:
     verse_vid: str | None = None
     # Validated CoNLL-U values for this word, kept apart from TT values.
     ud: SupplementalWord | None = None
+    # Literal original <norm lang="...">; never inferred from <lang> tags.
+    original_lang: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -424,6 +426,7 @@ def build_graph(
                 word.norm, word.lemma, word.pos, word.func, word.head_literal,
                 word.dependency_head_ordinal, word.source_text,
                 verse_n=word.verse_n, vid_n=word.vid_n, verse_vid=word.verse_vid,
+                original_lang=word.original_lang,
                 ud=None if ud_words is None else ud_words[index],
             ))
 
@@ -701,6 +704,8 @@ def validate_graph(graph: Graph) -> tuple[str, ...]:
     if graph.section_types != ("document",):
         errors.append("section hierarchy must be document-only")
     for expected_id, slot in enumerate(graph.slots, 1):
+        if slot.original_lang is not None and not isinstance(slot.original_lang, str):
+            errors.append(f"slot {slot.id} has invalid source norm language type")
         if slot.id != expected_id:
             errors.append("slot ids are not contiguous from 1")
             break
