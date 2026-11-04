@@ -11,3 +11,7 @@ The immutable pinned TT source census `CopticScriptorium/corpora@3ac067f1709a001
 5. Current working base is `main` before #191's morph source label fix; *do not merge this follow-up until #191 is finished and main is reconciled*. The initial branch deliberately doesn't modify overlapping full-source workflow yet; add its source parity runner after reconciling main, then run its complete exact-head gates. One canonical PR per issue.
 
 No generic attribute layer, inferred language ontology, XML/JSON blobs or extra word slots.
+
+## Pinned original source-to-native runner
+
+The existing full Git sparse-checkout TT + CoNLL-U release workflows now include `tests/live_issue192_norm_lang_parity.py`: a separate, source-independent original `<norm>` opening/attribute scanner and strict duplicate detection across the same verified 565 raw TT blobs including ZIP members (file iteration reused from the already independent #189 raw-source audit, **not** converter's source parser). It counts all **2,394,354** physical original words and exactly **57,369** original `norm.lang` attrs, compares each decoded original value in the original record's word ordinal with `Word.original_lang`, then after complete native Fabric reload compares all source attrs and all absent slots to native `source_attr_norm_lang`, exact original `norm` and original source-byte SHA for affected records. CI prints aggregate counts, no original Coptic word or source attr value. Baseline PR #191 merged `006366c4`; branch was reconciled to its tree before implementation.

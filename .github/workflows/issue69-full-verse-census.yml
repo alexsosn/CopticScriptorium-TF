@@ -26,6 +26,8 @@ on:
       - 'tests/live_issue184_arabic_source_parity.py'
       - 'tests/live_issue187_entity_source_parity.py'
       - 'tests/live_issue189_morph_lang_parity.py'
+      - 'tests/live_issue192_norm_lang_parity.py'
+      - 'tests/test_issue192_norm_source_lang.py'
       - 'tests/test_issue189_original_morph_lang.py'
       - 'tests/test_issue187_original_entity_text.py'
       - 'tests/test_issue184_arabic_source_tags.py'
@@ -164,6 +166,9 @@ jobs:
       - name: Independently compare all 284 original morph.lang source literals
         run: PYTHONPATH=. python tests/live_issue189_morph_lang_parity.py pinned-coptic
 
+      - name: Independently check original word-level norm.lang attributes
+        run: PYTHONPATH=. python tests/live_issue192_norm_lang_parity.py pinned-coptic
+
       - name: Install pinned Text-Fabric for native conversion and reload
         run: python -m pip install 'text-fabric==13.1.0'
 
@@ -189,6 +194,7 @@ jobs:
           python tests/live_issue173_full_native.py "$RUNNER_TEMP/issue110-full-native/tf" pinned-coptic
           PYTHONPATH=. python tests/live_issue187_entity_source_parity.py pinned-coptic --native "$RUNNER_TEMP/issue110-full-native/tf"
           PYTHONPATH=. python tests/live_issue189_morph_lang_parity.py pinned-coptic --native "$RUNNER_TEMP/issue110-full-native/tf"
+          PYTHONPATH=. python tests/live_issue192_norm_lang_parity.py pinned-coptic --native "$RUNNER_TEMP/issue110-full-native/tf"
           PYTHONPATH=. python tests/live_issue184_arabic_source_parity.py pinned-coptic --native "$RUNNER_TEMP/issue110-full-native/tf"
           python tests/live_issue109_profile_gate.py "$RUNNER_TEMP/issue110-full-report.json"
 
