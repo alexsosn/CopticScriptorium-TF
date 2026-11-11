@@ -455,6 +455,10 @@ Useful word features include:
 - pos — upstream part-of-speech value;
 - func — upstream syntactic/function or morphology-related value;
 - source_text — source surface associated with the word;
+- source_attr_norm_lang — the exact original language attribute on a TT
+  `<norm>` word (sparse, absent if not supplied, empty if explicitly empty).
+  It is independent of positioned `<lang>` annotations and original
+  `<morph lang=...>` evidence; no language-origin classification is inferred.
 - head_literal and dependency_head_ordinal — preserved source dependency
   evidence.
 
