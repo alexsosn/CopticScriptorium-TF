@@ -80,7 +80,7 @@ permissions:
 jobs:
   pinned-complete-tt-source-marker-audit:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out exact Coptic converter PR head
         uses: actions/checkout@v4
@@ -173,7 +173,10 @@ jobs:
         run: python -m pip install 'text-fabric==13.1.0'
 
       - name: Full pinned source native TF schema/reload release regression
-        timeout-minutes: 16
+        # Conversion and fifteen independent full-native checks share this step.
+        # The 2026-11-04 pinned run timed out at 16m after conversion/reload
+        # succeeded (2,628 records / 2,394,354 slots; 7,964 MiB peak RSS).
+        timeout-minutes: 30
         run: |
           /usr/bin/time -v -o "$RUNNER_TEMP/issue110-full-time.txt" \
             python research/issue-16/full_converter_smoke.py pinned-coptic \
