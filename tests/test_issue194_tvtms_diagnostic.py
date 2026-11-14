@@ -42,6 +42,10 @@ def ref(verse, *, chapter=2, lxx_verse=None, book="Zech", status="versification_
     return SimpleNamespace(
         status=status,
         source_verse_n=str(verse),
+        source_record_id=(
+            f"bohairic.ot/bohairic.ot:38_Zacharias_{1 if verse >= 18 else 2:02d}"
+            if book == "Zech" else "<synthetic_source>"
+        ),
         source_word_ordinals=(verse,),
         lxx_book=book,
         lxx_chapter=chapter,
@@ -89,6 +93,17 @@ class ExternalVersificationDiagnosticsTests(unittest.TestCase):
         audit.add(doc(chapter=1), [ref(18, chapter=2, lxx_verse=2)])
         report = audit.report()
         self.assertEqual(report["status_counts"], {"reviewed_disagree": 1})
+
+    def test_cross_document_reference_cannot_fake_independent_zechariah_agreement(self):
+        audit = TvtmsDiagnostic(self._mapping())
+        forged = replace_ref(
+            ref(18, chapter=2, lxx_verse=1),
+            source_record_id="bohairic.ot/bohairic.ot:other",
+        )
+        audit.add(doc(chapter=1), [forged])
+        self.assertEqual(audit.report()["status_counts"], {
+            "source_scheme_unverified": 1
+        })
 
     def test_jonah_english_offset_cannot_overwrite_lxx_style_coptic(self):
         audit = TvtmsDiagnostic(self._mapping())
