@@ -61,7 +61,7 @@ class ExternalVersificationDiagnosticsTests(unittest.TestCase):
                 **{f"Zechariah 1:{v}": {"chapter": 2, "verse": v - 17} for v in range(18, 22)},
                 **{f"Zechariah 2:{v}": {"chapter": 2, "verse": v + 4} for v in range(1, 14)},
                 "Jonah 2:1": {"chapter": 2, "verse": 2},
-                "Psalms 3:1": None,
+                "Exodus 25:6": None,
                 "Genesis 5:32": {"chapter": 6, "verse": 1, "part": ".1"},
             },
         }
@@ -111,11 +111,17 @@ class ExternalVersificationDiagnosticsTests(unittest.TestCase):
 
     def test_null_partial_missing_and_invalid_verses_fail_closed(self):
         audit = TvtmsDiagnostic(self._mapping())
+        audit.add(doc(corpus="sahidic.ot", chapter=25), [
+            ref(6, book="Exod", chapter=25, status="reference_candidate"),
+        ])
+        audit.add(doc(corpus="sahidic.ot", chapter=5), [
+            ref(32, book="Gen", chapter=6, status="reference_candidate"),
+        ])
         audit.add(doc(corpus="sahidic.ot", chapter=3), [
-            ref(1, book="Ps", chapter=3, status="reference_candidate"),
             replace_ref(ref(1, book="Ps", chapter=3, status="reference_candidate"), source_verse_n="0"),
-            ref(32, book="Gen", chapter=5, status="reference_candidate"),
             ref(1, book="Dan", chapter=1, status="unclassified_corpus"),
+        ])
+        audit.add(doc(corpus="sahidic.ot", chapter=2), [
             ref(1, book="Ruth", chapter=2, status="reference_candidate"),
         ])
         out = audit.report()
