@@ -107,6 +107,8 @@ jobs:
           test "$(git -C pinned-tvtms hash-object data/stepbible-versification/mapping.json)" = "fe3cd19cdef252e7537bb739b8cf4117dcabe927"
           test "$(git -C pinned-step-source rev-parse HEAD)" = "86ab0b75e195d3269c081201f2ff66afa10d5a30"
           TVTMS_ORIGINAL="pinned-step-source/Versification/TVTMS - Translators Versification Traditions with Methodology for Standardisation for Eng+Heb+Lat+Grk+Others - STEPBible.org CC BY.txt"
+          echo "Original TVTMS git blob: $(git -C pinned-step-source hash-object "${TVTMS_ORIGINAL#pinned-step-source/}")"
+          echo "Original TVTMS SHA256: $(sha256sum "$TVTMS_ORIGINAL" | cut -d' ' -f1)"
           test "$(git -C pinned-step-source hash-object "${TVTMS_ORIGINAL#pinned-step-source/}")" = "4fdcb4fd761ba8a680a3f0cc95ad65f591e18d4b"
           test "$(sha256sum "$TVTMS_ORIGINAL" | cut -d' ' -f1)" = "934350a6b9246ca7c017dca78a4292b4f8eeab0aed9a30cc3d27a00afbf9895a"
 
