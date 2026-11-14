@@ -298,6 +298,49 @@ existing references. Psalms superscriptions and `verse_n=0` are likewise
 not automatically converted. Issue [#194](https://github.com/alexsosn/CopticScriptorium-TF/issues/194)
 tracks the aggregate external coverage audit and remaining primary-text review.
 
+## Bohairic Psalm verse-zero source spans — #199
+
+A reproducible *actual upstream* audit of `CopticScriptorium/corpora`
+`bohairic.ot/bohairic.ot_TT.zip` at
+`3ac067f1709a0012daf39ea8da2fac79980176a5` finds **151/151
+nonempty** source-`verse_n="0"` spans, totaling **1,313 original Coptic
+word slots** in the Bohairic Psalm 1–151 documents. All zero markers
+are the first verse marker before any `norm`, and all are followed by
+literal `verse_n="1"`; there are **no zero-word placeholders**.
+Their 151 counterpart Greek first-verse `Ps chapter:1` nodes exist
+in the exact pinned CenterBLC/LXX parent (each has one native subverse).
+This is *Greek reference existence*, not certified textual alignment.
+
+Source controls: Psalm 1 zero span has **1 word**, Psalm 17 has **59**,
+Psalm 151 has **11**. The Coptic Scriptorium Bohairic Psalm 17
+[chapter view](https://data.copticscriptorium.org/texts/bohairicot/19_psalmi_17/)
+shows words corresponding to the superscription including David and
+Saul; the published [LXX Ps 17:1–2](https://www.biblindex.org/en/bible/septuaginta/ps-17%3A1)
+places the superscription in Greek verse 1, with "and he said"
+at Greek verse 2. Thus **Coptic zero spans cannot be mapped by a
+single global 0→Greek 1 rule**, and Coptic verse 1 must not be assumed
+to be equivalent to Greek verse 1 in chapters with numbered headings.
+Psalm 1's one-word zero span is another negative control.
+
+Read-only classifier `copticscriptorium_tf.psalm_zero_boundary.inspect_psalm_zero`
+returns original source zero/next-marker positions and counts,
+Greek next verse **existence only**, physical source SHA-256 and
+chapter/edition provenance. It **does not modify** original
+Coptic `verse_n`, native TF graph, or bilateral weft references.
+Run a real exact-source acceptance using:
+
+```bash
+python tests/live_issue199_psalm_zero.py \
+  /path/to/pinned-coptic /path/to/CenterBLC-LXX/tf/1935 \
+  /tmp/issue199-psalm-zero-report.json
+```
+
+Only aggregate source metadata is saved; no licensed Coptic/Greek text
+is redistributed. The exact-source real CI for this audit and follow-up
+primary-text cross-boundary/many-to-one mapping work are tracked by
+[#199](https://github.com/alexsosn/CopticScriptorium-TF/issues/199)
+and the open parent [#75](https://github.com/alexsosn/CopticScriptorium-TF/issues/75).
+
 ## Known limitations and next gates
 
 Do **not** infer Greek/Coptic word identity from an equal verse address;
