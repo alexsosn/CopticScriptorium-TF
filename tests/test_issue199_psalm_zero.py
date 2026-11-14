@@ -114,6 +114,25 @@ class PsalmZeroSourceBoundaryTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "source|chapter|edition|record|revision"):
                     inspect_psalm_zero(make_doc(**mutation))
 
+    def test_adversarial_forged_source_sha_parser_parity_and_greek_node(self):
+        doc = make_doc(body=(
+            '<verse_n verse_n="0">' + norm("zero", 1) +
+            '<verse_n verse_n="1">' + norm("one", 2)
+        ))
+        with self.assertRaisesRegex(ValueError, "sha256|revision"):
+            inspect_psalm_zero(replace(doc, source_sha256="0" * 64))
+        with self.assertRaisesRegex(ValueError, "sha256|revision"):
+            inspect_psalm_zero(replace(doc, source_text=doc.source_text + "TAMPERED"))
+        with self.assertRaisesRegex(ValueError, "tokens|labels"):
+            inspect_psalm_zero(replace(doc, words=doc.words[1:]))
+        with self.assertRaisesRegex(ValueError, "Greek Psalm verse lookup"):
+            inspect_psalm_zero(doc, greek_verse=lambda *_: True)
+        with self.assertRaisesRegex(ValueError, "subverse children"):
+            inspect_psalm_zero(
+                doc, greek_verse=lambda *_: 17,
+                greek_subverse=lambda *_: (41, 41),
+            )
+
     def test_batch_partitions_and_bounded_examples_no_text(self):
         audit = PsalmZeroAudit()
         for chapter in (4, 3, 2, 1):
