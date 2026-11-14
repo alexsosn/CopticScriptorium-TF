@@ -103,6 +103,7 @@ class TvtmsDiagnostic:
         if (
             ref.status != "versification_candidate"
             or ref.lxx_book != "Zech"
+            or getattr(ref, "source_record_id", None) != document.source_record_id
             or not isinstance(ref.evidence, str)
             or not ref.evidence.endswith(BOHAIRIC_ZECH_CROSSWALK_VERSION)
         ):
