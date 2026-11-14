@@ -110,7 +110,7 @@ jobs:
           echo "Original TVTMS git blob: $(git -C pinned-step-source hash-object "${TVTMS_ORIGINAL#pinned-step-source/}")"
           echo "Original TVTMS SHA256: $(sha256sum "$TVTMS_ORIGINAL" | cut -d' ' -f1)"
           test "$(git -C pinned-step-source hash-object "${TVTMS_ORIGINAL#pinned-step-source/}")" = "4fdcb4fd761ba8a680a3f0cc95ad65f591e18d4b"
-          test "$(sha256sum "$TVTMS_ORIGINAL" | cut -d' ' -f1)" = "934350a6b9246ca7c017dca78a4292b4f8eeab0aed9a30cc3d27a00afbf9895a"
+          test "$(sha256sum "$TVTMS_ORIGINAL" | cut -d' ' -f1)" = "63058e0f20201af4bdaa7d830da5be8f493455d947c5f147d84840b33db9ddf8"
 
       - name: Audit actual 2,628 Coptic physical documents + LXX with TVTMS diagnostics
         timeout-minutes: 65
