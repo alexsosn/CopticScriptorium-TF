@@ -97,6 +97,21 @@ def run(source_root: Path, lxx_tf_dir: Path, output: Path) -> None:
         row["source_chapter"] for row in report["records"]
     } != set(range(1, 152)):
         raise ValueError("not all 151 pinned Bohairic Psalm source records were audited")
+    if report["counts"] != {"nonempty_zero_span": 151}:
+        raise ValueError("real Psalm zero markers are not all nonempty word spans")
+    if report["source_zero_word_slots"] != 1313:
+        raise ValueError("real pinned zero-span Coptic word census drifted")
+    if any(row["next_source_verse_literal"] != "1" for row in report["records"]):
+        raise ValueError("source Psalm zero spans do not all end at literal verse 1")
+    if report["greek_next_status"] != {"present": 151}:
+        raise ValueError("not all real LXX Psalm first verse nodes were found")
+    if any(row["greek_next_subverse_count"] != 1 for row in report["records"]):
+        raise ValueError("Greek Psalm first-verse subverse shape differs from pinned profile")
+    source_controls = {1: 1, 17: 59, 151: 11}
+    for row in report["records"]:
+        chapter = row["source_chapter"]
+        if chapter in source_controls and row["zero_span_word_count"] != source_controls[chapter]:
+            raise ValueError("pinned Psalm chapter diagnostic word span drift")
     if negative_controls != LAM:
         raise ValueError("two source Lamentations verse-zero negative controls missing")
     if any(row["source_words_before_zero"] != 0
