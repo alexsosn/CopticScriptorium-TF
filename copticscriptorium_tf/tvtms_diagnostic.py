@@ -19,7 +19,11 @@ from .lxx_versification import (
 TVTMS_REPO_COMMIT = "f426b7253623731ce788c8ce7abcd1d8f95c1f70"
 TVTMS_GIT_BLOB_SHA = "fe3cd19cdef252e7537bb739b8cf4117dcabe927"
 TVTMS_SOURCE_COMMIT = "86ab0b75e195d3269c081201f2ff66afa10d5a30"
-TVTMS_SOURCE_SHA256 = "934350a6b9246ca7c017dca78a4292b4f8eeab0aed9a30cc3d27a00afbf9895a"
+# Independently computed from the ORIGINAL Git blob at TVTMS_SOURCE_COMMIT.
+TVTMS_SOURCE_SHA256 = "63058e0f20201af4bdaa7d830da5be8f493455d947c5f147d84840b33db9ddf8"
+# WARNING: the derivative's SOURCE.json claims a DIFFERENT digest for this
+# same source commit/path. This provenance inconsistency is not resolved.
+TVTMS_DERIVED_DECLARED_SHA256 = "934350a6b9246ca7c017dca78a4292b4f8eeab0aed9a30cc3d27a00afbf9895a"
 SCHEMA = "coptic_tvtms_english_to_lxx_diagnostic_v1"
 CANDIDATE_STATUSES = frozenset({"reference_candidate", "versification_candidate"})
 
@@ -182,6 +186,13 @@ class TvtmsDiagnostic:
             "derived_mapping_git_blob": TVTMS_GIT_BLOB_SHA,
             "original_tvtms_commit": TVTMS_SOURCE_COMMIT,
             "original_tvtms_sha256": TVTMS_SOURCE_SHA256,
+            "derived_source_declared_sha256": TVTMS_DERIVED_DECLARED_SHA256,
+            "provenance_warning": (
+                "Third-party SOURCE.json SHA256 does not match exact original "
+                "TVTMS bytes at the claimed Git commit. Only the derived JSON "
+                "and original upstream Git blobs are independently pinned; "
+                "the transformation chain is NOT independently reproducible."
+            ),
             "direction": "English->LXX; Coptic numbering NOT assumed English",
             "reference_groups": sum(self._counts.values()),
             "word_slots": sum(self._words.values()),
