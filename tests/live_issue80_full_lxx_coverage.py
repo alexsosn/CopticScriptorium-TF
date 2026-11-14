@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from copticscriptorium_tf.parser import parse_tt_record
+from copticscriptorium_tf.tvtms_diagnostic import TvtmsDiagnostic, load_pinned_tvtms
 from copticscriptorium_tf.lxx_module import verify_lxx_parent_feature_blobs
 from copticscriptorium_tf.lxx_coverage import (
     COPTIC_SOURCE_PIN,
@@ -29,7 +30,7 @@ ARCHIVE = re.compile(r"^[^/]+/[^/]+_TT\.zip$")
 LXX_GIT_PIN = "f32a98eddf7eb239aa73ab863d70381e416d5076"
 
 
-def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
+def run(coptic_root: Path, lxx_path: Path, output: Path, *, tvtms_path: Path | None = None) -> None:
     if output.exists():
         raise ValueError(f"refusing to overwrite coverage report: {output}")
     verify_lxx_parent_feature_blobs(lxx_path)
@@ -54,9 +55,13 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         # Keep them separate from the existence of the enclosing verse node.
         return tuple(str(node) for node in api.L.d(verse_node, otype="subverse"))
 
+    diagnostic = (
+        TvtmsDiagnostic(load_pinned_tvtms(tvtms_path))
+        if tvtms_path is not None else None
+    )
     audit = CopticLxxCoverageAudit(
         source_commit=COPTIC_SOURCE_PIN, lookup=lookup,
-        subverse_lookup=lxx_subverses,
+        subverse_lookup=lxx_subverses, tvtms_diagnostic=diagnostic,
     )
     files: list[tuple[str, Path]] = []
     for path in coptic_root.rglob("*"):
@@ -103,6 +108,18 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
             del document
 
     report = audit.report()
+    if diagnostic is not None:
+        tvtms = report["external_tvtms_diagnostic"]
+        if sum(tvtms["status_counts"].values()) != report["totals"]["ot_reference_groups"]:
+            raise ValueError("TVTMS diagnostic did not classify every OT reference group")
+        if tvtms["word_slots"] != report["totals"]["ot_candidate_word_slots"]:
+            raise ValueError("TVTMS diagnostic did not cover all OT word slots")
+        # Exact source-locked Zechariah checked against every individual TVTMS
+        # entry. Do not confuse this with confirmed Greek/Coptic textual match.
+        if tvtms["status_counts"].get("reviewed_agree") != 17 or (
+            tvtms["status_counts"].get("reviewed_disagree", 0)
+        ):
+            raise ValueError("17 byte-locked Zechariah numbering controls disagree with TVTMS")
     if report["totals"]["source_records"] != 2628:
         raise ValueError("unexpected pinned physical TT record count")
     if report["source_scopes"].get("ot_candidate") != 1574:
@@ -295,10 +312,20 @@ def run(coptic_root: Path, lxx_path: Path, output: Path) -> None:
         "family_profiles": len(report["families"]),
         "lxx_feature_git_blobs_verified": True,
         "mapping_semantics": "address candidates ONLY, NOT textual equivalence",
+        "external_tvtms_statuses": (
+            report["external_tvtms_diagnostic"]["status_counts"]
+            if diagnostic is not None else "not_checked"
+        ),
     }, sort_keys=True), flush=True)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        raise SystemExit("usage: python tests/live_issue80_full_lxx_coverage.py COPTIC_ROOT LXX_TF OUTPUT_JSON")
-    run(Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]))
+    if len(sys.argv) not in (4, 5):
+        raise SystemExit(
+            "usage: python tests/live_issue80_full_lxx_coverage.py "
+            "COPTIC_ROOT LXX_TF OUTPUT_JSON [PINNED_TVTMS_MAPPING_JSON]"
+        )
+    run(
+        Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]),
+        tvtms_path=Path(sys.argv[4]) if len(sys.argv) == 5 else None,
+    )
