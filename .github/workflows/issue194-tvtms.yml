@@ -1,0 +1,150 @@
+name: issue194-external-TVTMS-Coptic-LXX-diagnostic
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue194-tvtms.yml'
+      - 'copticscriptorium_tf/tvtms_diagnostic.py'
+      - 'copticscriptorium_tf/lxx_coverage.py'
+      - 'tests/test_issue194_tvtms_diagnostic.py'
+      - 'tests/live_issue80_full_lxx_coverage.py'
+      - 'research/issue-194/**'
+      - 'docs/coptic-lxx-alignment.md'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-tvtms-unit-and-full-coptic-lxx:
+    name: Exact TVTMS bytes + 2,628 genuine Coptic records / native LXX references
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact tested Coptic diagnostic head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: Run RED-first external comparison and full-coverage unit gates
+        run: |
+          python -m unittest tests.test_issue194_tvtms_diagnostic -v
+          python -m unittest tests.test_issue80_lxx_coverage -v
+
+      - name: Checkout immutable TVTMS normalized data (CC BY 4.0)
+        uses: actions/checkout@v4
+        with:
+          repository: metaxiamultimedia/scriptures-js-source-stepbible-versification
+          ref: f426b7253623731ce788c8ce7abcd1d8f95c1f70
+          path: pinned-tvtms
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /data/stepbible-versification/mapping.json
+
+      - name: Checkout original STEPBible TVTMS (CC BY 4.0)
+        uses: actions/checkout@v4
+        with:
+          repository: STEPBible/STEPBible-Data
+          ref: 86ab0b75e195d3269c081201f2ff66afa10d5a30
+          path: pinned-step-source
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /Versification/TVTMS - Translators Versification Traditions with Methodology for Standardisation for Eng+Heb+Lat+Grk+Others - STEPBible.org CC BY.txt
+
+      - name: Fetch exact full Coptic TT source inventory
+        uses: actions/checkout@v4
+        timeout-minutes: 22
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*/*_TT/*.tt
+            /*/*_TT.zip
+
+      - name: Fetch exact CenterBLC/LXX Text-Fabric parent
+        uses: actions/checkout@v4
+        timeout-minutes: 15
+        with:
+          repository: CenterBLC/LXX
+          ref: f32a98eddf7eb239aa73ab863d70381e416d5076
+          path: pinned-lxx
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout: |
+            tf/1935
+
+      - name: Verify immutable sources including external TVTMS mapping bytes
+        run: |
+          test "$(git -C pinned-tvtms rev-parse HEAD)" = "f426b7253623731ce788c8ce7abcd1d8f95c1f70"
+          test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C pinned-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
+          test "$(git -C pinned-tvtms hash-object data/stepbible-versification/mapping.json)" = "fe3cd19cdef252e7537bb739b8cf4117dcabe927"
+          test "$(git -C pinned-step-source rev-parse HEAD)" = "86ab0b75e195d3269c081201f2ff66afa10d5a30"
+          TVTMS_ORIGINAL="pinned-step-source/Versification/TVTMS - Translators Versification Traditions with Methodology for Standardisation for Eng+Heb+Lat+Grk+Others - STEPBible.org CC BY.txt"
+          echo "Original TVTMS git blob: $(git -C pinned-step-source hash-object "${TVTMS_ORIGINAL#pinned-step-source/}")"
+          echo "Original TVTMS SHA256: $(sha256sum "$TVTMS_ORIGINAL" | cut -d' ' -f1)"
+          test "$(git -C pinned-step-source hash-object "${TVTMS_ORIGINAL#pinned-step-source/}")" = "4fdcb4fd761ba8a680a3f0cc95ad65f591e18d4b"
+          test "$(sha256sum "$TVTMS_ORIGINAL" | cut -d' ' -f1)" = "63058e0f20201af4bdaa7d830da5be8f493455d947c5f147d84840b33db9ddf8"
+
+      - name: Audit actual 2,628 Coptic physical documents + LXX with TVTMS diagnostics
+        timeout-minutes: 65
+        run: |
+          /usr/bin/time -v python tests/live_issue80_full_lxx_coverage.py \
+            pinned-coptic pinned-lxx/tf/1935 \
+            "$RUNNER_TEMP/issue194-tvtms-report.json" \
+            pinned-tvtms/data/stepbible-versification/mapping.json
+          python - "$RUNNER_TEMP/issue194-tvtms-report.json" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding='utf-8'))
+          assert report['totals']['source_records'] == 2628
+          assert report['source_scopes']['ot_candidate'] == 1574
+          ext = report['external_tvtms_diagnostic']
+          assert ext['status_counts'].get('reviewed_agree') == 17
+          assert ext['status_counts'].get('reviewed_disagree', 0) == 0
+          assert ext['reference_groups'] == report['totals']['ot_reference_groups']
+          print(json.dumps({
+              'source_records': report['totals']['source_records'],
+              'ot_candidate_documents': report['source_scopes']['ot_candidate'],
+              'tvtms_status_counts': ext['status_counts'],
+              'original_tvtms_sha256': ext['original_tvtms_sha256'],
+              'interpretation': 'external numbering diagnostics, not Coptic/Greek passage equivalence',
+          }, sort_keys=True))
+          PY
+
+      - name: Publish bounded aggregate diagnostics only (no TT/LXX text)
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue194-pinned-tvtms-aggregate-report
+          path: ${{ runner.temp }}/issue194-tvtms-report.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Report scratch capacity, never upload copyrighted corpora
+        if: always()
+        run: df -h "$RUNNER_TEMP"

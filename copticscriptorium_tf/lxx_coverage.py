@@ -15,6 +15,7 @@ from .ot_inventory import classify_biblical_record
 from .verse_marker_topology import VerseMarkerTopologyAudit
 from .ot_verse_anomalies import CopticOtVerseAnomalyBatch
 from .lxx_reference import _source_book
+from .tvtms_diagnostic import TvtmsDiagnostic
 
 COPTIC_SOURCE_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
 SCHEMA = "coptic_lxx_reference_coverage_v1"
@@ -40,12 +41,14 @@ class CopticLxxCoverageAudit:
         source_commit: str,
         lookup: Callable[[str, int, int], int | None],
         subverse_lookup: Callable[[int], tuple[str, ...]] | None = None,
+        tvtms_diagnostic: TvtmsDiagnostic | None = None,
     ):
         if source_commit != COPTIC_SOURCE_PIN:
             raise ValueError("unsupported pinned Coptic source revision")
         self._source_commit = source_commit
         self._lookup = lookup
         self._subverse_lookup = subverse_lookup
+        self._tvtms_diagnostic = tvtms_diagnostic
         self._greek_anomalies_checked = False
         self._ot_anomalies = CopticOtVerseAnomalyBatch(source_commit=source_commit)
         self._seen: dict[str, str] = {}
@@ -174,6 +177,8 @@ class CopticLxxCoverageAudit:
                 book_row["reference_statuses"][ref.status] += 1
                 book_row["word_statuses"][ref.status] += len(ref.source_word_ordinals)
                 _smallest_examples(book_row["examples"], document.source_record_id)
+            if self._tvtms_diagnostic is not None:
+                self._tvtms_diagnostic.add(document, refs)
             self._refs.update(statuses)
             self._words.update(words)
 
@@ -212,7 +217,7 @@ class CopticLxxCoverageAudit:
         if sum(self._words.values()) != self._ot_words:
             raise ValueError("unbalanced Coptic OT word status accounting")
 
-        return {
+        result = {
             "schema": SCHEMA,
             "coptic_source_commit": self._source_commit,
             "lxx_parent": "CenterBLC/LXX:1935:v1.0.1",
@@ -251,3 +256,6 @@ class CopticLxxCoverageAudit:
                 "versification and token alignment NOT verified"
             ),
         }
+        if self._tvtms_diagnostic is not None:
+            result["external_tvtms_diagnostic"] = self._tvtms_diagnostic.report()
+        return result
