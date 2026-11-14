@@ -1,0 +1,111 @@
+name: issue199-original-Bohairic-Psalm-zero-spans
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue199-psalm-zero.yml'
+      - 'copticscriptorium_tf/psalm_zero_boundary.py'
+      - 'tests/test_issue199_psalm_zero.py'
+      - 'tests/live_issue199_psalm_zero.py'
+      - 'research/issue-199/**'
+      - 'docs/coptic-lxx-alignment.md'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  genuine-151-psalm-zero-events:
+    name: Genuine 151 Bohairic Psalm zero source spans / verified LXX native verses
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact PR source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact review head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned Text-Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: Run RED-first source boundary + Greek non-equivalence tests
+        run: |
+          python -m unittest tests.test_issue199_psalm_zero -v
+          python -m unittest tests.test_issue80_lxx_coverage -v
+
+      - name: Fetch pinned Bohairic OT TT ZIP and no other source text
+        uses: actions/checkout@v4
+        timeout-minutes: 15
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /bohairic.ot/bohairic.ot_TT.zip
+
+      - name: Fetch pinned 1935 CenterBLC LXX native TF parent
+        uses: actions/checkout@v4
+        timeout-minutes: 12
+        with:
+          repository: CenterBLC/LXX
+          ref: f32a98eddf7eb239aa73ab863d70381e416d5076
+          path: pinned-lxx
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout: |
+            tf/1935
+
+      - name: Verify exact immutable upstream Git commits
+        run: |
+          test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C pinned-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
+
+      - name: Run real evidence census against Coptic source and LXX parent
+        timeout-minutes: 15
+        run: |
+          /usr/bin/time -v python tests/live_issue199_psalm_zero.py \
+            pinned-coptic pinned-lxx/tf/1935 "$RUNNER_TEMP/issue199-psalm-zero-report.json"
+          python - "$RUNNER_TEMP/issue199-psalm-zero-report.json" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert report["source_records"] == 151
+          assert report["source_zero_markers"] == 151
+          assert report["negative_controls"] == 2
+          assert sum(report["counts"].values()) == 151
+          print(json.dumps({
+              "psalm_docs": report["source_records"],
+              "zero_span_words": report["source_zero_word_slots"],
+              "counts": report["counts"],
+              "greek_next_address": report["greek_next_status"],
+          }, sort_keys=True))
+          PY
+
+      - name: Upload ONLY bounded source-metadata aggregate, never TT/Greek corpora
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue199-psalm-zero-source-evidence
+          path: ${{ runner.temp }}/issue199-psalm-zero-report.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Diagnose scratch space
+        if: always()
+        run: df -h "$RUNNER_TEMP"
