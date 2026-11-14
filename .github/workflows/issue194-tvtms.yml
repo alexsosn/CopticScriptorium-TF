@@ -61,6 +61,18 @@ jobs:
           sparse-checkout: |
             /data/stepbible-versification/mapping.json
 
+      - name: Checkout original STEPBible TVTMS (CC BY 4.0)
+        uses: actions/checkout@v4
+        with:
+          repository: STEPBible/STEPBible-Data
+          ref: 86ab0b75e195d3269c081201f2ff66afa10d5a30
+          path: pinned-step-source
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /Versification/TVTMS - Translators Versification Traditions with Methodology for Standardisation for Eng+Heb+Lat+Grk+Others - STEPBible.org CC BY.txt
+
       - name: Fetch exact full Coptic TT source inventory
         uses: actions/checkout@v4
         timeout-minutes: 22
@@ -93,6 +105,10 @@ jobs:
           test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
           test "$(git -C pinned-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
           test "$(git -C pinned-tvtms hash-object data/stepbible-versification/mapping.json)" = "fe3cd19cdef252e7537bb739b8cf4117dcabe927"
+          test "$(git -C pinned-step-source rev-parse HEAD)" = "86ab0b75e195d3269c081201f2ff66afa10d5a30"
+          TVTMS_ORIGINAL="pinned-step-source/Versification/TVTMS - Translators Versification Traditions with Methodology for Standardisation for Eng+Heb+Lat+Grk+Others - STEPBible.org CC BY.txt"
+          test "$(git -C pinned-step-source hash-object "${TVTMS_ORIGINAL#pinned-step-source/}")" = "4fdcb4fd761ba8a680a3f0cc95ad65f591e18d4b"
+          test "$(sha256sum "$TVTMS_ORIGINAL" | cut -d' ' -f1)" = "934350a6b9246ca7c017dca78a4292b4f8eeab0aed9a30cc3d27a00afbf9895a"
 
       - name: Audit actual 2,628 Coptic physical documents + LXX with TVTMS diagnostics
         timeout-minutes: 65
