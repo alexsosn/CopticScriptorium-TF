@@ -145,6 +145,7 @@ class ExternalVersificationDiagnosticsTests(unittest.TestCase):
         for n in ("d", "c", "b", "a"):
             item = doc(chapter=1)
             item.source_record_id = f"bohairic.ot/bohairic.ot:{n}"
+            item.source_text = "UNIQUE_SOURCE_CONTENT_NEVER_SERIALIZE"
             audit.add(item, [ref(18, chapter=2, lxx_verse=1)])
         report = audit.report()
         self.assertEqual(report["status_counts"], {"source_scheme_unverified": 4})
@@ -153,7 +154,7 @@ class ExternalVersificationDiagnosticsTests(unittest.TestCase):
             "bohairic.ot/bohairic.ot:b",
             "bohairic.ot/bohairic.ot:c",
         ])
-        self.assertNotIn("Coptic text", json.dumps(report))
+        self.assertNotIn("UNIQUE_SOURCE_CONTENT_NEVER_SERIALIZE", json.dumps(report))
 
 
 def replace_ref(old, **changes):
