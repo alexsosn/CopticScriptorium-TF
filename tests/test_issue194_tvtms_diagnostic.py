@@ -86,7 +86,12 @@ class ExternalVersificationDiagnosticsTests(unittest.TestCase):
         self.assertEqual(report["status_counts"], {"reviewed_agree": 17})
         self.assertEqual(report["reference_groups"], 17)
         self.assertEqual(report["by_book"]["Zech"]["reviewed_agree"], 17)
-        self.assertEqual(sum(report["status_counts"].values()), 17)\n        self.assertNotEqual(\n            report["original_tvtms_sha256"],\n            report["derived_source_declared_sha256"],\n        )\n        self.assertIn("NOT independently reproducible", report["provenance_warning"])
+        self.assertEqual(sum(report["status_counts"].values()), 17)
+        self.assertNotEqual(
+            report["original_tvtms_sha256"],
+            report["derived_source_declared_sha256"],
+        )
+        self.assertIn("NOT independently reproducible", report["provenance_warning"])
 
     def test_one_wrong_reviewed_target_is_detected_not_silently_repaired(self):
         audit = TvtmsDiagnostic(self._mapping())
