@@ -258,7 +258,16 @@ The exact accepted derived dataset is
 file `data/stepbible-versification/mapping.json`, Git blob
 `fe3cd19cdef252e7537bb739b8cf4117dcabe927`. The original TVTMS
 source pin is `STEPBible/STEPBible-Data@86ab0b75e195d3269c081201f2ff66afa10d5a30`.
-The loader rejects any other normalized JSON bytes before parsing. An independent\nGitHub Actions checkout of the original STEPBible file at the pinned commit\nfound Git blob `4fdcb4fd761ba8a680a3f0cc95ad65f591e18d4b` and raw-file\nSHA-256 `63058e0f20201af4bdaa7d830da5be8f493455d947c5f147d84840b33db9ddf8`.\n**The derived project's `SOURCE.json` instead claims `934350a6…` for that\nsame upstream commit.** This discrepancy means the derived transformation\nchain is not independently reproducible as currently documented. The\nreport records both digests and a `provenance_warning`; neither the\n17 Zechariah numbering agreements nor broader hypotheses prove textual\ncorrespondence.
+The loader rejects any other normalized JSON bytes before parsing. An independent
+GitHub Actions checkout of the original STEPBible file at the pinned commit
+found Git blob `4fdcb4fd761ba8a680a3f0cc95ad65f591e18d4b` and raw-file
+SHA-256 `63058e0f20201af4bdaa7d830da5be8f493455d947c5f147d84840b33db9ddf8`.
+**The derived project's `SOURCE.json` instead claims `934350a6…` for that
+same upstream commit.** This discrepancy means the derived transformation
+chain is not independently reproducible as currently documented. The
+report records both digests and a `provenance_warning`; neither the
+17 Zechariah numbering agreements nor broader hypotheses prove textual
+correspondence.
 
 Run the existing complete pinned Coptic TT ↔ LXX audit with this extra input:
 
