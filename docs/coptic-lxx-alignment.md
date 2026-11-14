@@ -238,6 +238,57 @@ because constructing the complete Coptic parent TF remains memory-heavy;
 the streaming change eliminates the additional all-word Python index and
 per-feature dictionaries, not the parent conversion cost.
 
+## Optional external STEPBible TVTMS numbering diagnostic (#194)
+
+The crosswalk audit can *optionally* compare source-reference candidates against
+the STEPBible/Tyndale House **TVTMS** English→Greek numbering table. Its derived
+[Metaxia JSON](https://github.com/metaxiamultimedia/scriptures-js-source-stepbible-versification)
+is **CC BY 4.0** data, not vendored into this MIT package. Original TVTMS by
+STEP Bible / Tyndale House Cambridge:
+https://github.com/STEPBible/STEPBible-Data
+([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
+The derived dataset reorders/normalizes source references and is restricted to
+39 books; it omits the Latin/variant Greek columns. Its own validation report
+records `English->LXX: groundTruthAvailable=false`, `anchorChecked=0`,
+and 119 normalization conflicts across directions. **Never use it as proof
+of a Coptic reading or translate its numbering to Coptic automatically.**
+
+The exact accepted derived dataset is
+`metaxiamultimedia/scriptures-js-source-stepbible-versification@f426b7253623731ce788c8ce7abcd1d8f95c1f70`,
+file `data/stepbible-versification/mapping.json`, Git blob
+`fe3cd19cdef252e7537bb739b8cf4117dcabe927`. The original TVTMS
+source pin is `STEPBible/STEPBible-Data@86ab0b75e195d3269c081201f2ff66afa10d5a30`.
+The loader rejects any other bytes before parsing.
+
+Run the existing complete pinned Coptic TT ↔ LXX audit with this extra input:
+
+```bash
+python tests/live_issue80_full_lxx_coverage.py \
+  /path/to/pinned-coptic /path/to/CenterBLC-LXX/tf/1935 \
+  /tmp/coptic-coverage-tvtms-report.json \
+  /path/to/pinned-metaxia/data/stepbible-versification/mapping.json
+```
+
+This adds an **aggregate-only** `external_tvtms_diagnostic` section:
+`reviewed_agree`/`reviewed_disagree` only for the exact existing
+byte-locked *Bohairic Zechariah* numbering candidate policy (17 rules);
+`source_scheme_unverified` where the external English scheme makes a
+different suggestion but Coptic numbering provenance is insufficient;
+`external_non_1to1` for missing/partial targets;
+`no_explicit_exception` for absent entries in the *exceptions-only*
+TVTMS mapping (which emphatically does **not** prove identity); and
+`unclassifiable` for invalid/unknown/unsupported source references
+(including alternate Greek edition selection). This is a read-only
+diagnostic; native Coptic TF/LXX TF parent modules and original source
+references are **unchanged**. No Greek/Coptic word alignment is inferred.
+
+The real negative control is **Sahidic Jonah 2:1**: an English Jonah 2:1
+would map to Greek 2:2 in TVTMS, but this Coptic edition already uses
+Greek-style verse numbering. Assigning the English offset would corrupt
+existing references. Psalms superscriptions and `verse_n=0` are likewise
+not automatically converted. Issue [#194](https://github.com/alexsosn/CopticScriptorium-TF/issues/194)
+tracks the aggregate external coverage audit and remaining primary-text review.
+
 ## Known limitations and next gates
 
 Do **not** infer Greek/Coptic word identity from an equal verse address;
