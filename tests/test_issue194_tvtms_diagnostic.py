@@ -131,6 +131,27 @@ class ExternalVersificationDiagnosticsTests(unittest.TestCase):
             "unclassifiable": 2,
         })
 
+    def test_real_streaming_audit_excludes_nt_and_preserves_reference_partition(self):
+        from copticscriptorium_tf.lxx_coverage import CopticLxxCoverageAudit
+        from tests.test_issue80_lxx_coverage import PIN, make_doc
+        external = TvtmsDiagnostic(self._mapping())
+        audit = CopticLxxCoverageAudit(
+            source_commit=PIN, lookup=lambda *address: 42,
+            tvtms_diagnostic=external,
+        )
+        audit.add(make_doc("sahidic.ruth", "ruth", chapter="2"))
+        audit.add(make_doc(
+            "sahidica.nt", "mark", cts="urn:cts:copticLit:nt.mark.ed:1"
+        ))
+        audit.add(make_doc("pachomius-instructions", "unknown"))
+        report = audit.report()
+        diagnostic = report["external_tvtms_diagnostic"]
+        self.assertEqual(report["totals"]["source_records"], 3)
+        self.assertEqual(report["source_scopes"]["ot_candidate"], 1)
+        self.assertEqual(diagnostic["reference_groups"], report["totals"]["ot_reference_groups"])
+        self.assertEqual(diagnostic["word_slots"], report["totals"]["ot_candidate_word_slots"])
+        self.assertEqual(diagnostic["status_counts"], {"no_explicit_exception": 1})
+
     def test_loader_rejects_altered_or_unpinned_data_before_parsing(self):
         with TemporaryDirectory() as tmp:
             p = Path(tmp) / "mapping.json"
