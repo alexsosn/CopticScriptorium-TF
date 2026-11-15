@@ -92,6 +92,7 @@ def run(coptic_root: Path, greek_tf: Path, output: Path) -> None:
         return node
 
     records: list[dict[str, object]] = []
+    research_mismatches: list[int] = []
     with ZipFile(coptic_root / SOURCE_ZIP) as archive:
         members = {}
         for entry in archive.infolist():
@@ -133,11 +134,23 @@ def run(coptic_root: Path, greek_tf: Path, output: Path) -> None:
                     for w in anchor["greek_same_number_absent"]
                 ),
             }
+            # Temporary bounded primary-source research trace (5+8 tokens
+            # maximum per chapter, CI log only; never put words in artifact).
+            print(
+                "RESEARCH_PRIMARY_SOURCE_BOUNDARY",
+                json.dumps({
+                    "chapter": chapter,
+                    "source2_first_5": coptic_forms[:5],
+                    "greek_verse_first_2": {
+                        str(v): native_greek(chapter, v)[:2]
+                        for v in (2, 3, 4, 5)
+                    },
+                    "curated_controls": matches,
+                }, ensure_ascii=False, sort_keys=True),
+                flush=True,
+            )
             if not all(matches.values()):
-                raise ValueError(
-                    f"original Psalm {chapter} word-level negative/positive "
-                    f"controls failed: {matches}"
-                )
+                research_mismatches.append(chapter)
             # Re-run the same real doc with only the specific source2 guard
             # bypassed to prove the pre-change resolver did return a wrong ID.
             # Independent baseline reenables the *old* numeric fallback for
@@ -190,6 +203,11 @@ def run(coptic_root: Path, greek_tf: Path, output: Path) -> None:
             })
     if len(records) != 3:
         raise ValueError("not all three source documents audited")
+    if research_mismatches:
+        raise ValueError(
+            "incorrect published chapter-view boundary inference; "
+            f"revise exact TT source2 lexical anchors: {research_mismatches}"
+        )
     report = {
         "schema": "bohairic_three_psalms_second_body_false_id_audit_v1",
         "source_commit": SOURCE_PIN,
