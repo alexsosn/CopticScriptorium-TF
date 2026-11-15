@@ -34,20 +34,23 @@ SOURCE2_WORDS = {3: 18, 17: 17, 51: 33}
 ANCHORS = {
     3: {
         "alternative": 4,
-        "coptic_source2": ("ⲛⲑⲟⲕ", "ⲇⲉ"),
-        "greek_alternative": ("σὺ", "δέ"),
+        "coptic_prefix": ("ⲛⲑⲟⲕ", "ⲇⲉ"),
+        "greek_phrase": ("σὺ", "δέ"),
+        "greek_phrase_at_start": True,
         "greek_same_number_absent": ("σὺ",),
     },
     17: {
         "alternative": 3,
-        "coptic_source2": ("ⲣⲉϥϯ", "ⲉϩⲣⲏⲓ"),
-        "greek_alternative": ("ὑπερασπιστής", "κέρας"),
+        "coptic_prefix": ("ⲡⲁ", "ⲣⲉϥϯ", "ⲉϩⲣⲏⲓ"),
+        "greek_phrase": ("ὑπερασπιστής", "μου"),
+        "greek_phrase_at_start": False,
         "greek_same_number_absent": ("ὑπερασπιστής",),
     },
     51: {
         "alternative": 4,
-        "coptic_source2": ("ⲣⲏϯ", "ϣⲉⲃϣⲱⲃ"),
-        "greek_alternative": ("ὡσεὶ", "ξυρὸν"),
+        "coptic_prefix": ("ⲙ", "ⲫ", "ⲣⲏϯ"),
+        "greek_phrase": ("ὡσεὶ", "ξυρὸν"),
+        "greek_phrase_at_start": False,
         "greek_same_number_absent": ("ξυρὸν",),
     },
 }
@@ -58,6 +61,48 @@ def canonical(value: str) -> str:
         raise ValueError("missing original source or Greek word form")
     nfd = unicodedata.normalize("NFD", value.casefold())
     return "".join(c for c in nfd if unicodedata.category(c).startswith("L"))
+
+
+def ordered_lexical_controls(
+    chapter: int,
+    coptic_source2: tuple[str, ...],
+    greek_same_number: tuple[str, ...],
+    greek_alternative: tuple[str, ...],
+) -> dict[str, bool]:
+    """Conservative ordered positional motif controls, not a translation map.
+
+    Coptic original source2 must BEGIN with the exact curated short sequence.
+    Greek alternative must contain the expected ADJACENT words, and for
+    Psalm3 that sequence must begin Greek verse4. The literal equal-number
+    Greek target must lack at least one independently discriminating anchor.
+    """
+    if chapter not in ANCHORS:
+        raise ValueError("unsupported Psalm lexical comparison case")
+    cfg = ANCHORS[chapter]
+    coptic = tuple(canonical(w) for w in coptic_source2)
+    greek_wrong = tuple(canonical(w) for w in greek_same_number)
+    greek_alt = tuple(canonical(w) for w in greek_alternative)
+    cp = tuple(canonical(w) for w in cfg["coptic_prefix"])
+    gp = tuple(canonical(w) for w in cfg["greek_phrase"])
+    coptic_at_start = coptic[:len(cp)] == cp
+    greek_occurrences = [
+        i for i in range(max(0, len(greek_alt) - len(gp) + 1))
+        if greek_alt[i:i + len(gp)] == gp
+    ]
+    greek_ordered = (
+        (0 in greek_occurrences)
+        if cfg["greek_phrase_at_start"]
+        else bool(greek_occurrences)
+    )
+    no_false_greek = all(
+        canonical(w) not in greek_wrong
+        for w in cfg["greek_same_number_absent"]
+    )
+    return {
+        "source2_exact_ordered_prefix": coptic_at_start,
+        "greek_comparison_ordered_phrase": greek_ordered,
+        "same_number_greek_lacks_discriminating_motifs": no_false_greek,
+    }
 
 
 def run(coptic_root: Path, greek_tf: Path, output: Path) -> None:
@@ -122,18 +167,9 @@ def run(coptic_root: Path, greek_tf: Path, output: Path) -> None:
             anchor = ANCHORS[chapter]
             exact = native_greek(chapter, 2)
             alternate = native_greek(chapter, anchor["alternative"])
-            matches = {
-                "coptic_source2_curated_words_attested": all(
-                    canonical(w) in coptic_forms for w in anchor["coptic_source2"]
-                ),
-                "later_greek_curated_words_attested": all(
-                    canonical(w) in alternate for w in anchor["greek_alternative"]
-                ),
-                "same_number_greek_lacks_discriminating_motifs": all(
-                    canonical(w) not in exact
-                    for w in anchor["greek_same_number_absent"]
-                ),
-            }
+            matches = ordered_lexical_controls(
+                chapter, coptic_forms, exact, alternate
+            )
             if not all(matches.values()):
                 raise ValueError(
                     f"original Psalm {chapter} TT verse2/Greek lexical "
