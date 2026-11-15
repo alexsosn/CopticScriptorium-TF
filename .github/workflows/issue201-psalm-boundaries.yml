@@ -1,0 +1,109 @@
+name: issue201-original-Bohairic-Psalm-boundary-anchors
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue201-psalm-boundaries.yml'
+      - 'copticscriptorium_tf/psalm_boundary_crosscheck.py'
+      - 'tests/live_issue201_psalm_boundary.py'
+      - 'tests/test_issue201_psalm_boundary.py'
+      - 'docs/coptic-lxx-alignment.md'
+      - 'research/issue-201/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  six-pinned-boundary-cases:
+    name: Six byte-pinned Coptic Psalm witnesses + native Greek verse1/2
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact source code review commit
+        env:
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$SHA"
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned Text Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: Run RED-first lexical-anchor and topology regression tests
+        run: |
+          python -m unittest tests.test_issue201_psalm_boundary -v
+          python -m unittest tests.test_issue199_psalm_zero -v
+
+      - name: Checkout immutable original Coptic Bohairic OT archive
+        uses: actions/checkout@v4
+        timeout-minutes: 14
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /bohairic.ot/bohairic.ot_TT.zip
+
+      - name: Checkout exact original LXX 1935 parent
+        uses: actions/checkout@v4
+        timeout-minutes: 15
+        with:
+          repository: CenterBLC/LXX
+          ref: f32a98eddf7eb239aa73ab863d70381e416d5076
+          path: pinned-lxx
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout: |
+            tf/1935
+
+      - name: Verify both parent Git revisions
+        run: |
+          test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C pinned-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
+
+      - name: Independent pinned Coptic source and Greek lexical boundary evidence
+        timeout-minutes: 15
+        run: |
+          /usr/bin/time -v python tests/live_issue201_psalm_boundary.py \
+            pinned-coptic pinned-lxx/tf/1935 "$RUNNER_TEMP/issue201-six-boundaries.json"
+          python - "$RUNNER_TEMP/issue201-six-boundaries.json" <<'PY'
+          import json, sys
+          x = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert x["cases"] == 6
+          assert x["original_greek_book_verse_word_nodes"] == 12
+          assert x["statuses"]["source_editorial_placeholder"] == 1
+          assert x["statuses"]["cross_greek_verse_boundary_candidate"] == 1
+          assert x["statuses"]["within_first_greek_verse_candidate"] == 1
+          assert x["statuses"]["needs_primary_collation"] == 3
+          assert all(row["greek_reference_verified"] is False for row in x["records"])
+          print(json.dumps(x["statuses"], sort_keys=True))
+          PY
+
+      - name: Retain metadata-only six-case research audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue201-six-psalm-boundary-evidence
+          path: ${{ runner.temp }}/issue201-six-boundaries.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Resource audit
+        if: always()
+        run: df -h "$RUNNER_TEMP"
