@@ -25,7 +25,7 @@ SELECTED_SOURCE_SHA: dict[int, str] = {
 }
 EXPECTED_ZERO_WORDS = {1: 1, 3: 16, 17: 59, 51: 42, 149: 1, 151: 11}
 STATUSES = frozenset({
-    "source_editorial_placeholder", "cross_greek_verse_boundary_candidate",
+    "source_literal_ellipsis_no_greek_lexeme", "cross_greek_verse_boundary_candidate",
     "within_first_greek_verse_candidate", "needs_primary_collation",
     "title_in_first_greek_verse_candidate",
     "title_across_two_greek_verses_candidate",
@@ -50,7 +50,7 @@ def classify_psalm_boundary(
     greek_one: Sequence[str],
     greek_two: Sequence[str],
 ) -> dict[str, object]:
-    """Classify only three independent, deliberately weak source/Gk anchors.
+    """Classify five small, independent, deliberately weak source/Gk anchors.
 
     All remaining source Psalms stay `needs_primary_collation` even when they
     have nonempty titles. No LXX verse/word ID is manufactured by this function.
@@ -88,7 +88,7 @@ def classify_psalm_boundary(
         and "δαυιδ" in g1
     )
     if chapter == 1 and src_placeholder and g1[0] == "μακαριοσ":
-        status = "source_editorial_placeholder"
+        status = "source_literal_ellipsis_no_greek_lexeme"
     elif chapter == 17 and coptic_and_said and greek_and_said:
         status = "cross_greek_verse_boundary_candidate"
     elif chapter == 149 and src_hallelujah and greek_hallelujah:
