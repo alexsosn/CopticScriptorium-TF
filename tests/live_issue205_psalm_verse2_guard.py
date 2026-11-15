@@ -32,22 +32,22 @@ SOURCE_ZIP = Path("bohairic.ot/bohairic.ot_TT.zip")
 # alignments. The alternate Greek verse is a cross-check, NOT a new mapping.
 ANCHORS = {
     3: {
-        "alternative": 3,
-        "coptic_source2": ("ⲙⲏϣ", "ϫⲱ"),
-        "greek_alternative": ("λεγουσιν", "ψυχη"),
-        "greek_same_number_absent": ("λεγουσιν",),
+        "alternative": 4,
+        "coptic_source2": ("ⲛⲑⲟⲕ", "ⲇⲉ"),
+        "greek_alternative": ("σὺ", "δέ"),
+        "greek_same_number_absent": ("σὺ",),
     },
     17: {
         "alternative": 3,
-        "coptic_source2": ("ⲧⲁϫⲣⲟ", "ⲡⲁⲙⲁⲙⲫⲱⲧ"),
-        "greek_alternative": ("στερεωμα", "καταφυγη"),
-        "greek_same_number_absent": ("στερεωμα",),
+        "coptic_source2": ("ⲣⲉϥϯ", "ⲉϩⲣⲏⲓ"),
+        "greek_alternative": ("ὑπερασπιστής", "κέρας"),
+        "greek_same_number_absent": ("ὑπερασπιστής",),
     },
     51: {
         "alternative": 4,
-        "coptic_source2": ("ⲗⲁⲥ", "ⲁⲇⲓⲕⲓⲁ"),
-        "greek_alternative": ("γλωσσα", "αδικιαν"),
-        "greek_same_number_absent": ("γλωσσα",),
+        "coptic_source2": ("ⲣⲏϯ", "ϣⲉⲃϣⲱⲃ"),
+        "greek_alternative": ("ὡσεὶ", "ξυρὸν"),
+        "greek_same_number_absent": ("ξυρὸν",),
     },
 }
 
@@ -92,7 +92,6 @@ def run(coptic_root: Path, greek_tf: Path, output: Path) -> None:
         return node
 
     records: list[dict[str, object]] = []
-    research_mismatches: list[int] = []
     with ZipFile(coptic_root / SOURCE_ZIP) as archive:
         members = {}
         for entry in archive.infolist():
@@ -134,23 +133,11 @@ def run(coptic_root: Path, greek_tf: Path, output: Path) -> None:
                     for w in anchor["greek_same_number_absent"]
                 ),
             }
-            # Temporary bounded primary-source research trace (5+8 tokens
-            # maximum per chapter, CI log only; never put words in artifact).
-            print(
-                "RESEARCH_PRIMARY_SOURCE_BOUNDARY",
-                json.dumps({
-                    "chapter": chapter,
-                    "source2_first_5": coptic_forms[:5],
-                    "greek_verse_first_2": {
-                        str(v): native_greek(chapter, v)[:2]
-                        for v in (2, 3, 4, 5)
-                    },
-                    "curated_controls": matches,
-                }, ensure_ascii=False, sort_keys=True),
-                flush=True,
-            )
             if not all(matches.values()):
-                research_mismatches.append(chapter)
+                raise ValueError(
+                    f"original Psalm {chapter} TT verse2/Greek lexical "
+                    f"position controls failed: {matches}"
+                )
             # Re-run the same real doc with only the specific source2 guard
             # bypassed to prove the pre-change resolver did return a wrong ID.
             # Independent baseline reenables the *old* numeric fallback for
@@ -203,11 +190,6 @@ def run(coptic_root: Path, greek_tf: Path, output: Path) -> None:
             })
     if len(records) != 3:
         raise ValueError("not all three source documents audited")
-    if research_mismatches:
-        raise ValueError(
-            "incorrect published chapter-view boundary inference; "
-            f"revise exact TT source2 lexical anchors: {research_mismatches}"
-        )
     report = {
         "schema": "bohairic_three_psalms_second_body_false_id_audit_v1",
         "source_commit": SOURCE_PIN,
