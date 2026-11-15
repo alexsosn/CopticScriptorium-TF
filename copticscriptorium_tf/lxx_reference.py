@@ -260,9 +260,11 @@ def resolve_coptic_lxx_references(
                     source_verse=verse,
                 )
                 if psalm_guard_reason is not None:
-                    # A pinned source body group must not receive a false
-                    # same-number Greek title/preceding-body reference ID.
-                    # Do not guess +1/+2 offsets or word-span equivalence.
+                    # Exact TT verse1 and verse2 source-language controls
+                    # disprove equal-number Greek references in three Bohairic
+                    # Psalms. In Ps17/Ps51 one Greek verse can span two
+                    # Coptic source groups: do NOT infer +1/+2 offsets or
+                    # promote lexical comparison to whole-verse equivalence.
                     status, reason = "ambiguous", psalm_guard_reason
                     lxx_chapter = None
                     lxx_verse = None
