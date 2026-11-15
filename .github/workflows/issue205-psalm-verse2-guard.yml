@@ -93,7 +93,8 @@ jobs:
           report = json.load(open(sys.argv[1], encoding="utf-8"))
           assert report["false_numeric_groups_removed"] == 3
           assert report["greek_verses_compared"] == 6
-          assert report["total_source2_words"] > 0
+          assert report["total_source2_words"] == 68
+          assert [r["source2_word_slots"] for r in report["records"]] == [18, 17, 33]
           assert [r["source_chapter"] for r in report["records"]] == [3,17,51]
           assert all(not r["corrected_has_greek_id"] for r in report["records"])
           assert all(all(r["source_language_motif_checks"].values()) for r in report["records"])
