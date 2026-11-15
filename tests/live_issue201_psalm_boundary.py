@@ -87,7 +87,9 @@ def run(source_root: Path, lxx_parent: Path, output: Path) -> None:
         "source_editorial_placeholder": 1,
         "within_first_greek_verse_candidate": 1,
         "cross_greek_verse_boundary_candidate": 1,
-        "needs_primary_collation": 3,
+        "needs_primary_collation": 1,
+        "title_in_first_greek_verse_candidate": 1,
+        "title_across_two_greek_verses_candidate": 1,
     }
     if report["statuses"] != expected:
         raise ValueError(
