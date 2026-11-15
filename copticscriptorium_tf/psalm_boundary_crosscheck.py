@@ -69,7 +69,7 @@ def classify_psalm_boundary(
     # Need *both* the conjunction and the saying verb, not "said" alone.
     coptic_and_said = "".join(z[-5:]).endswith("ⲟⲩⲟϩⲡⲉϫⲁϥ")
     greek_and_said = len(g2) >= 2 and g2[:2] == ("και", "ειπεν")
-    if chapter == 1 and src_placeholder and g1[0] == "μακαριος":
+    if chapter == 1 and src_placeholder and g1[0] == "μακαριοσ":
         status = "source_editorial_placeholder"
     elif chapter == 17 and coptic_and_said and greek_and_said:
         status = "cross_greek_verse_boundary_candidate"
