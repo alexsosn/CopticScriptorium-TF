@@ -1,8 +1,8 @@
-"""Fail-closed prevention of three confirmed *numeric-address* Psalm false positives.
+"""Fail-closed prevention of six confirmed *numeric-address* Psalm false positives.
 
-These are ONLY three exact original Bohairic Psalm verse-1 source records.
-The Greek verse 1 of each contains a different superscription than the
-source's first body verse. This guard does not guess the true Greek span.
+Only source verses 1 and 2 in the three original Bohairic Psalms 3,17,51
+are affected. The true Greek target may be part of a verse, never guessed
+from numeric offsets. Source labels, slots, and native parent TF stay intact.
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from hashlib import sha256
 from typing import Any
 
 SOURCE_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
-RULE_ID = "bohairic-pss-first-body-not-greek-title-v1"
+RULE_ID = "bohairic-pss-first-two-body-verses-not-same-number-lxx-v2"
 SOURCE_SHA: dict[int, str] = {
     3: "cbeb4996b0cd142e888bcd630eaac6123af05d7084d49b614066fa9799b5b9d6",
     17: "0fc5384f9baa44f0d4a180539b84b9cf06f5a3be5176360fdf7b27c9451e3af3",
@@ -18,7 +18,7 @@ SOURCE_SHA: dict[int, str] = {
 }
 
 
-def blocked_same_number_psalm_verse1(
+def blocked_same_number_psalm_body(
     document: Any, *, lxx_book: str | None,
     source_chapter: int | None, source_verse: int | None,
 ) -> str | None:
@@ -29,7 +29,7 @@ def blocked_same_number_psalm_verse1(
     returns a blocker rather than silently enabling same-number matching.
     """
     if (
-        lxx_book != "Ps" or source_verse != 1
+        lxx_book != "Ps" or source_verse not in (1, 2)
         or source_chapter not in SOURCE_SHA
         or document.corpus != "bohairic.ot"
         or document.dataset != "bohairic.ot"
@@ -55,12 +55,34 @@ def blocked_same_number_psalm_verse1(
     ):
         return (
             RULE_ID
-            + ": recognized Psalm verse 1 but source SHA/CTS/edition/revision "
-            "or physical source identity differs; refuse equal-number Greek title"
+            + f": recognized Psalm source verse {source_verse}, but source "
+            "SHA/CTS/edition/revision/physical identity drifted; refuse "
+            "unverified same-number Greek verse ID"
+        )
+    if source_verse == 1:
+        return (
+            RULE_ID
+            + f": pinned original Bohairic Ps {chapter} source verse 1 begins "
+            "body after source verse-zero superscription; Greek verse 1 "
+            "contains a different title; Greek word-span mapping unverified"
         )
     return (
         RULE_ID
-        + f": pinned original Bohairic Ps {chapter}:1 begins body after its "
-        "source verse-zero superscription, whereas same-number Greek Ps "
-        f"{chapter}:1 is a title; exact Greek 1:N/word span remains unverified"
+        + f": pinned original Bohairic Ps {chapter} source verse 2 does "
+        "not correspond to same-number Greek verse 2: adjacent original "
+        "Coptic and Greek first-body lexical anchors diverge; Greek "
+        "word-span and many-to-one mapping remain unverified"
+    )
+
+
+def blocked_same_number_psalm_verse1(
+    document: Any, *, lxx_book: str | None,
+    source_chapter: int | None, source_verse: int | None,
+) -> str | None:
+    """Legacy verse-1-only API: preserve its strict scope for callers."""
+    if source_verse != 1:
+        return None
+    return blocked_same_number_psalm_body(
+        document, lxx_book=lxx_book,
+        source_chapter=source_chapter, source_verse=source_verse,
     )

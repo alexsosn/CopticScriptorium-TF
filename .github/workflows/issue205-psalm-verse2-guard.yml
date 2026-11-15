@@ -1,0 +1,121 @@
+name: issue205-source-byte-locked-Psalm-adjacent-verse2-guard
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue205-psalm-verse2-guard.yml'
+      - 'copticscriptorium_tf/lxx_reference.py'
+      - 'copticscriptorium_tf/lxx_psalm_guard.py'
+      - 'tests/test_issue203_psalm_guard.py'
+      - 'tests/live_issue203_psalm_guard.py'
+      - 'tests/test_issue205_psalm_verse2_guard.py'
+      - 'tests/test_issue205_ordered_anchor.py'
+      - 'tests/live_issue205_psalm_verse2_guard.py'
+      - 'research/issue-205/**'
+      - 'docs/coptic-lxx-alignment.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  three-source2-body-false-numeric-guards:
+    name: Real source2/Greek verse2 mismatch + lexical contrast and no automatic shift
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact code head SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned Text Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: RED-first focused unit and source topology regressions
+        run: |
+          python -m unittest tests.test_issue205_ordered_anchor -v
+          python -m unittest tests.test_issue205_psalm_verse2_guard -v
+          python -m unittest tests.test_issue203_psalm_guard -v
+          python -m unittest tests.test_issue201_psalm_boundary -v
+          python -m unittest tests.test_issue199_psalm_zero -v
+
+      - name: Checkout exact Coptic Bohairic OT archive
+        uses: actions/checkout@v4
+        timeout-minutes: 15
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /bohairic.ot/bohairic.ot_TT.zip
+
+      - name: Checkout original CenterBLC LXX native Text Fabric parent
+        uses: actions/checkout@v4
+        timeout-minutes: 15
+        with:
+          repository: CenterBLC/LXX
+          ref: f32a98eddf7eb239aa73ab863d70381e416d5076
+          path: pinned-lxx
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout: |
+            tf/1935
+
+      - name: Verify immutable original sources
+        run: |
+          test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C pinned-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
+
+      - name: Verify all three false original source verse2 numeric IDs vs two genuine Greek verse nodes
+        timeout-minutes: 15
+        run: |
+          /usr/bin/time -v python tests/live_issue205_psalm_verse2_guard.py \
+            pinned-coptic pinned-lxx/tf/1935 "$RUNNER_TEMP/issue205-psalm-verse2.json"
+          python - "$RUNNER_TEMP/issue205-psalm-verse2.json" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert report["false_numeric_groups_removed"] == 3
+          assert report["greek_verses_compared"] == 6
+          assert report["total_source2_words"] == 68
+          assert [r["source2_word_slots"] for r in report["records"]] == [18, 17, 33]
+          assert [r["source_chapter"] for r in report["records"]] == [3,17,51]
+          assert all(not r["corrected_has_greek_id"] for r in report["records"])
+          assert all(all(r["source_language_motif_checks"].values()) for r in report["records"])
+          print(json.dumps({
+              "source2_words": report["total_source2_words"],
+              "false_numeric_groups_removed": 3,
+              "greek_sections_compared": 6,
+              "meaning": "negative numeric controls, not Coptic/Greek passage identity",
+          }, sort_keys=True))
+          PY
+
+      - name: Publish only six Greek/Coptic metadata comparisons, no source corpora
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue205-psalm-source2-negative-controls
+          path: ${{ runner.temp }}/issue205-psalm-verse2.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Report resource capacity
+        if: always()
+        run: df -h "$RUNNER_TEMP"

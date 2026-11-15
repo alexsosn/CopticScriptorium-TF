@@ -11,7 +11,7 @@ from typing import Callable, Literal
 
 from .model import DocumentModel, Word
 from .lxx_versification import propose_bohairic_zechariah
-from .lxx_psalm_guard import blocked_same_number_psalm_verse1, RULE_ID as PSALM_GUARD_RULE
+from .lxx_psalm_guard import blocked_same_number_psalm_body, RULE_ID as PSALM_GUARD_RULE
 
 # All families below occur in the immutable full-source OT profile; this is
 # a reviewed evidence gate, not a guess from a filename or an NT verse marker.
@@ -255,14 +255,16 @@ def resolve_coptic_lxx_references(
             ):
                 status, reason = "ambiguous", "source verse label contradicts book/chapter/verse"
             else:
-                psalm_guard_reason = blocked_same_number_psalm_verse1(
+                psalm_guard_reason = blocked_same_number_psalm_body(
                     document, lxx_book=book, source_chapter=chapter,
                     source_verse=verse,
                 )
                 if psalm_guard_reason is not None:
-                    # A real source/Coptic body group must not receive an
-                    # unrelated same-number Greek superscription verse ID.
-                    # Never guess whether its Greek counterpart is +1/+2.
+                    # Exact TT verse1 and verse2 source-language controls
+                    # disprove equal-number Greek references in three Bohairic
+                    # Psalms. In Ps17/Ps51 one Greek verse can span two
+                    # Coptic source groups: do NOT infer +1/+2 offsets or
+                    # promote lexical comparison to whole-verse equivalence.
                     status, reason = "ambiguous", psalm_guard_reason
                     lxx_chapter = None
                     lxx_verse = None
