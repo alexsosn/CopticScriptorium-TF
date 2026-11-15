@@ -84,7 +84,7 @@ def run(source_root: Path, lxx_parent: Path, output: Path) -> None:
     ):
         raise ValueError("incomplete or duplicate six-Psalm boundary source controls")
     expected = {
-        "source_editorial_placeholder": 1,
+        "source_literal_ellipsis_no_greek_lexeme": 1,
         "within_first_greek_verse_candidate": 1,
         "cross_greek_verse_boundary_candidate": 1,
         "needs_primary_collation": 1,
