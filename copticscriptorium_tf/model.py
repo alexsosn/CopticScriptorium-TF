@@ -76,6 +76,9 @@ class Word:
     verse_n: str | None = None
     vid_n: str | None = None
     verse_vid: str | None = None
+    # Exact original attribute from the source <norm> opening; distinct from
+    # standalone <lang> and morph.lang source annotations.
+    original_lang: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
