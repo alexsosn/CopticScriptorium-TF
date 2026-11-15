@@ -393,6 +393,52 @@ positions and allow 1:N/N:1 relations in native Text-Fabric rather than
 representing a cross-verse span as a one-verse `coptic_lxx_ref_id`. The
 remaining Bohairic/Sahidic Psalm editions and #75/#108 are open.
 
+## Fail-closed three false Bohairic Psalm body→Greek title IDs — #203
+
+Pinned original-language [six-case Psalm boundary audit](https://github.com/alexsosn/CopticScriptorium-TF/pull/202)
+found three cases in which Coptic Scriptorium Bohairic source **verse 1**
+begins the *body* after a `verse_n="0"` heading while the identically
+numbered Rahlfs Greek LXX **verse 1** still contains a superscription.
+The previous generic candidate lookup therefore gave a misleading
+Greek reference ID.
+
+| Pinned exact source | Original `verse_n` | Former generic LXX candidate **blocked**, not remapped | Original Coptic words protected |
+| --- | --- | --- | ---: |
+| Bohairic Ps 3 | 1 | `CenterBLC/LXX:1935:Ps:3:1` (Greek David/Absalom title) | 41 |
+| Bohairic Ps 17 | 1 | `CenterBLC/LXX:1935:Ps:17:1` (Greek title ending with Saul) | 31 |
+| Bohairic Ps 51 | 1 | `CenterBLC/LXX:1935:Ps:51:1` (Greek title; Doeg/Abimelech continue in 51:2) | 28 |
+| **Total** | | 3 misleading reference groups | **100** |
+
+For only these three source groups, the new
+`copticscriptorium_tf.lxx_psalm_guard.blocked_same_number_psalm_verse1`
+is gated on the *physical Bohairic TT record*, exact source CTS work and
+edition, original Git commit and original TT SHA-256. When selected, native
+Coptic `coptic_lxx_ref_status="ambiguous"` and a scalar
+`coptic_lxx_ref_evidence` containing
+`bohairic-pss-first-body-not-greek-title-v1` replace a misleading
+`reference_candidate`. The wrong Greek reference ID and source→Greek
+node target are omitted. Source `verse_n`, `vid_n`, `verse_vid`,
+word ordinals and both independent TF parent warps are unchanged.
+Provenance drift cannot silently re-enable the invalid candidate.
+
+Exact-source acceptance:
+`tests/live_issue203_psalm_guard.py`, and
+`.github/workflows/issue203-psalm-first-body-guard.yml`. It checks
+100 Coptic original word slots against three original physical records,
+plus the three unaffected Psalm 1/149/151 controls and original Greek
+native verse existence. The parent full-corpus Coptic↔Greek coverage test
+reconciles changed statuses without asserting bilingual textual equality.
+
+**This guard does not establish** 3:1→Greek3:2,
+17:1→Greek17:2 or 51:1→Greek51:3. No +1/+2 arithmetic shift is inferred.
+Other original verse groups within these Psalms may still have
+incorrect *candidate* numeric addresses and require separate real
+source-language collation. Positive one-to-many and many-to-one
+cross-verse mappings, with original Greek subverse/word order and Coptic
+word spans, remain open in [#201](https://github.com/alexsosn/CopticScriptorium-TF/issues/201),
+[#75](https://github.com/alexsosn/CopticScriptorium-TF/issues/75) and
+[#108](https://github.com/alexsosn/CopticScriptorium-TF/issues/108).
+
 ## Known limitations and next gates
 
 Do **not** infer Greek/Coptic word identity from an equal verse address;
