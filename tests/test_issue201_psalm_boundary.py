@@ -37,7 +37,7 @@ class PsalmBoundaryEvidenceTest(unittest.TestCase):
             1, ("...",), ("ⲟⲩ", "ⲙⲁⲕⲁⲣⲓⲟⲥ"),
             gverses(1, 1), gverses(1, 2),
         )
-        self.assertEqual(r["status"], "source_editorial_placeholder")
+        self.assertEqual(r["status"], "source_literal_ellipsis_no_greek_lexeme")
         self.assertFalse(r["greek_reference_verified"])
         self.assertTrue(r["source_ellipsis"])
         self.assertFalse(r["source0_to_greek_verse_whole"])
