@@ -128,7 +128,9 @@ def run(coptic_root: Path, greek_tf: Path, output: Path) -> None:
             ws = tuple(greek.L.d(v, otype="word"))
             if not ws or len(ws) != len(set(ws)) or ws != tuple(sorted(ws)):
                 raise ValueError("Greek native Psalm word slots missing/duplicate/reordered")
-            greek_cache[key] = tuple(canonical(greek.F.word.v(w)) for w in ws)
+            # Preserve original punctuation slots until positional matcher
+            # normalizes ONCE. A punctuation token is not a missing word.
+            greek_cache[key] = tuple(greek.F.word.v(w) for w in ws)
         return greek_cache[key]
 
     def lookup(book: str, chapter: int, verse: int) -> int | None:
@@ -163,7 +165,7 @@ def run(coptic_root: Path, greek_tf: Path, output: Path) -> None:
             original = tuple(w for w in doc.words if w.verse_n == "2")
             if len(original) != SOURCE2_WORDS[chapter]:
                 raise ValueError("pinned source2 original word count changed")
-            coptic_forms = tuple(canonical(w.norm) for w in original)
+            coptic_forms = tuple(w.norm for w in original)
             anchor = ANCHORS[chapter]
             exact = native_greek(chapter, 2)
             alternate = native_greek(chapter, anchor["alternative"])
