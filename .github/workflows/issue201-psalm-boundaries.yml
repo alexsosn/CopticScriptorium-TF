@@ -91,7 +91,9 @@ jobs:
           assert x["statuses"]["source_editorial_placeholder"] == 1
           assert x["statuses"]["cross_greek_verse_boundary_candidate"] == 1
           assert x["statuses"]["within_first_greek_verse_candidate"] == 1
-          assert x["statuses"]["needs_primary_collation"] == 3
+          assert x["statuses"]["needs_primary_collation"] == 1
+          assert x["statuses"]["title_in_first_greek_verse_candidate"] == 1
+          assert x["statuses"]["title_across_two_greek_verses_candidate"] == 1
           assert all(row["greek_reference_verified"] is False for row in x["records"])
           print(json.dumps(x["statuses"], sort_keys=True))
           PY
