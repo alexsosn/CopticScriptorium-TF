@@ -341,6 +341,58 @@ primary-text cross-boundary/many-to-one mapping work are tracked by
 [#199](https://github.com/alexsosn/CopticScriptorium-TF/issues/199)
 and the open parent [#75](https://github.com/alexsosn/CopticScriptorium-TF/issues/75).
 
+## Six source-byte-locked Bohairic Psalm0 / Greek1–2 lexical anchors — #201
+
+The read-only `copticscriptorium_tf.psalm_boundary_crosscheck` compares
+**six original, SHA-256-locked physical TT Bohairic Psalm witnesses**
+(`bohairic.ot:19_Psalmi_001,003,017,051,149,151`) to the exact
+`CenterBLC/LXX:1935` Greek Psalm `verse 1` and `verse 2` *native word
+nodes*. All 12 Greek verse sections were loaded from
+`CenterBLC/LXX@f32a98eddf7eb239aa73ab863d70381e416d5076`, with
+parent feature blobs verified. No English↔Greek TVTMS offset was assumed.
+
+| Psalm | Original Coptic verse-0 word slots | Verified source-language / Greek lexical *anchor* | Hypothesis; NOT a certified translation |
+| --- | ---: | --- | --- |
+| 1 | 1 | Original source 0 is literal `...`; Greek 1 begins `Μακάριος` | Source editorial placeholder, not a matching word |
+| 3 | 16 | David + Absalom named in source 0 and Greek 1 | Heading may fall in Greek 3:1 |
+| 17 | 59 | Source 0 ends with 'and he said' (`ⲟⲩⲟϩ ⲡⲉϫⲁϥ`); Greek 17:2 **begins** `καὶ εἶπεν` | Crosses Greek 17:1–2, so Coptic 0 cannot be mapped to a single complete Greek verse |
+| 51 | 42 | Source 0 names Doeg and Abimelech; corresponding names in Greek 51:2, while Greek 51:1 opens heading with David | Heading may cover two Greek verse addresses (51:1–2) |
+| 149 | 1 | Source 0 `ⲁⲗⲗⲏⲗⲟⲩⲓⲁ` is Greek 149:1 opening `Ἀλληλούϊα` | Inside one Greek verse, not Greek verse 0 or complete Greek verse 1 |
+| 151 | 11 | Original/source first-two-verse word nodes checked; no shared trusted anchor established | Needs primary collation; unusual Psalm 151 editorial tradition |
+
+Use the exact-source Coptic OT `bohairic.ot_TT.zip` at
+`CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`
+and original LXX `tf/1935` parent at the pinned commit:
+
+```bash
+python tests/live_issue201_psalm_boundary.py \
+  /path/to/pinned-coptic /path/to/CenterBLC-LXX/tf/1935 \
+  /tmp/issue201-six-boundaries.json
+```
+
+The script rejects any of the six changed TT content hashes, non-original
+document CTS work/edition or parent Greek TF feature blobs, absent/misordered
+native verse/word nodes, and altered curated positional lexical motifs.
+The result contains **only metadata** (source IDs/SHA, word counts, Boolean
+motif attestations, cautious status) and is safe to inspect; neither Coptic
+nor Greek text is redistributed. Independent Rahlfs displays corroborate
+the title boundaries:
+[Ps 3](https://www.die-bibel.de/bibel/LXX/PSA.3),
+[Ps 17](https://www.die-bibel.de/bibel/LXX/PSA.17),
+[Ps 51](https://www.die-bibel.de/bibel/LXX/PSA.51),
+[Ps 149](https://www.die-bibel.de/bibel/LXX/PSA.149).
+See [#201](https://github.com/alexsosn/CopticScriptorium-TF/issues/201)
+for exact SHA-256 controls.
+
+**No TF mapping has been changed.** Existing numeric verse candidates for
+these chapters remain hypotheses and may be **incorrect**, especially
+`bohairic.ot` Psalm17 source verse 1 → Greek17:1, as the Greek 17:1 text
+is an earlier superscription while Coptic verse 1 begins after 'and he said'.
+A future mapping must preserve the source 0/1 split, identify Greek word
+positions and allow 1:N/N:1 relations in native Text-Fabric rather than
+representing a cross-verse span as a one-verse `coptic_lxx_ref_id`. The
+remaining Bohairic/Sahidic Psalm editions and #75/#108 are open.
+
 ## Known limitations and next gates
 
 Do **not** infer Greek/Coptic word identity from an equal verse address;
