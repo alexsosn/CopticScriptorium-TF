@@ -6,8 +6,6 @@ written to the metadata-only report.
 """
 from __future__ import annotations
 
-from collections import Counter
-from hashlib import sha256
 import json
 from pathlib import Path
 import sys
@@ -22,7 +20,9 @@ sys.path.insert(0, str(ROOT))
 
 from copticscriptorium_tf.lxx_module import verify_lxx_parent_feature_blobs
 from copticscriptorium_tf.lxx_reference import resolve_coptic_lxx_references
-from copticscriptorium_tf.lxx_psalm_guard import SOURCE_PIN, SOURCE_SHA, RULE_ID
+from copticscriptorium_tf.lxx_psalm_guard import (
+    SOURCE_PIN, SOURCE_SHA, RULE_ID, blocked_same_number_psalm_body,
+)
 from copticscriptorium_tf.parser import parse_tt_record
 
 LXX_PIN = "f32a98eddf7eb239aa73ab863d70381e416d5076"
@@ -140,17 +140,16 @@ def run(coptic_root: Path, greek_tf: Path, output: Path) -> None:
                 )
             # Re-run the same real doc with only the specific source2 guard
             # bypassed to prove the pre-change resolver did return a wrong ID.
+            # Independent baseline reenables the *old* numeric fallback for
+            # source2 only while preserving the already-reviewed source1 guard.
+            real_guard = blocked_same_number_psalm_body
+            def baseline_guard(document, **kwargs):
+                if kwargs["source_verse"] == 2:
+                    return None
+                return real_guard(document, **kwargs)
             with patch(
                 "copticscriptorium_tf.lxx_reference.blocked_same_number_psalm_body",
-                side_effect=lambda d, *, lxx_book, source_chapter, source_verse:
-                    None if source_verse == 2 else
-                    __import__(
-                        "copticscriptorium_tf.lxx_psalm_guard",
-                        fromlist=["blocked_same_number_psalm_body"]
-                    ).blocked_same_number_psalm_body(
-                        d, lxx_book=lxx_book,
-                        source_chapter=source_chapter, source_verse=source_verse
-                    ),
+                side_effect=baseline_guard,
             ):
                 baseline = [r for r in resolve_coptic_lxx_references(doc, lookup=lookup)
                             if r.source_verse_n == "2"]
