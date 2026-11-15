@@ -9,6 +9,7 @@ on:
       - 'tests/test_issue203_psalm_guard.py'
       - 'tests/live_issue203_psalm_guard.py'
       - 'tests/test_issue205_psalm_verse2_guard.py'
+      - 'tests/test_issue205_ordered_anchor.py'
       - 'tests/live_issue205_psalm_verse2_guard.py'
       - 'research/issue-205/**'
       - 'docs/coptic-lxx-alignment.md'
@@ -48,6 +49,7 @@ jobs:
 
       - name: RED-first focused unit and source topology regressions
         run: |
+          python -m unittest tests.test_issue205_ordered_anchor -v
           python -m unittest tests.test_issue205_psalm_verse2_guard -v
           python -m unittest tests.test_issue203_psalm_guard -v
           python -m unittest tests.test_issue201_psalm_boundary -v
