@@ -22,6 +22,12 @@ def gverses(chapter, verse):
                 2: ("εὐφρανθήτω", "Ισραηλ")}[verse]
     if chapter == 1:
         return {1: ("Μακάριος", "ἀνήρ"), 2: ("ἀλλ’", "ἐν")}[verse]
+    if chapter == 3:
+        return {1: ("Ψαλμὸς", "τῷ", "Δαυιδ", "Αβεσσαλωμ"),
+                2: ("Κύριε", "τί", "ἐπληθύνθησαν")}[verse]
+    if chapter == 51:
+        return {1: ("Εἰς", "τὸ", "τέλος", "συνέσεως", "τῷ", "Δαυιδ"),
+                2: ("ἐν", "τῷ", "ἐλθεῖν", "Δωηκ", "Αβιμελεχ")}[verse]
     return {1: ("ψαλμὸς", "τῷ", "Δαυιδ"), 2: ("κύριε", "τί")}[verse]
 
 
@@ -70,15 +76,45 @@ class PsalmBoundaryEvidenceTest(unittest.TestCase):
         self.assertTrue(r["greek_verse_one_begins_hallelujah"])
         self.assertFalse(r["source0_to_greek_verse_whole"])
 
-    def test_psalm_three_fifty_one_one_fifty_one_remain_unclassified(self):
-        for chapter in (3, 51, 151):
-            with self.subTest(chapter=chapter):
-                r = classify_psalm_boundary(
-                    chapter, ("ⲛⲧⲉ", "ⲇⲁⲩⲓⲇ"), ("ⲡ",),
-                    gverses(chapter, 1), gverses(chapter, 2),
-                )
-                self.assertEqual(r["status"], "needs_primary_collation")
-                self.assertFalse(r["greek_reference_verified"])
+    def test_psalm_three_first_greek_verse_is_named_title_candidate(self):
+        r = classify_psalm_boundary(
+            3, ("ⲛⲧⲉ", "ⲇⲁⲩⲓⲇ", "ⲃⲉⲥⲥⲁⲗⲱⲙ"),
+            ("ⲡ", "ϭⲟⲓⲥ"),
+            gverses(3, 1), gverses(3, 2),
+        )
+        self.assertEqual(r["status"], "title_in_first_greek_verse_candidate")
+        self.assertTrue(r["david_absalom_title_in_coptic_and_greek_one"])
+        self.assertFalse(r["greek_reference_verified"])
+        self.assertEqual(
+            classify_psalm_boundary(
+                3, ("ⲛⲧⲉ", "ⲇⲁⲩⲓⲇ", "ⲃⲉⲥⲥⲁⲗⲱⲙ"),
+                ("ⲡ", "ϭⲟⲓⲥ"), ("Ψαλμὸς", "Δαυιδ"), gverses(3, 2)
+            )["status"], "needs_primary_collation"
+        )
+
+    def test_psalm_fifty_one_source_zero_contains_greek_verses_one_two_title(self):
+        r = classify_psalm_boundary(
+            51, ("ⲉ", "ⲡ", "ⲇⲁⲩⲓⲇ", "ⲇⲱⲏⲕ", "ⲁⲃⲓⲙⲉⲗⲉⲭ"),
+            ("ϧⲁ", "ⲡ", "ϭⲟⲓⲥ"),
+            gverses(51, 1), gverses(51, 2),
+        )
+        self.assertEqual(r["status"], "title_across_two_greek_verses_candidate")
+        self.assertTrue(r["doeg_abimelech_in_coptic_zero_and_greek_two"])
+        self.assertFalse(r["source0_to_greek_verse_whole"])
+        self.assertEqual(
+            classify_psalm_boundary(
+                51, ("ⲇⲁⲩⲓⲇ", "ⲇⲱⲏⲕ", "ⲁⲃⲓⲙⲉⲗⲉⲭ"),
+                ("ϧⲁ",), gverses(51, 1), ("ἐν", "τῷ", "ἐλθεῖν", "Δωηκ"),
+            )["status"], "needs_primary_collation"
+        )
+
+    def test_psalm_151_remains_unclassified_without_source_greek_word_evidence(self):
+        r = classify_psalm_boundary(
+            151, ("ⲥⲉ", "ϫⲟϥ"), ("ⲁⲛⲟⲕ",),
+            gverses(151, 1), gverses(151, 2),
+        )
+        self.assertEqual(r["status"], "needs_primary_collation")
+        self.assertFalse(r["greek_reference_verified"])
 
     def test_wrong_source_record_sha_is_fatal_and_not_a_verified_mapping(self):
         doc = make_doc(body=(
