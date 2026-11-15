@@ -103,8 +103,11 @@ class PsalmFirstBodyGuardTests(unittest.TestCase):
         doc = source_doc(17)
         refs = resolve_coptic_lxx_references(doc, lookup=lambda *args: 55)
         verse2 = next(r for r in refs if r.source_verse_n == "2")
-        self.assertEqual(verse2.status, "reference_candidate")
-        self.assertEqual(verse2.shared_id, "CenterBLC/LXX:1935:Ps:17:2")
+        # Issue #205 independently established this adjacent false
+        # same-number source2 -> Greek title/previous-body reference.
+        self.assertEqual(verse2.status, "ambiguous")
+        self.assertIsNone(verse2.shared_id)
+        self.assertIn(RULE_ID, verse2.evidence)
 
     def test_guard_only_follows_valid_corpus_cts_and_no_bohairic_zechariah(self):
         d = source_doc(3)
