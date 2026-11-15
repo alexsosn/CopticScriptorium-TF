@@ -353,7 +353,7 @@ parent feature blobs verified. No English↔Greek TVTMS offset was assumed.
 
 | Psalm | Original Coptic verse-0 word slots | Verified source-language / Greek lexical *anchor* | Hypothesis; NOT a certified translation |
 | --- | ---: | --- | --- |
-| 1 | 1 | Original source 0 is literal `...`; Greek 1 begins `Μακάριος` | Source editorial placeholder, not a matching word |
+| 1 | 1 | Original source 0 is literal `...`; Greek 1 begins `Μακάριος` | Source literal ellipsis with no matching Greek lexeme; its editorial/lacuna function is **not** established |
 | 3 | 16 | David + Absalom named in source 0 and Greek 1 | Heading may fall in Greek 3:1 |
 | 17 | 59 | Source 0 ends with 'and he said' (`ⲟⲩⲟϩ ⲡⲉϫⲁϥ`); Greek 17:2 **begins** `καὶ εἶπεν` | Crosses Greek 17:1–2, so Coptic 0 cannot be mapped to a single complete Greek verse |
 | 51 | 42 | Source 0 names Doeg and Abimelech; corresponding names in Greek 51:2, while Greek 51:1 opens heading with David | Heading may cover two Greek verse addresses (51:1–2) |
