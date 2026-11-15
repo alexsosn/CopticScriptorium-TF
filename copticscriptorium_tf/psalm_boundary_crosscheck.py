@@ -27,6 +27,8 @@ EXPECTED_ZERO_WORDS = {1: 1, 3: 16, 17: 59, 51: 42, 149: 1, 151: 11}
 STATUSES = frozenset({
     "source_editorial_placeholder", "cross_greek_verse_boundary_candidate",
     "within_first_greek_verse_candidate", "needs_primary_collation",
+    "title_in_first_greek_verse_candidate",
+    "title_across_two_greek_verses_candidate",
 })
 
 
@@ -69,12 +71,32 @@ def classify_psalm_boundary(
     # Need *both* the conjunction and the saying verb, not "said" alone.
     coptic_and_said = "".join(z[-5:]).endswith("ⲟⲩⲟϩⲡⲉϫⲁϥ")
     greek_and_said = len(g2) >= 2 and g2[:2] == ("και", "ειπεν")
+    # Original Bohairic Ps3:0 names David and Absalom; the exact Rahlfs
+    # Greek Psalm3:1 superscription names David and Absalom too. This
+    # establishes title-address *candidate* evidence, not verse equality.
+    david_absalom = (
+        "ⲇⲁⲩⲓⲇ" in z and "ⲃⲉⲥⲥⲁⲗⲱⲙ" in z
+        and "δαυιδ" in g1 and "αβεσσαλωμ" in g1
+    )
+    # Original Bohairic Ps51:0 and Greek Ps51:2 both contain the distinct
+    # historical proper names Doeg and Abimelech; Greek Ps51:1 begins the
+    # heading and names David. The source zero span therefore *may* cover
+    # material in both numbered Greek verses 1 and 2.
+    doeg_abimelech = (
+        "ⲇⲱⲏⲕ" in z and "ⲁⲃⲓⲙⲉⲗⲉⲭ" in z
+        and "δωηκ" in g2 and "αβιμελεχ" in g2
+        and "δαυιδ" in g1
+    )
     if chapter == 1 and src_placeholder and g1[0] == "μακαριοσ":
         status = "source_editorial_placeholder"
     elif chapter == 17 and coptic_and_said and greek_and_said:
         status = "cross_greek_verse_boundary_candidate"
     elif chapter == 149 and src_hallelujah and greek_hallelujah:
         status = "within_first_greek_verse_candidate"
+    elif chapter == 3 and david_absalom:
+        status = "title_in_first_greek_verse_candidate"
+    elif chapter == 51 and doeg_abimelech:
+        status = "title_across_two_greek_verses_candidate"
     else:
         status = "needs_primary_collation"
     return {
@@ -84,6 +106,8 @@ def classify_psalm_boundary(
         "greek_verse_one_begins_hallelujah": greek_hallelujah,
         "coptic_and_said_at_zero_end": coptic_and_said,
         "greek_and_said_at_verse_two_start": greek_and_said,
+        "david_absalom_title_in_coptic_and_greek_one": david_absalom,
+        "doeg_abimelech_in_coptic_zero_and_greek_two": doeg_abimelech,
         "source0_to_greek_verse_whole": False,
         "greek_reference_verified": False,
     }
