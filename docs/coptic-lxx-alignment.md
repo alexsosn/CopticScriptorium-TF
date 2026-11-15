@@ -439,6 +439,67 @@ word spans, remain open in [#201](https://github.com/alexsosn/CopticScriptorium-
 [#75](https://github.com/alexsosn/CopticScriptorium-TF/issues/75) and
 [#108](https://github.com/alexsosn/CopticScriptorium-TF/issues/108).
 
+## Source-locked Bohairic Psalm second-body guard — #205
+
+A further exact-parent audit of the three known title-bearing Bohairic
+Psalms finds three more *false same-number source verse-2* Greek
+reference candidates. The direct source-language check must use original
+TT `Word.verse_n`, **not line breaks of the displayed chapter**:
+the first research proposal failed because it mistakenly assigned
+several Coptic words to the following source verse. See
+[#205](https://github.com/alexsosn/CopticScriptorium-TF/issues/205)
+for the rejected hypothesis and corrected source-boundary evidence.
+
+| Original Bohairic TT source | Original `verse_n` | False equal-number Greek ID **blocked** | Genuine Coptic word slots | Greek lexical comparison (NOT an assigned ID) |
+| --- | --- | --- | ---: | --- |
+| Ps 3 | 2 | `CenterBLC/LXX:1935:Ps:3:2` | 18 | Source 2 begins `ⲛⲑⲟⲕ ⲇⲉ`, Greek **3:4** begins `σὺ δέ` |
+| Ps 17 | 2 | `CenterBLC/LXX:1935:Ps:17:2` | 17 | Source 2 begins the 'protector' wording within Greek **17:3** (`ὑπερασπιστής`), shared with part of Coptic source 1 |
+| Ps 51 | 2 | `CenterBLC/LXX:1935:Ps:51:2` | 33 | Source 2 begins `ⲙ ⲫ ⲣⲏϯ`, corresponding to Greek **51:4** `ὡσεὶ ξυρὸν`, whose first clause is within source 1 |
+| **Total** | | **3 additional false numeric groups** | **68** | Whole-verse equivalence and exact word spans unverified |
+
+The guard now has versioned rule
+`bohairic-pss-first-two-body-verses-not-same-number-lxx-v2`;
+it applies only to **verse 1 or 2** within the *same three original
+physical Bohairic Psalm TT records*, qualified by original
+`CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`,
+source record SHA-256, CTS `ot.pss.bohairic_ed`, and document chapter.
+Its old `blocked_same_number_psalm_verse1` function remains a
+verse-1-only compatibility wrapper, while
+`blocked_same_number_psalm_body` performs the v2 gate.
+
+For all six affected source groups (prior three verse-1 groups containing
+**100** words, plus the three verse-2 groups containing **68** words),
+the resolver returns native `coptic_lxx_ref_status="ambiguous"` with
+no Greek `coptic_lxx_ref_id`, Greek verse node, or inferred shifted
+Greek chapter/verse. The original Coptic `verse_n/vid_n/verse_vid`
+and every word slot remain untouched. Other source verses, distinct
+editions and Psalms 1/149/151 retain their previous *numerical candidate*
+status, **not** certified textual identity.
+
+The same-number candidates were independently reproduced by bypassing
+only the source-verse2 guard against *real pinned TT documents* and
+verified Rahlfs 1935 Greek native TF verse nodes; the real tests then
+showed exactly those three false IDs disappear. The initial genuine
+source/Greek test passed 18+17+33 word-count controls and all primary
+lexical discriminators. Reproduce with:
+
+```bash
+python tests/live_issue205_psalm_verse2_guard.py \
+  /path/to/pinned-coptic /path/to/CenterBLC-LXX/tf/1935 \
+  /tmp/issue205-psalm-verse2-report.json
+```
+
+This writes only source SHA, source ordinals, verse numbers, word counts,
+and Boolean lexical motifs. Licensed Coptic or Greek texts are not
+redistributed. **Do not promote** the Greek addresses shown as
+comparisons into a single-verse `versification_candidate`: Ps 17 and
+Ps 51 demonstrate shared *parts* of a Greek verse across multiple
+Coptic source verse labels. A native interval/multiple-target model and
+actual critical text collation are still needed before implementing
+positive Coptic↔Greek word-span links in parent
+[#75](https://github.com/alexsosn/CopticScriptorium-TF/issues/75)
+and [#201](https://github.com/alexsosn/CopticScriptorium-TF/issues/201).
+
 ## Known limitations and next gates
 
 Do **not** infer Greek/Coptic word identity from an equal verse address;
