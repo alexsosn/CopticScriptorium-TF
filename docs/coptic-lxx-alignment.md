@@ -479,7 +479,15 @@ status, **not** certified textual identity.
 The same-number candidates were independently reproduced by bypassing
 only the source-verse2 guard against *real pinned TT documents* and
 verified Rahlfs 1935 Greek native TF verse nodes; the real tests then
-showed exactly those three false IDs disappear. The initial genuine
+showed exactly those three false IDs disappear. A separate logically
+independent review rejected an initial weak `token in verse` motif
+check; acceptance now requires the **exact ordered Coptic source2
+opening sequence**, an **adjacent ordered** Greek lexical phrase (at
+the beginning for Ps 3:4, within the verse for Ps 17:3 and Ps 51:4),
+and a discriminating word absent from the numerically matching Greek
+verse. Punctuation slots retain their original positions and reordered
+Greek/Coptic words cause failure. The control validates lexical evidence
+only, never complete translation alignment. The initial genuine
 source/Greek test passed 18+17+33 word-count controls and all primary
 lexical discriminators. Reproduce with:
 
