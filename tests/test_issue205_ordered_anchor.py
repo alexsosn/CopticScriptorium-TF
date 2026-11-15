@@ -46,6 +46,18 @@ class OrderedPsalmEvidenceTests(unittest.TestCase):
             51, c, g2, ("ἀδικίαν", "ἐλογίσατο", "ξυρὸν", "ὡσεὶ")
         )["greek_comparison_ordered_phrase"])
 
+    def test_punctuation_tokens_have_position_and_are_not_missing_words(self):
+        c = ("ⲛⲑⲟⲕ", "ⲇⲉ", ".", "ⲡ", "ϭⲟⲓⲥ")
+        g2 = ("Κύριε", "τί", "ἐπληθύνθησαν", ".")
+        g4 = ("σὺ", "δέ", ",", "κύριε")
+        self.assertTrue(all(ordered_lexical_controls(3, c, g2, g4).values()))
+        self.assertFalse(ordered_lexical_controls(
+            3, ("ⲛⲑⲟⲕ", ".", "ⲇⲉ", "ⲡ", "ϭⲟⲓⲥ"), g2, g4,
+        )["source2_exact_ordered_prefix"])
+        self.assertFalse(ordered_lexical_controls(
+            3, c, g2, ("σὺ", ".", "δέ", "κύριε"),
+        )["greek_comparison_ordered_phrase"])
+
     def test_curated_words_in_same_number_greek_invalidates_negative_control(self):
         c = ("ⲛⲑⲟⲕ", "ⲇⲉ", "ϭⲟⲓⲥ")
         g4 = ("σὺ", "δέ", "κύριε")
