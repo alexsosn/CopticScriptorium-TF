@@ -27,6 +27,7 @@ from copticscriptorium_tf.parser import parse_tt_record
 
 LXX_PIN = "f32a98eddf7eb239aa73ab863d70381e416d5076"
 SOURCE_ZIP = Path("bohairic.ot/bohairic.ot_TT.zip")
+SOURCE2_WORDS = {3: 18, 17: 17, 51: 33}
 
 # Short, public, edition-specific lexical contrasts, NOT token-to-token
 # alignments. The alternate Greek verse is a cross-check, NOT a new mapping.
@@ -115,8 +116,8 @@ def run(coptic_root: Path, greek_tf: Path, output: Path) -> None:
             if doc.source_sha256 != SOURCE_SHA[chapter]:
                 raise ValueError("pinned original TT content SHA mismatch")
             original = tuple(w for w in doc.words if w.verse_n == "2")
-            if not original:
-                raise ValueError("original Coptic source verse2 has no words")
+            if len(original) != SOURCE2_WORDS[chapter]:
+                raise ValueError("pinned source2 original word count changed")
             coptic_forms = tuple(canonical(w.norm) for w in original)
             anchor = ANCHORS[chapter]
             exact = native_greek(chapter, 2)
@@ -188,8 +189,8 @@ def run(coptic_root: Path, greek_tf: Path, output: Path) -> None:
                 "greek_alternative_verse_word_slots": len(alternate),
                 "source_language_motif_checks": matches,
             })
-    if len(records) != 3:
-        raise ValueError("not all three source documents audited")
+    if len(records) != 3 or sum(r["source2_word_slots"] for r in records) != 68:
+        raise ValueError("original pinned 18+17+33 Coptic source2 word partition changed")
     report = {
         "schema": "bohairic_three_psalms_second_body_false_id_audit_v1",
         "source_commit": SOURCE_PIN,
