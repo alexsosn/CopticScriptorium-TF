@@ -1,0 +1,114 @@
+name: issue203-source-byte-locked-Bohairic-Psalm-false-ID-guard
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/issue203-psalm-first-body-guard.yml'
+      - 'copticscriptorium_tf/lxx_reference.py'
+      - 'copticscriptorium_tf/lxx_psalm_guard.py'
+      - 'tests/test_issue203_psalm_guard.py'
+      - 'tests/live_issue203_psalm_guard.py'
+      - 'research/issue-203/**'
+      - 'docs/coptic-lxx-alignment.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  three-actual-psalm1-false-candidate-guards:
+    name: 100 source body words never map to Greek titles; 3 negative controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact code head SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned Text Fabric
+        run: python -m pip install 'text-fabric==13.1.0'
+
+      - name: RED-first focused unit and source topology regressions
+        run: |
+          python -m unittest tests.test_issue203_psalm_guard -v
+          python -m unittest tests.test_issue201_psalm_boundary -v
+          python -m unittest tests.test_issue199_psalm_zero -v
+
+      - name: Checkout exact Coptic Bohairic OT archive
+        uses: actions/checkout@v4
+        timeout-minutes: 15
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: pinned-coptic
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /bohairic.ot/bohairic.ot_TT.zip
+
+      - name: Checkout original CenterBLC LXX native Text Fabric parent
+        uses: actions/checkout@v4
+        timeout-minutes: 15
+        with:
+          repository: CenterBLC/LXX
+          ref: f32a98eddf7eb239aa73ab863d70381e416d5076
+          path: pinned-lxx
+          filter: blob:none
+          persist-credentials: false
+          sparse-checkout: |
+            tf/1935
+
+      - name: Verify immutable original sources
+        run: |
+          test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C pinned-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
+
+      - name: Confirm exact original 3 false candidate source verse1 rows blocked
+        timeout-minutes: 15
+        run: |
+          /usr/bin/time -v python tests/live_issue203_psalm_guard.py \
+            pinned-coptic pinned-lxx/tf/1935 "$RUNNER_TEMP/issue203-psalm-first-body.json"
+          python - "$RUNNER_TEMP/issue203-psalm-first-body.json" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert report["guarded_source_word_slots"] == 100
+          assert report["guarded_source_verse1_groups"] == 3
+          assert report["unaffected_control_groups"] == 3
+          assert sum(row["greek_title_candidate_suppressed"]
+                     for row in report["cases"]) == 3
+          print(json.dumps({
+              "guarded_source_word_slots": 100,
+              "guarded_groups": 3,
+              "unaffected_controls": 3,
+              "meaning": "numeric false-positive removed, no passage translation alignment certified",
+          }, sort_keys=True))
+          PY
+
+      - name: Publish source-metadata-only result, no TT or LXX text
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue203-psalm-source-first-body-guard
+          path: ${{ runner.temp }}/issue203-psalm-first-body.json
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Report resource capacity
+        if: always()
+        run: df -h "$RUNNER_TEMP"

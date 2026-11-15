@@ -11,6 +11,7 @@ from typing import Callable, Literal
 
 from .model import DocumentModel, Word
 from .lxx_versification import propose_bohairic_zechariah
+from .lxx_psalm_guard import blocked_same_number_psalm_verse1, RULE_ID as PSALM_GUARD_RULE
 
 # All families below occur in the immutable full-source OT profile; this is
 # a reviewed evidence gate, not a guess from a filename or an NT verse marker.
@@ -254,38 +255,51 @@ def resolve_coptic_lxx_references(
             ):
                 status, reason = "ambiguous", "source verse label contradicts book/chapter/verse"
             else:
-                proposal = propose_bohairic_zechariah(
-                    document, lxx_book=book,
-                    source_chapter=chapter, source_verse=verse,
+                psalm_guard_reason = blocked_same_number_psalm_verse1(
+                    document, lxx_book=book, source_chapter=chapter,
+                    source_verse=verse,
                 )
-                if proposal is not None and proposal.blocked_reason is not None:
-                    # Source drift is a blocker, *not* permission to return to a
-                    # known false-positive same-number reference candidate.
-                    status, reason = "ambiguous", proposal.blocked_reason
+                if psalm_guard_reason is not None:
+                    # A real source/Coptic body group must not receive an
+                    # unrelated same-number Greek superscription verse ID.
+                    # Never guess whether its Greek counterpart is +1/+2.
+                    status, reason = "ambiguous", psalm_guard_reason
+                    lxx_chapter = None
+                    lxx_verse = None
+                    evidence = f"{evidence}+{PSALM_GUARD_RULE}"
                 else:
-                    if proposal is not None:
-                        lxx_chapter, lxx_verse = proposal.lxx_chapter, proposal.lxx_verse
-                    target = lookup(book, lxx_chapter, lxx_verse)
-                    if target is None:
-                        status, reason = "unresolved", (
-                            "crosswalk target Greek verse address absent"
-                            if proposal else "exact address absent in provided LXX verse index"
-                        )
-                    elif not isinstance(target, int) or isinstance(target, bool) or target <= 0:
-                        raise ValueError("LXX verse lookup must return a positive parent node or None")
-                    elif proposal is not None:
-                        status = "versification_candidate"
-                        evidence = f"{evidence}+{proposal.rule_id}"
-                        reason = (
-                            "edition-qualified Brenton-source reference-numbering crosswalk; "
-                            "Coptic/Greek lexical equivalence not independently verified"
-                        )
-                        shared = f"{LXX_REFERENCE_EDITION}:{book}:{lxx_chapter}:{lxx_verse}"
+                    proposal = propose_bohairic_zechariah(
+                        document, lxx_book=book,
+                        source_chapter=chapter, source_verse=verse,
+                    )
+                    if proposal is not None and proposal.blocked_reason is not None:
+                        # Source drift is a blocker, *not* permission to return to a
+                        # known false-positive same-number reference candidate.
+                        status, reason = "ambiguous", proposal.blocked_reason
                     else:
-                        status, reason = "reference_candidate", (
-                            "matching LXX reference address exists; textual equivalence not established"
-                        )
-                        shared = f"{LXX_REFERENCE_EDITION}:{book}:{lxx_chapter}:{lxx_verse}"
+                        if proposal is not None:
+                            lxx_chapter, lxx_verse = proposal.lxx_chapter, proposal.lxx_verse
+                        target = lookup(book, lxx_chapter, lxx_verse)
+                        if target is None:
+                            status, reason = "unresolved", (
+                                "crosswalk target Greek verse address absent"
+                                if proposal else "exact address absent in provided LXX verse index"
+                            )
+                        elif not isinstance(target, int) or isinstance(target, bool) or target <= 0:
+                            raise ValueError("LXX verse lookup must return a positive parent node or None")
+                        elif proposal is not None:
+                            status = "versification_candidate"
+                            evidence = f"{evidence}+{proposal.rule_id}"
+                            reason = (
+                                "edition-qualified Brenton-source reference-numbering crosswalk; "
+                                "Coptic/Greek lexical equivalence not independently verified"
+                            )
+                            shared = f"{LXX_REFERENCE_EDITION}:{book}:{lxx_chapter}:{lxx_verse}"
+                        else:
+                            status, reason = "reference_candidate", (
+                                "matching LXX reference address exists; textual equivalence not established"
+                            )
+                            shared = f"{LXX_REFERENCE_EDITION}:{book}:{lxx_chapter}:{lxx_verse}"
 
         result.append(CopticLxxReference(
             source_record_id=document.source_record_id,
