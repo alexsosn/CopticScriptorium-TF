@@ -88,7 +88,7 @@ jobs:
           x = json.load(open(sys.argv[1], encoding="utf-8"))
           assert x["cases"] == 6
           assert x["original_greek_book_verse_word_nodes"] == 12
-          assert x["statuses"]["source_editorial_placeholder"] == 1
+          assert x["statuses"]["source_literal_ellipsis_no_greek_lexeme"] == 1
           assert x["statuses"]["cross_greek_verse_boundary_candidate"] == 1
           assert x["statuses"]["within_first_greek_verse_candidate"] == 1
           assert x["statuses"]["needs_primary_collation"] == 1
