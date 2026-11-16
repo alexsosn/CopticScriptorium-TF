@@ -42,7 +42,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install pinned Text-Fabric
-        run: python -m pip install 'text-fabric==13.1.0'
+        run: python -m pip install .
 
       - name: Run RED-first external comparison and full-coverage unit gates
         run: |

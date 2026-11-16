@@ -77,7 +77,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install pinned native Text-Fabric
-        run: python -m pip install 'text-fabric==13.1.0'
+        run: python -m pip install .
 
       - name: Run RED-first bilateral TF module tests and source evidence tests
         run: |

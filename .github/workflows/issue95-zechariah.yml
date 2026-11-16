@@ -39,7 +39,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install pinned native Text-Fabric
-        run: python -m pip install 'text-fabric==13.1.0'
+        run: python -m pip install .
 
       - name: RED-first constrained source identity and diagnostic tests
         run: python -m unittest tests.test_issue95_zechariah -v

@@ -10,7 +10,7 @@ import unittest
 class FullNativeCensusDependencyTests(unittest.TestCase):
     def test_full_census_installs_declared_tf_dependency_before_conversion(self):
         workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/issue69-full-verse-census.yml").read_text(encoding="utf-8")
-        install = "python -m pip install 'text-fabric==13.1.0'"
+        install = "python -m pip install ."
         conversion = "python research/issue-16/full_converter_smoke.py"
         self.assertIn(install, workflow)
         self.assertIn(conversion, workflow)

@@ -80,7 +80,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install the pinned TF version
-        run: python -m pip install 'text-fabric==13.1.0'
+        run: python -m pip install .
 
       - name: RED/green weft writer and adversarial source contracts
         run: |

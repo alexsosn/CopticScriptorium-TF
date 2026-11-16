@@ -14,6 +14,16 @@ Python 3.12 is required. From a checkout of this repository:
 python -m pip install .
 ```
 
+The installation resolves a **SHA-256-verified tf-build v0.1.0rc1 wheel** from
+its published GitHub Release, as declared in `pyproject.toml`; there is no
+assumption that this candidate is published on PyPI. The shared package now
+provides both create-only atomic no-clobber publication (for the native TF
+artifact and conversion summary) and the Agora empty-output-root preflight.
+The TT parser, Coptic node/feature model, source-revision policy, conversion
+report schema, and local/browser output remain defined by CopticScriptorium-TF.
+An actual network connection is required when first acquiring the dependency;
+normal source conversion itself remains offline.
+
 Convert a local Coptic Scriptorium source checkout:
 
 ```bash

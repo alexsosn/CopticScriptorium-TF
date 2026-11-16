@@ -19,7 +19,7 @@ class NativeInverseQueryRealDataGate(unittest.TestCase):
             "CenterBLC/LXX",
             "f32a98eddf7eb239aa73ab863d70381e416d5076",
             "tests/live_issue130_real_witnesses.py",
-            "text-fabric==13.1.0",
+            "python -m pip install .",
             "github.event.pull_request.head.sha || github.sha",
         ):
             self.assertIn(expected, source)

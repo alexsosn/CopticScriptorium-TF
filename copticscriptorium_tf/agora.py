@@ -12,6 +12,8 @@ import json
 from pathlib import Path
 import sys
 
+from tf_build.agora import prepare_agora_output
+
 from .converter import UNVERSIONED_LOCAL, convert_source_tree, validate_upstream_commit
 
 _UPSTREAM_REPOSITORY = "CopticScriptorium/corpora"
@@ -24,10 +26,7 @@ def materialize(source: Path, output: Path, *, source_revision: str) -> Path:
     For a user-local directory without Git metadata, its absence is explicit;
     Agora separately records the local tree hash, and TF retains per-record hashes.
     """
-    if output.is_symlink() or not output.is_dir():
-        raise ValueError("Agora output must be an existing, non-symlink directory")
-    if any(output.iterdir()):
-        raise ValueError("Agora output directory must be empty before conversion")
+    prepare_agora_output(output)
     revision = source_revision or UNVERSIONED_LOCAL
     validate_upstream_commit(revision)
     result = convert_source_tree(

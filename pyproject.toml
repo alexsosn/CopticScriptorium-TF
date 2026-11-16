@@ -9,11 +9,17 @@ description = "Local Coptic Scriptorium TT to native Text-Fabric converter"
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
-dependencies = ["text-fabric==13.1.0"]
+dependencies = [
+  "text-fabric==13.1.0",
+  "tf-build @ https://github.com/alexsosn/tf-build/releases/download/v0.1.0rc1/tf_build-0.1.0rc1-py3-none-any.whl#sha256=dff2a14c0299422b4716217d04e6d43b47e714f4dacdb21d9939292051e82c9a",
+]
 
 [project.scripts]
 copticscriptorium-tf = "copticscriptorium_tf.converter:main"
 copticscriptorium-tf-web = "copticscriptorium_tf.web_app:main"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["copticscriptorium_tf"]
