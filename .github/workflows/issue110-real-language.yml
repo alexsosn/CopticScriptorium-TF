@@ -67,7 +67,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install pinned Text-Fabric
-        run: python -m pip install 'text-fabric==13.1.0'
+        run: python -m pip install .
 
       - name: RED-first boundary/identity/native-TF tests
         run: python -m unittest tests.test_issue110_source_language -v

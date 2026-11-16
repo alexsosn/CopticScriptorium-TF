@@ -42,7 +42,7 @@ jobs:
 
       - name: Run RED-first streaming test contracts
         run: |
-          python -m pip install 'text-fabric==13.1.0'
+          python -m pip install .
           python -m unittest tests.test_issue82_streaming_modules -v
 
       - name: Sparse acquire complete immutable Coptic TT source

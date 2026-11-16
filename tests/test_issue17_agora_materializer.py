@@ -192,5 +192,70 @@ class AgoraAdapterTests(unittest.TestCase):
             self.assertFalse((output / "conversion-summary.json").exists())
 
 
+
+
+class SharedInfrastructureAdoptionTests(unittest.TestCase):
+    """Prove the production paths use published shared output infrastructure."""
+
+    def test_materializer_calls_shared_host_preflight_before_conversion(self) -> None:
+        from copticscriptorium_tf import agora as adapter
+
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "staging"
+            output.mkdir()
+            with patch.object(
+                adapter,
+                "prepare_agora_output",
+                side_effect=ValueError("shared host preflight sentinel"),
+            ) as gate:
+                with self.assertRaisesRegex(ValueError, "shared host preflight sentinel"):
+                    adapter.materialize(
+                        Path(temporary) / "intentionally-missing-source",
+                        output,
+                        source_revision=REVISION,
+                    )
+            gate.assert_called_once_with(output)
+            self.assertEqual(tuple(output.iterdir()), ())
+
+    def test_writer_and_summary_use_actual_shared_atomic_implementation(self) -> None:
+        from copticscriptorium_tf import converter, writer
+
+        self.assertEqual(
+            writer._publish_directory_no_clobber.__module__,
+            "tf_build._atomic",
+        )
+        self.assertEqual(
+            converter._publish_summary_no_clobber.__module__,
+            "tf_build._atomic",
+        )
+
+    def test_native_ci_workflows_install_actual_consumer_dependencies(self) -> None:
+        # Checkout-only imports no longer suffice once output publication is
+        # provided by the installed, hash-locked shared package.
+        for workflow in (ROOT / ".github" / "workflows").glob("*.yml"):
+            with self.subTest(workflow=workflow.name):
+                content = workflow.read_text(encoding="utf-8")
+                self.assertNotIn(
+                    "python -m pip install 'text-fabric==13.1.0'",
+                    content,
+                    "native tests should install the package's declared dependencies",
+                )
+
+    def test_installable_coptic_package_pins_published_verified_wheel(self) -> None:
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+        published_wheel = (
+            "tf-build @ https://github.com/alexsosn/tf-build/releases/download/v0.1.0rc1/"
+            "tf_build-0.1.0rc1-py3-none-any.whl"
+            "#sha256=dff2a14c0299422b4716217d04e6d43b47e714f4dacdb21d9939292051e82c9a"
+        )
+        self.assertIn(published_wheel, project["dependencies"])
+        configuration = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        self.assertIs(
+            configuration["tool"]["hatch"]["metadata"]["allow-direct-references"],
+            True,
+            "Hatchling must permit the reviewed public GitHub wheel URL",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

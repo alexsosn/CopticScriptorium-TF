@@ -29,7 +29,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install pinned real Text-Fabric
-        run: python -m pip install 'text-fabric==13.1.0'
+        run: python -m pip install .
       - name: Run issue 15 writer and reload tests
         run: python -m unittest discover -s tests -p 'test_issue15_*.py' -v
 
@@ -48,7 +48,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install pinned real Text-Fabric
-        run: python -m pip install 'text-fabric==13.1.0'
+        run: python -m pip install .
       - name: Checkout pinned upstream TT regression fixture
         uses: actions/checkout@v4
         with:

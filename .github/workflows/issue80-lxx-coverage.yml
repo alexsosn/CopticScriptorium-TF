@@ -91,7 +91,7 @@ jobs:
           test "$(git -C pinned-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
 
       - name: Install pinned Text-Fabric
-        run: python -m pip install 'text-fabric==13.1.0'
+        run: python -m pip install .
 
       - name: Run complete Coptic OT reference-address audit against actual LXX
         timeout-minutes: 20

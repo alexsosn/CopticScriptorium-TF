@@ -75,7 +75,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install pinned Text-Fabric 13.1
-        run: python -m pip install 'text-fabric==13.1.0'
+        run: python -m pip install .
 
       - name: RED-first batch alias and existing pilot regressions
         run: |
