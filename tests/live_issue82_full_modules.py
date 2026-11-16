@@ -148,10 +148,11 @@ def run(coptic_source: Path, greek_tf: Path, scratch: Path) -> None:
         raise ValueError("missing Coptic word status after fresh TF overlay load")
     if statuses["unclassified_corpus"] <= 0 or statuses["unresolved"] <= 0:
         raise ValueError("incomplete unresolved/unclassified candidate provenance")
-    # Real pinned issue #111 diagnostic observed exactly 205 Bohairic
-    # source word slots across 2:7..13. Convert *only* these seven source
-    # verse spans from ambiguous to source-byte-locked candidates.
-    if statuses["versification_candidate"] != 549 or statuses["ambiguous"] != 52:
+    # Pinned #111 Zechariah crosswalk retains 549 candidate word slots.
+    # Independently reviewed #203 guards 100 Bohairic Psalm source-verse1
+    # words; #205 guards 68 adjacent source-verse2 words. The full
+    # original-TT audit #206 verifies 52 + 100 + 68 = 220 ambiguous slots.
+    if statuses["versification_candidate"] != 549 or statuses["ambiguous"] != 220:
         raise ValueError(
             "pinned post-crosswalk source-status coverage drift: "
             f"versification={statuses['versification_candidate']}, "
