@@ -20,9 +20,20 @@ For local TT trees, the direct converter and Agora's registered
 reviewed local `--source` materialization command and the explicit
 `install_local_corpus` → `prepare_corpus` → `load_corpus` handoff to
 Context-Fabric/cfabric-mcp. The server must be able to read the generated
-`tf/` directory locally. Bulk automatic Git acquisition remains an open
-Agora #205 gate; do not treat its manifest declaration as a successful full
-acquisition test.
+`tf/` directory locally. **Automatic pinned-source acquisition is also verified:**
+merged [Agora PR #215](https://github.com/alexsosn/Agora/pull/215)
+completed registered installation, source Git acquisition without `--source`,
+full 2,628-record sandboxed materialization, native TF reload, and the
+Context-Fabric import/prepare/load/query/unload/remove lifecycle. This is a
+technical integration test, not evidence of independent researcher usability
+or of source data licensing/scholarly equivalence. In ordinary usage,
+**Agora materialization and Context-Fabric import are still two explicit
+steps**, not one automatically linked operation.
+
+For a small, copyable first corpus query and the local/automatic acquisition
+choices, follow the [researcher quickstart](researcher-quickstart.md).
+For edition-qualified Greek reference lookup, see the separate
+[Coptic–LXX candidate guide](coptic-lxx-alignment.md).
 
 ## Load a generated corpus
 
