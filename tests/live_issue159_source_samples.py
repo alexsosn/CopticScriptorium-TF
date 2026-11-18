@@ -8,7 +8,7 @@ import sys
 
 from copticscriptorium_tf.parser import parse_tt_record
 
-PIN="3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN="6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 KINDS=("entity_head_tok","entity_text","entity_identity","persName_type",
        "placeName_type","placeName_ref","roleName_type","rs_type","org_type")
 FILES=(

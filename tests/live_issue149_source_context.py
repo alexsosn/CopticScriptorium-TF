@@ -20,7 +20,7 @@ from copticscriptorium_tf.ot_variant_source_context import inspect_source_gap_co
 
 FIXTURE = ROOT / "research/issue-149/pinned-ambiguous-gaps.json"
 ZIP_RELATIVE = "sahidic.ot/sahidic.ot_TT.zip"
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 
 
 def main(root: Path) -> None:

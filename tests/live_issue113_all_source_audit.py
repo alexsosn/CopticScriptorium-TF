@@ -22,7 +22,7 @@ from copticscriptorium_tf.nt_source_diagnostics import NonCandidateInventory
 from copticscriptorium_tf.parser import parse_tt_record
 from copticscriptorium_tf.sbl_source_census import records, expected_sbl
 
-COPTIC_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COPTIC_PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 GREEK_PIN = "4dd0207bda66133fdfa9740ff0aae7de61228700"
 EXPECTED_RECORDS = 2628
 EXPECTED_ANNOTATED = 48

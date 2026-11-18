@@ -13,7 +13,7 @@ import re
 
 from copticscriptorium_tf.parser import parse_tt_record
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 REL = Path("doc-papyri/doc.papyri_TT/cpr.31.14.tt")
 RECORD = "doc-papyri/doc.papyri:cpr.31.14"
 OPEN = re.compile(r"<entity\s+([^>]*?)>")

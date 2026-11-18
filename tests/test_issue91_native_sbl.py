@@ -10,7 +10,7 @@ from copticscriptorium_tf.parser import parse_tt_record
 from copticscriptorium_tf.graph import build_graph, validate_graph
 from copticscriptorium_tf.writer import write_graph
 
-COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COMMIT = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 REC = "sahidica.mark/sahidica.mark:Mark_02"
 
 

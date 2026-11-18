@@ -26,7 +26,7 @@ from scripts.agora_materialize import (  # noqa: E402
     select_materializer,
 )
 
-COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COMMIT = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 THOMAS = "thomas-gospel/thomas.gospel_TT/thomas_gospel.tt"
 THOMAS_BYTES = 1474064
 

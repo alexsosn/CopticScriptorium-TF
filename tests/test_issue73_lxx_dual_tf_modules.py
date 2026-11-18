@@ -16,7 +16,7 @@ from copticscriptorium_tf.lxx_module import (
 )
 from tf.fabric import Fabric
 
-COPTIC_SOURCE_COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COPTIC_SOURCE_COMMIT = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 LXX_PARENT_COMMIT = "f32a98eddf7eb239aa73ab863d70381e416d5076"
 
 

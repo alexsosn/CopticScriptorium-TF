@@ -17,7 +17,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 from copticscriptorium_tf.parser import TAG_RE, _visible_piece, parse_tt_record
 
-REV = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+REV = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 DIRECT = re.compile(r"^[^/]+/[^/]+_TT/[^/]+\.tt$")
 ZIPPED = re.compile(r"^[^/]+/[^/]+_TT\.zip$")
 

@@ -14,7 +14,7 @@ import re
 from copticscriptorium_tf.parser import parse_tt_record
 from live_issue189_morph_lang_parity import original_records
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 RAW_NORM = re.compile(r"<norm(?=\s|>)([^>]*)>")
 RAW_ATTR = re.compile(r'\s+([A-Za-z_][A-Za-z0-9_.:-]*)\s*=\s*"([^"]*)"')
 

@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from copticscriptorium_tf.sbl_source_census import records
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 EXPECTED = {"trans_horner":385}
 _TAG = re.compile(rb"<(/?)(norm|trans_horner|translation)\b([^<>]*)>")
 _HORNER_ATTR = re.compile(rb'\s+trans_horner\s*=\s*"([^"]*)"\s*')

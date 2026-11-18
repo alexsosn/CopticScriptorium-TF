@@ -72,7 +72,7 @@ def main(tf_dir: Path) -> None:
     assert examples[("proclus-homilies/proclus.homilies:proclus.23.nativity", "norm_func")] > 0
     print(json.dumps({
         "result": "PASS source-exact native TT token wrapper conservation",
-        "pinned_source": "CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5",
+        "pinned_source": "CopticScriptorium/corpora@6fb51458e7156dd5387c2b2dca207aac1692e4d0",
         "nodes_by_type": dict(sorted(observed.items())),
         "all_source_ordinals_unique_per_record": True,
         "word_slots": api.F.otype.maxSlot,

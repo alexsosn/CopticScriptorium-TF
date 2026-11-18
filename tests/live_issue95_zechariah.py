@@ -21,7 +21,7 @@ from copticscriptorium_tf.parser import parse_tt_record
 from copticscriptorium_tf.lxx_reference import resolve_coptic_lxx_references
 from copticscriptorium_tf.lxx_module import verify_lxx_parent_feature_blobs
 
-COPTIC_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COPTIC_PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 LXX_PIN = "f32a98eddf7eb239aa73ab863d70381e416d5076"
 OT_ZIPS = (
     "sahidic.ot/sahidic.ot_TT.zip",

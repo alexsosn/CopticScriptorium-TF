@@ -20,7 +20,7 @@ from copticscriptorium_tf.converter import convert_source_tree
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REVISION = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+REVISION = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 DIRECT_TT = (
     '<meta corpus="alpha" document_cts_urn="urn:cts:copticLit:fixture.a" title="Alpha">'
     '<norm_group norm_group="a"><norm xml:id="u1" new_sent="true" '
@@ -109,7 +109,7 @@ class AgoraManifestContractTests(unittest.TestCase):
         script = (ROOT / "tests/live_issue17_thomas.py").read_text(
             encoding="utf-8"
         )
-        self.assertIn("3ac067f1709a0012daf39ea8da2fac79980176a5", script)
+        self.assertIn("6fb51458e7156dd5387c2b2dca207aac1692e4d0", script)
         self.assertIn("thomas-gospel/thomas.gospel_TT/thomas_gospel.tt", script)
         self.assertIn("acquire_git_source", script)
         self.assertIn("materialize(", script)

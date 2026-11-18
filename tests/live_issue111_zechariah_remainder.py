@@ -26,7 +26,7 @@ from copticscriptorium_tf.lxx_versification import (
     BOHAIRIC_ZECH_CHAPTER_SHA, BOHAIRIC_ZECH_CROSSWALK_VERSION,
 )
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 LXX_PIN = "f32a98eddf7eb239aa73ab863d70381e416d5076"
 CTS = "urn:cts:copticLit:ot.zach.bohairic_ed:02"
 ZIP = "bohairic.ot/bohairic.ot_TT.zip"

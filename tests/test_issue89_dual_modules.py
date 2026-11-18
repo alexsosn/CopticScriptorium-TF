@@ -26,7 +26,7 @@ class ModuleWeftContractTests(unittest.TestCase):
         lines = payload.decode("utf-8").splitlines()
         self.assertEqual(lines[0], "@node")
         self.assertIn("@valueType=str", lines)
-        self.assertIn("@copticUpstreamCommit=3ac067f1709a0012daf39ea8da2fac79980176a5", lines)
+        self.assertIn("@copticUpstreamCommit=6fb51458e7156dd5387c2b2dca207aac1692e4d0", lines)
         self.assertIn("@lxxParentCommit=f32a98eddf7eb239aa73ab863d70381e416d5076", lines)
         self.assertLess(lines.index("1\tCenterBLC/LXX:1935:Ruth:2:1"), lines.index("3\tCenterBLC/LXX:1935:Ruth:2:2"))
         self.assertTrue(all(not line.startswith("@edge") for line in lines))

@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 from copticscriptorium_tf.ot_inventory import classify_biblical_record
 from copticscriptorium_tf.parser import TAG_RE, _scan_attrs
 
-UPSTREAM_COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+UPSTREAM_COMMIT = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 DIRECT = re.compile(r"^[^/]+/[^/]+_TT/[^/]+\.tt$")
 ARCHIVE = re.compile(r"^[^/]+/[^/]+_TT\.zip$")
 MARKER_TAGS = frozenset({"verse_n", "vid_n", "verse_vid"})

@@ -12,7 +12,7 @@ from copticscriptorium_tf.graph import build_graph
 from copticscriptorium_tf.writer import write_graph
 from tf.fabric import Fabric
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 
 
 def parse(source: str):

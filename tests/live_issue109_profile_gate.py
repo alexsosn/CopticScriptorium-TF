@@ -13,7 +13,7 @@ PHASES = (
 
 def main(report_path: Path) -> None:
     report = json.loads(report_path.read_text(encoding="utf-8"))
-    assert report["upstream_commit"] == "3ac067f1709a0012daf39ea8da2fac79980176a5"
+    assert report["upstream_commit"] == "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
     assert report["source_records"] == 2_628
     assert report["slots"] == 2_394_354
     snapshots = report["memory_profile"]
