@@ -75,7 +75,8 @@ jobs:
           "$RUNNER_TEMP/clean/bin/copticscriptorium-tf" --help
 
       - name: Run Unicode lemma contract in the clean installed-wheel environment
-        run: "$RUNNER_TEMP/clean/bin/python" -m unittest tests.test_issue212_unicode_lemma_journey -v
+        run: |
+          "$RUNNER_TEMP/clean/bin/python" -m unittest tests.test_issue212_unicode_lemma_journey -v
 
       - name: Verify exact installed-user smoke and negative path
         timeout-minutes: 16
