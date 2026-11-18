@@ -70,7 +70,10 @@ def main(tf_dir: Path) -> None:
                 "proclus-homilies/proclus.homilies:proclus.23.nativity",
             }:
                 examples[(source_record_id, kind)] += 1
-    assert observed == EXPECTED, (observed, EXPECTED)
+    # Absent upstream wrapper kinds are proved by the explicit len(nodes) checks
+    # above, but Counter intentionally omits zero-valued keys. Compare only
+    # nonzero observed kinds without losing the explicit per-kind assertions.
+    assert observed == +Counter(EXPECTED), (observed, EXPECTED)
     assert sum(observed.values()) == 78_265
     assert examples[("AP/apophthegmata.patrum:AP.001.n135.mother", "morph")] > 0
     assert examples[("proclus-homilies/proclus.homilies:proclus.23.nativity", "norm_func")] == 0

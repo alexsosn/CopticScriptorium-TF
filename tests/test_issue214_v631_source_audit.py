@@ -83,6 +83,28 @@ class CorrectedUpstreamTTReleaseTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     compare(original.encode("utf-8"), tampered.encode("utf-8"))
 
+    def test_full_native_wrapper_zero_count_contract_is_explicit(self):
+        from collections import Counter
+        # The original 20,011 fake norm_func wrappers are absent in v6.3.1.
+        # A zero count must still be asserted in the full native TF audit,
+        # although Counter equality correctly ignores stored zero keys.
+        observed = Counter({"morph": 78265})
+        expected = {"morph": 78265, "norm_func": 0, "norm_head": 0,
+                    "norm_xml:id": 0, "norm_new_sent": 0}
+        self.assertNotEqual(observed, expected)
+        self.assertEqual(observed, +Counter(expected))
+        native = (ROOT / "tests/live_issue135_full_native.py").read_text(encoding="utf-8")
+        self.assertIn("assert len(nodes) == expected_count", native)
+        self.assertIn("assert observed == +Counter(EXPECTED)", native)
+
+    def test_original_nt_shape_probe_targets_release_but_keeps_source_counts(self):
+        path = ROOT / "research/issue_117/source_shape_probe.py"
+        scope = runpy.run_path(str(path))
+        self.assertEqual(scope["PIN"], NEW_COMMIT)
+        self.assertEqual(len(scope["SOURCES"]), 3)
+        self.assertEqual(scope["SOURCES"]["sahidica.mark/sahidica.mark_TT/Mark_01.tt"]["sbl_greek"], 45)
+        self.assertEqual(scope["SOURCES"]["sahidica.1corinthians/sahidica.1corinthians_TT/1Cor_01.tt"]["verse_vid"], 31)
+
     def test_current_producer_manifest_and_historical_agora_run_are_not_conflated(self):
         root = ROOT
         manifest = json.loads((root / "agora.materializer.json").read_text(encoding="utf-8"))

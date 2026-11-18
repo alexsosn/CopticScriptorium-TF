@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 TAG = re.compile(rb'<(sbl_greek|sbl_apparatus|verse_n|verse_vid|vid_n)\s+[^>]*?>')
 VALUE = re.compile(rb'^<([a-z_]+)\s+\1="([^"]*)"')
 EDITOR = re.compile(rb"^(?:41N|46N) [1-9][0-9]*:[1-9][0-9]*$")
