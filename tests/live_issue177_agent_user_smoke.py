@@ -18,6 +18,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import unicodedata
 
 from tf.fabric import Fabric
 
@@ -47,8 +48,25 @@ def run(argv: list[str], *, workdir: Path, expected: int = 0) -> subprocess.Comp
     return proc
 
 
+def _safe_coptic_lemma_query(value: str) -> str | None:
+    """Allow one original Coptic-script lemma literal, without TF meta syntax.
+
+    No normalization, transliteration or guessed forms: reject whitespace,
+    punctuation, digits and regex/query syntax; combining marks are retained.
+    """
+    if not value:
+        return None
+    if not all(ch.isalpha() or unicodedata.category(ch).startswith("M") for ch in value):
+        return None
+    if not any("\u2c80" <= ch <= "\u2cff" or "\u03e2" <= ch <= "\u03ef" for ch in value):
+        return None
+    return f"word lemma={value}"
+
+
 def browser_http_smoke(
-    tf_root: Path, expected_words: int, *, filtered_query: str, filtered_expected: int
+    tf_root: Path, expected_words: int, *,
+    filtered_query: str, filtered_expected: int,
+    lemma_query: str, lemma_expected: int,
 ) -> dict[str, object]:
     """Use the installed TF browser over real loopback HTTP, no converter imports.
 
@@ -88,6 +106,7 @@ def browser_http_smoke(
         for query, expected, key in (
             ("word", expected_words, "http_browser_result_count"),
             (filtered_query, filtered_expected, "http_browser_filtered_result_count"),
+            (lemma_query, lemma_expected, "http_browser_lemma_result_count"),
         ):
             encoded = urlencode({
                 "query": query, "batch": "5", "condenseType": "document",
@@ -112,7 +131,7 @@ def browser_http_smoke(
             assert isinstance(table, str) and "<" in table, (
                 "browser reported count but failed to render result markup"
             )
-            if query == filtered_query:
+            if query != "word":
                 assert "href=" in table, (
                     "browser returned constrained hits but no navigable result links"
                 )
@@ -123,6 +142,7 @@ def browser_http_smoke(
             "http_browser_search": "pass",
             "http_browser_query": "word",
             "http_browser_filtered_query": filtered_query,
+            "http_browser_lemma_query_sha256": sha256(lemma_query.encode("utf-8")).hexdigest(),
             "http_browser_loopback_only": True,
             **results,
         }
@@ -213,6 +233,23 @@ def main(source: Path, bin_dir: Path, scratch: Path) -> None:
         "TF search and indexed word POS disagree on the installed real source"
     )
 
+    # A researcher also needs to search actual Coptic Unicode lexical forms.
+    # Only use a source-attested, syntax-safe Coptic lemma. Keep its literal
+    # private to the in-process query; report only a hash and aggregate counts.
+    lemma_query = next((
+        query for w in words
+        if (value := api.F.lemma.v(w))
+        if (query := _safe_coptic_lemma_query(value)) is not None
+    ), None)
+    assert lemma_query is not None, "real corpus has no safe Coptic-script lemma"
+    source_lemma = lemma_query.split("=", 1)[1]
+    native_lemma_hits = tuple(api.S.search(lemma_query, silent="deep"))
+    assert native_lemma_hits, "native TF Unicode lemma search returned no hits"
+    assert all(len(hit) == 1 for hit in native_lemma_hits)
+    assert {hit[0] for hit in native_lemma_hits} == set(api.F.lemma.s(source_lemma)), (
+        "TF Search and inverse original Coptic lemma index disagree"
+    )
+
     horner = api.F.otype.s("trans_horner")
     assert len(horner) == 162, len(horner)
     assert all(api.F.source_record_id.v(n) == PISTIS_ID for n in horner)
@@ -231,6 +268,7 @@ def main(source: Path, bin_dir: Path, scratch: Path) -> None:
     http_result = browser_http_smoke(
         root, api.F.otype.maxSlot,
         filtered_query=pos_query, filtered_expected=len(native_pos_hits),
+        lemma_query=lemma_query, lemma_expected=len(native_lemma_hits),
     )
 
     # Negative real installed CLI journey: no phantom native corpus published.
@@ -259,6 +297,8 @@ def main(source: Path, bin_dir: Path, scratch: Path) -> None:
         "lemma_inverse_hits": len(lemma_hits),
         "native_pos_query": pos_query,
         "native_pos_query_hits": len(native_pos_hits),
+        "native_lemma_query_sha256": sha256(lemma_query.encode("utf-8")).hexdigest(),
+        "native_lemma_query_hits": len(native_lemma_hits),
         "native_dependency_query": True,
         "normalized_text_format": "text-orig-full",
         "browser_check": "pass",

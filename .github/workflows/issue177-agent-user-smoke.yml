@@ -6,6 +6,7 @@ on:
       - '.github/workflows/issue177-agent-user-smoke.yml'
       - 'tests/test_issue177_agent_smoke.py'
       - 'tests/test_issue210_release_journey.py'
+      - 'tests/test_issue212_unicode_lemma_journey.py'
       - 'tests/live_issue177_agent_user_smoke.py'
       - 'research/issue-177/**'
       - 'README.md'
@@ -72,6 +73,10 @@ jobs:
           python -m venv "$RUNNER_TEMP/clean"
           "$RUNNER_TEMP/clean/bin/python" -m pip install dist/*.whl
           "$RUNNER_TEMP/clean/bin/copticscriptorium-tf" --help
+
+      - name: Run Unicode lemma contract in the clean installed-wheel environment
+        run: |
+          "$RUNNER_TEMP/clean/bin/python" -m unittest tests.test_issue212_unicode_lemma_journey -v
 
       - name: Verify exact installed-user smoke and negative path
         timeout-minutes: 16
