@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/issue177-agent-user-smoke.yml'
       - 'tests/test_issue177_agent_smoke.py'
+      - 'tests/test_issue210_release_journey.py'
       - 'tests/live_issue177_agent_user_smoke.py'
       - 'research/issue-177/**'
       - 'README.md'
@@ -59,7 +60,7 @@ jobs:
           python-version: '3.12'
 
       - name: Run RED-first user journey contract
-        run: python -m unittest tests.test_issue177_agent_smoke -v
+        run: python -m unittest tests.test_issue177_agent_smoke tests.test_issue210_release_journey -v
 
       - name: Build verified package wheel
         run: |
