@@ -21,7 +21,7 @@ from copticscriptorium_tf.converter import convert_source_tree, _peak_rss_mb
 from copticscriptorium_tf.graph_storage import graph_storage_census
 
 UPSTREAM_REPOSITORY = "CopticScriptorium/corpora"
-UPSTREAM_COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+UPSTREAM_COMMIT = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 REQUIRED_EDGE_FEATURES = (
     "dependency_head",
     "entity_head",

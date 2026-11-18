@@ -33,7 +33,7 @@ copticscriptorium-tf \
   /path/to/CopticScriptorium-corpora \
   /path/to/output-tf \
   --upstream-repository CopticScriptorium/corpora \
-  --upstream-commit 3ac067f1709a0012daf39ea8da2fac79980176a5 \
+  --upstream-commit 6fb51458e7156dd5387c2b2dca207aac1692e4d0 \
   --summary /path/to/conversion-summary.json
 ```
 
