@@ -188,8 +188,11 @@ def audit_and_convert(old_root: Path, new_root: Path, scratch: Path) -> dict[str
     # representation. This exercises input discovery, graph build and TF write.
     output = scratch / "native-tf"
     summary = scratch / "summary.json"
+    installed_cli = Path(sys.executable).with_name("copticscriptorium-tf")
+    if not installed_cli.is_file():
+        raise RuntimeError("installed wheel lacks the public conversion command")
     cmd = [
-        "copticscriptorium-tf", str(new_root), str(output),
+        str(installed_cli), str(new_root), str(output),
         "--upstream-repository", UPSTREAM,
         "--upstream-commit", NEW_COMMIT,
         "--summary", str(summary),
