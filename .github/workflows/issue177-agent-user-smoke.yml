@@ -57,7 +57,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: CopticScriptorium/corpora
-          ref: 6fb51458e7156dd5387c2b2dca207aac1692e4d0
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
           path: original-v630
           persist-credentials: false
           filter: blob:none
@@ -85,7 +85,7 @@ jobs:
 
       - name: Verify pinned upstream source and one original file length
         run: |
-          test "$(git -C real-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C real-coptic rev-parse HEAD)" = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
           test "$(stat -c%s real-coptic/thomas-gospel/thomas.gospel_TT/thomas_gospel.tt)" = "1474064"
           test -f real-coptic/pistis-sophia/pistis.sophia_TT/pistis.sophia_book_1_part1.tt
 
