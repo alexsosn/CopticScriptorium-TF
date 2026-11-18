@@ -8,6 +8,7 @@ on:
       - 'tests/test_issue210_release_journey.py'
       - 'tests/test_issue212_unicode_lemma_journey.py'
       - 'tests/test_issue215_browser_context.py'
+      - 'tests/test_issue215_browser_passage_adapter.py'
       - 'tests/live_issue177_agent_user_smoke.py'
       - 'research/issue-177/**'
       - 'README.md'
@@ -77,7 +78,7 @@ jobs:
 
       - name: Run Unicode lemma contract in the clean installed-wheel environment
         run: |
-          "$RUNNER_TEMP/clean/bin/python" -m unittest tests.test_issue212_unicode_lemma_journey tests.test_issue215_browser_context -v
+          "$RUNNER_TEMP/clean/bin/python" -m unittest tests.test_issue212_unicode_lemma_journey tests.test_issue215_browser_context tests.test_issue215_browser_passage_adapter -v
 
       - name: Verify exact installed-user smoke and negative path
         timeout-minutes: 16
