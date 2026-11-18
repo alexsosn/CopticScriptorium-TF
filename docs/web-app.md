@@ -106,8 +106,13 @@ sections, text formats, graph edges, or conversion semantics.
 
 ## Scope
 
-This local app is for freshly generated CopticScriptorium-TF artifacts. Agora
-registration and automatic Context-Fabric/cfabric-mcp artifact discovery remain
-separate integration work. The app presents annotations preserved by the
-converter; it does not certify the scholarly correctness or completeness of
-upstream Coptic Scriptorium data.
+This local app is for freshly generated CopticScriptorium-TF artifacts.
+The Agora materializer is already **registered** and automatic pinned Git
+source acquisition has passed a full registered integration test (Agora
+[PR #215](https://github.com/alexsosn/Agora/pull/215)). Its generated native
+TF can be opened with this local browser. Context-Fabric/cfabric-mcp import
+remains a **separate, explicitly invoked** step in ordinary usage, not an
+automatic browser discovery feature. See the
+[researcher quickstart](researcher-quickstart.md) for the supported paths.
+The app presents annotations preserved by the converter; it does not certify
+the scholarly correctness or completeness of upstream Coptic Scriptorium data.

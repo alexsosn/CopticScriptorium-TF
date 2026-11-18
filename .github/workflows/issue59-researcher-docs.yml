@@ -31,7 +31,7 @@ jobs:
       - name: Install pinned Text-Fabric
         run: python -m pip install .
       - name: Run researcher documentation and cookbook contract
-        run: python -m unittest discover -s tests -p 'test_issue59_*.py' -v
+        run: python -m unittest tests.test_issue59_researcher_docs tests.test_issue210_release_journey -v
 
   pinned-real-cookbook:
     runs-on: ubuntu-latest

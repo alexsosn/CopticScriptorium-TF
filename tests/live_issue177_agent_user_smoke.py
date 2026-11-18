@@ -15,6 +15,7 @@ from tf.browser.web import setup as setup_browser
 from werkzeug.serving import make_server
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -46,7 +47,9 @@ def run(argv: list[str], *, workdir: Path, expected: int = 0) -> subprocess.Comp
     return proc
 
 
-def browser_http_smoke(tf_root: Path, expected_words: int) -> dict[str, object]:
+def browser_http_smoke(
+    tf_root: Path, expected_words: int, *, filtered_query: str, filtered_expected: int
+) -> dict[str, object]:
     """Use the installed TF browser over real loopback HTTP, no converter imports.
 
     The response is examined privately; only status and counts are returned.
@@ -79,34 +82,49 @@ def browser_http_smoke(tf_root: Path, expected_words: int) -> dict[str, object]:
             )
         assert b"<html" in page.lower(), "browser homepage has no HTML skeleton"
 
-        # Submit through the actual TF browser query handler. The source page
-        # and Coptic word text must not be printed, persisted or uploaded.
-        encoded = urlencode({"query": "word", "batch": "5", "condenseType": "document"}).encode("ascii")
-        request = Request(
-            address + "/query",
-            data=encoded,
-            method="POST",
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        with urlopen(request, timeout=90) as response:
-            payload = json.loads(response.read(2_000_000))
-            assert response.status == 200, "browser query returned non-200"
-        assert isinstance(payload, dict), "browser query did not return JSON"
-        assert payload.get("status") is True, (
-            "browser rejected valid user query, without exposing response text"
-        )
-        assert payload.get("nResults") == expected_words, (
-            "TF browser query count disagrees with independent native word slots"
-        )
-        assert isinstance(payload.get("table"), str) and "<" in payload["table"], (
-            "browser has a count but did not render native result markup"
-        )
+        # Exercise the actual public browser twice: a baseline 'word' query
+        # and one constrained native POS query from the pinned original text.
+        results = {}
+        for query, expected, key in (
+            ("word", expected_words, "http_browser_result_count"),
+            (filtered_query, filtered_expected, "http_browser_filtered_result_count"),
+        ):
+            encoded = urlencode({
+                "query": query, "batch": "5", "condenseType": "document",
+            }).encode("utf-8")
+            request = Request(
+                address + "/query",
+                data=encoded,
+                method="POST",
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            with urlopen(request, timeout=90) as response:
+                payload = json.loads(response.read(2_000_000))
+                assert response.status == 200, "browser query returned non-200"
+            assert isinstance(payload, dict), "browser query did not return JSON"
+            assert payload.get("status") is True, (
+                "browser rejected source-attested researcher query"
+            )
+            assert payload.get("nResults") == expected, (
+                "browser result count disagrees with the same native TF query"
+            )
+            table = payload.get("table")
+            assert isinstance(table, str) and "<" in table, (
+                "browser reported count but failed to render result markup"
+            )
+            if query == filtered_query:
+                assert "href=" in table, (
+                    "browser returned constrained hits but no navigable result links"
+                )
+            results[key] = payload["nResults"]
+
         return {
             "http_browser_home": "pass",
             "http_browser_search": "pass",
-            "http_browser_result_count": payload["nResults"],
             "http_browser_query": "word",
+            "http_browser_filtered_query": filtered_query,
             "http_browser_loopback_only": True,
+            **results,
         }
     finally:
         server.shutdown()
@@ -179,6 +197,22 @@ def main(source: Path, bin_dir: Path, scratch: Path) -> None:
     assert sample in lemma_hits and lemma_hits
     assert any(api.E.dependency_head.f(w) for w in words), "native syntax was lost"
 
+    # Choose an actual original POS value, not a guessed Coptic lemma or
+    # synthetic fixture. Keep only a simple, unambiguous TF query literal.
+    source_pos = next((
+        value for w in words
+        if (value := api.F.pos.v(w))
+        and re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", value)
+    ), None)
+    assert source_pos is not None, "real corpus has no queryable simple POS"
+    pos_query = f"word pos={source_pos}"
+    native_pos_hits = tuple(api.S.search(pos_query, silent="deep"))
+    assert native_pos_hits, "native TF researcher POS search returned no hits"
+    assert all(len(hit) == 1 for hit in native_pos_hits)
+    assert {hit[0] for hit in native_pos_hits} == set(api.F.pos.s(source_pos)), (
+        "TF search and indexed word POS disagree on the installed real source"
+    )
+
     horner = api.F.otype.s("trans_horner")
     assert len(horner) == 162, len(horner)
     assert all(api.F.source_record_id.v(n) == PISTIS_ID for n in horner)
@@ -194,7 +228,10 @@ def main(source: Path, bin_dir: Path, scratch: Path) -> None:
     )
 
     run([browser, str(root), "--check"], workdir=scratch)
-    http_result = browser_http_smoke(root, api.F.otype.maxSlot)
+    http_result = browser_http_smoke(
+        root, api.F.otype.maxSlot,
+        filtered_query=pos_query, filtered_expected=len(native_pos_hits),
+    )
 
     # Negative real installed CLI journey: no phantom native corpus published.
     empty = scratch / "empty-original-tree"
@@ -220,6 +257,8 @@ def main(source: Path, bin_dir: Path, scratch: Path) -> None:
         "horner_source_witness_nodes": len(horner),
         "separate_original_english_translation_nodes": len(translation),
         "lemma_inverse_hits": len(lemma_hits),
+        "native_pos_query": pos_query,
+        "native_pos_query_hits": len(native_pos_hits),
         "native_dependency_query": True,
         "normalized_text_format": "text-orig-full",
         "browser_check": "pass",

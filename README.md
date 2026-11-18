@@ -140,6 +140,11 @@ The relation evidence is available in separate valued edge features such as `sam
 
 ## Researcher guide and query cookbook
 
+Start with the [researcher quickstart](docs/researcher-quickstart.md): install the
+package, convert original TT, open the browser, and execute a source-attested
+POS query through native Text-Fabric. It also distinguishes local TT sources
+from Agora's verified automatic acquisition and explicit Context-Fabric import.
+
 For the full corpus model, annotation semantics, provenance/citation guidance, missing-value rules, and reproducible research recipes, see [the researcher guide](docs/researcher-guide.md).
 
 The importable [query cookbook](examples/query_cookbook.py) runs directly against generated native TF and includes Text-Fabric Search examples for lexical/morphological filtering, dependencies, entities, document identity/relations, translations, rendering, and provenance tracing.
