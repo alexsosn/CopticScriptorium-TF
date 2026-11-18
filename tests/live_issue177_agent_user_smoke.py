@@ -6,6 +6,7 @@ launcher and normal Text-Fabric interface. Report metadata/counts only.
 from __future__ import annotations
 
 from hashlib import sha256
+from html.parser import HTMLParser
 from importlib.resources import files as resource_files
 from threading import Thread
 from urllib.parse import urlencode
@@ -63,10 +64,41 @@ def _safe_coptic_lemma_query(value: str) -> str | None:
     return f"word lemma={value}"
 
 
+class _ContextAnchorParser(HTMLParser):
+    """Inspect only Text-Fabric's original search-result context anchors."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.sections: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "a":
+            return
+        values = dict(attrs)
+        if "pq" not in (values.get("class") or "").split():
+            return
+        if values.get("href") != "#" or not values.get("sec0"):
+            raise ValueError("browser result context anchor is malformed")
+        self.sections.append(values["sec0"])
+
+
+def _first_context_section(html: str, expected_documents: set[str]) -> str:
+    """Extract an actual physical document from a TF context action, not href."""
+    anchors = _ContextAnchorParser()
+    anchors.feed(html)
+    anchors.close()
+    if not anchors.sections:
+        raise ValueError("browser has no real source-context result link")
+    if not set(anchors.sections) <= expected_documents:
+        raise ValueError("browser context links disagree with original TF sections")
+    return anchors.sections[0]
+
+
 def browser_http_smoke(
     tf_root: Path, expected_words: int, *,
     filtered_query: str, filtered_expected: int,
     lemma_query: str, lemma_expected: int,
+    expected_documents: set[str],
 ) -> dict[str, object]:
     """Use the installed TF browser over real loopback HTTP, no converter imports.
 
@@ -83,8 +115,9 @@ def browser_http_smoke(
         "--modules=.",
     )
     assert app is not None, "standard TF browser app initialization failed"
-    assert "/query" in {rule.rule for rule in app.url_map.iter_rules()}, (
-        "installed app has no researcher /query endpoint"
+    routes = {rule.rule for rule in app.url_map.iter_rules()}
+    assert "/query" in routes and "/passage" in routes, (
+        "installed browser lacks real researcher search/passage endpoint"
     )
     server = make_server("127.0.0.1", 0, app)
     service = Thread(target=server.serve_forever, daemon=True)
@@ -103,6 +136,7 @@ def browser_http_smoke(
         # Exercise the actual public browser twice: a baseline 'word' query
         # and one constrained native POS query from the pinned original text.
         results = {}
+        passage_section = None
         for query, expected, key in (
             ("word", expected_words, "http_browser_result_count"),
             (filtered_query, filtered_expected, "http_browser_filtered_result_count"),
@@ -135,10 +169,37 @@ def browser_http_smoke(
                 assert "href=" in table, (
                     "browser returned constrained hits but no navigable result links"
                 )
+            if query == lemma_query:
+                passage_section = _first_context_section(table, expected_documents)
             results[key] = payload["nResults"]
+
+        assert passage_section is not None, (
+            "source-attested Coptic lemma query has no section context"
+        )
+        # The result's href="#" is a JavaScript action: request the actual
+        # upstream Text-Fabric passage endpoint using its source sec0 label.
+        encoded = urlencode({"sec0": passage_section, "query": lemma_query}).encode("utf-8")
+        request = Request(
+            address + "/passage",
+            data=encoded,
+            method="POST",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        with urlopen(request, timeout=90) as response:
+            passage_payload = json.loads(response.read(12_000_000))
+            assert response.status == 200, "browser passage request returned non-200"
+        assert isinstance(passage_payload, dict), "browser passage was not JSON"
+        passage_html = passage_payload.get("table")
+        assert isinstance(passage_html, str) and "<" in passage_html, (
+            "source-selected document has no rendered passage"
+        )
 
         return {
             "http_browser_home": "pass",
+            "http_browser_passage": "pass",
+            "http_browser_passage_section_sha256": sha256(
+                passage_section.encode("utf-8")
+            ).hexdigest(),
             "http_browser_search": "pass",
             "http_browser_query": "word",
             "http_browser_filtered_query": filtered_query,
@@ -269,6 +330,7 @@ def main(source: Path, bin_dir: Path, scratch: Path) -> None:
         root, api.F.otype.maxSlot,
         filtered_query=pos_query, filtered_expected=len(native_pos_hits),
         lemma_query=lemma_query, lemma_expected=len(native_lemma_hits),
+        expected_documents=set(by_id),
     )
 
     # Negative real installed CLI journey: no phantom native corpus published.
