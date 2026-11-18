@@ -67,8 +67,10 @@ word lemma=ⲉⲓⲣⲉ
 The result count depends on which original works you supplied: zero results
 in a narrow corpus do not imply the converter failed. Search the available
 `norm`, `lemma`, `pos` and other native features in your own data.
-A **constrained source-attested POS query** is covered by the installed
-real-source HTTP regression test, not merely the generic `word` query.
+Both a **source-attested POS query** and a **source-attested Coptic Unicode
+lemma query** are covered by the installed real-source HTTP regression test,
+not merely the generic `word` query. The test chooses its lemma from original
+pinned Coptic TT rather than assuming a given word occurs in every dataset.
 
 ## 4. Ask a question with the native Text-Fabric API
 
