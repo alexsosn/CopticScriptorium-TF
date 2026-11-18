@@ -1,5 +1,7 @@
 # Agent instructions
 
+> **Product-goal gate:** Before selecting a task or expanding the backlog, read [PRODUCT_GOALS.md](PRODUCT_GOALS.md). Prioritize its researcher journeys and minimum usable release; require concrete evidence for infrastructure work. Keep all mandatory source, security, licensing, TDD and independent-review checks below.
+
 All behavioral work in this repository is issue-driven and follows this gate sequence:
 
 1. **Research** — inspect upstream data, relevant prior projects, and current repository state. Persist material findings in the issue and/or `research.md`/focused research docs.
