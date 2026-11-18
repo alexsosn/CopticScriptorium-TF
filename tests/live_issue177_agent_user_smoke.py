@@ -6,6 +6,7 @@ launcher and normal Text-Fabric interface. Report metadata/counts only.
 from __future__ import annotations
 
 from hashlib import sha256
+from html import unescape
 from html.parser import HTMLParser
 from importlib.resources import files as resource_files
 from threading import Thread
@@ -192,6 +193,9 @@ def browser_http_smoke(
         passage_html = passage_payload.get("table")
         assert isinstance(passage_html, str) and "<" in passage_html, (
             "source-selected document has no rendered passage"
+        )
+        assert passage_section in unescape(passage_html), (
+            "passage display lost the physical source_record_id selected from the result"
         )
 
         return {
