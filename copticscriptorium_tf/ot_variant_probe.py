@@ -12,6 +12,12 @@ import json
 from typing import Callable, Mapping
 
 PINNED_COPTIC = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
+# The artifact from run 38165316273 was created on the previous full Git
+# revision. Preserve its *actual* immutable report provenance. All seven
+# embedded OT source record SHA-256s are independently reread on the new
+# v6.3.1 Git checkout by tests/live_issue149_source_context.py; the four
+# upstream changes in v6.3.1 are unrelated non-OT physical records.
+HISTORICAL_REPORT_SOURCE_COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
 PROVEN_SOURCE_REPORT_RUN = 38165316273
 PROVEN_SOURCE_REPORT_JOB = 114546559963
 PROVEN_SOURCE_HEAD = "8b02a2507b48b9e4f93ba5c1559d47cd69e4edfe"
@@ -99,7 +105,7 @@ def _integer(value: object) -> bool:
 def _validate_fixture(data: Mapping[str, object]) -> list[tuple[str, str, str, int, int, int, int]]:
     if (
         data.get("schema") != SCHEMA
-        or data.get("coptic_source_commit") != PINNED_COPTIC
+        or data.get("coptic_source_commit") != HISTORICAL_REPORT_SOURCE_COMMIT
         or data.get("source_report_run") != PROVEN_SOURCE_REPORT_RUN
         or data.get("source_report_job") != PROVEN_SOURCE_REPORT_JOB
         or data.get("source_report_pr_head") != PROVEN_SOURCE_HEAD
