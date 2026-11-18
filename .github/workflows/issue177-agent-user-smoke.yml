@@ -61,7 +61,7 @@ jobs:
           python-version: '3.12'
 
       - name: Run RED-first user journey contract
-        run: python -m unittest tests.test_issue177_agent_smoke tests.test_issue210_release_journey tests.test_issue212_unicode_lemma_journey -v
+        run: python -m unittest tests.test_issue177_agent_smoke tests.test_issue210_release_journey -v
 
       - name: Build verified package wheel
         run: |
@@ -73,6 +73,9 @@ jobs:
           python -m venv "$RUNNER_TEMP/clean"
           "$RUNNER_TEMP/clean/bin/python" -m pip install dist/*.whl
           "$RUNNER_TEMP/clean/bin/copticscriptorium-tf" --help
+
+      - name: Run Unicode lemma contract in the clean installed-wheel environment
+        run: "$RUNNER_TEMP/clean/bin/python" -m unittest tests.test_issue212_unicode_lemma_journey -v
 
       - name: Verify exact installed-user smoke and negative path
         timeout-minutes: 16
