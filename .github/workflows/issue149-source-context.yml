@@ -45,7 +45,7 @@ jobs:
         timeout-minutes: 18
         with:
           repository: CopticScriptorium/corpora
-          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          ref: 6fb51458e7156dd5387c2b2dca207aac1692e4d0
           path: pinned-coptic
           persist-credentials: false
           filter: blob:none
@@ -54,7 +54,7 @@ jobs:
             /sahidic.ot/sahidic.ot_TT.zip
 
       - name: Assert Coptic original source revision
-        run: test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+        run: test "$(git -C pinned-coptic rev-parse HEAD)" = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
