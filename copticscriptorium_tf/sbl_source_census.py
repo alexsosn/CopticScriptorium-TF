@@ -14,7 +14,7 @@ import zipfile
 
 from copticscriptorium_tf.parser import TAG_RE, _scan_attrs, parse_tt_record
 
-COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COMMIT = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 KINDS = frozenset(("sbl_greek", "sbl_apparatus"))
 
 

@@ -17,7 +17,7 @@ from .ot_verse_anomalies import CopticOtVerseAnomalyBatch
 from .lxx_reference import _source_book
 from .tvtms_diagnostic import TvtmsDiagnostic
 
-COPTIC_SOURCE_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COPTIC_SOURCE_PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 SCHEMA = "coptic_lxx_reference_coverage_v1"
 REFERENCE_STATUSES = frozenset({
     "reference_candidate", "versification_candidate", "unresolved", "ambiguous", "unclassified_corpus",

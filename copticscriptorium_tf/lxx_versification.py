@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from .model import DocumentModel
 
 BOHAIRIC_ZECH_CROSSWALK_VERSION = "bohairic-zach-lxx1935-v2"
-COPTIC_SOURCE_GIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COPTIC_SOURCE_GIT = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 BOHAIRIC_ZECH_CHAPTER_SHA: dict[int, str] = {
     1: "c52322c9e69a68cefe39827c18417a37d291ecbd919f8440adc0c340cf7867bd",
     2: "6521b293392498f22cddd432bfe2bc0a89ef4a244010040a5b8c3d45a5382028",

@@ -9,7 +9,7 @@ from __future__ import annotations
 from hashlib import sha256
 from typing import Any
 
-SOURCE_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+SOURCE_PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 RULE_ID = "bohairic-pss-first-two-body-verses-not-same-number-lxx-v2"
 SOURCE_SHA: dict[int, str] = {
     3: "cbeb4996b0cd142e888bcd630eaac6123af05d7084d49b614066fa9799b5b9d6",

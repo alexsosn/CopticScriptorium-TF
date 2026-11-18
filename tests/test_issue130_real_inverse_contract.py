@@ -15,7 +15,7 @@ class NativeInverseQueryRealDataGate(unittest.TestCase):
         for expected in (
             "git rev-parse HEAD",  # Resolve and assert the actual tested PR head.
             "CopticScriptorium/corpora",
-            "3ac067f1709a0012daf39ea8da2fac79980176a5",
+            "6fb51458e7156dd5387c2b2dca207aac1692e4d0",
             "CenterBLC/LXX",
             "f32a98eddf7eb239aa73ab863d70381e416d5076",
             "tests/live_issue130_real_witnesses.py",

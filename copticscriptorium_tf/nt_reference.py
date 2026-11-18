@@ -14,7 +14,7 @@ from typing import Callable, Literal
 from .model import DocumentModel
 from .nt_paired_verse import paired_word_verses, source_pair_for_sbl
 
-COPTIC_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COPTIC_PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 GREEK_NT_EDITION = "morphgnt/sblgnt:6.12:aaed91e57c8e4a8dc9a2383e129ca5e75fe6393d"
 SOURCE_PROVENANCE_MARKER = "SBL Greek New Testament"
 

@@ -16,7 +16,7 @@ from typing import Any
 from .model import SblAnnotation
 from .parser import parse_tt_record
 
-PINNED_COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PINNED_COMMIT = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 EXPECTED_RECORDS = 2628
 EXPECTED_WORD_SLOTS = 2394354
 EXPECTED_SBL = {"sbl_greek": 1652, "sbl_apparatus": 1095}

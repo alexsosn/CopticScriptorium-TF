@@ -16,7 +16,7 @@ from ._atomic import publish_path_no_clobber
 from .lxx_reference import CANDIDATE_STATUSES, resolve_coptic_lxx_references
 from .model import DocumentModel
 
-COPTIC_UPSTREAM = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COPTIC_UPSTREAM = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 LXX_UPSTREAM = "f32a98eddf7eb239aa73ab863d70381e416d5076"
 LXX_VERSION = "1935"
 LXX_MAX_SLOT = 623693
