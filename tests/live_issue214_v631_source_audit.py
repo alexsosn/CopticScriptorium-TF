@@ -32,7 +32,7 @@ CHANGED_BLOBS = {
         "075deeb8a97d9bd719bf3d36955574cdd32fe7f9",
     ),
     "john-constantinople/john.constantinople_TT/penitence.02.tt": (
-        "08e8f3a686a4739aabe96ad93219cb10",
+        "08e8f3a686a4739aabe96ad93219cb8c72f8cb10",
         "47a55e4e3b92e787361adc0da344049783a9b806",
     ),
     "proclus-homilies/proclus.homilies_TT/proclus.23.nativity.tt": (
