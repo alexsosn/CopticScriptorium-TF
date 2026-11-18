@@ -6,6 +6,7 @@ smoke must prove the same claims on all *four* immutable original TT blobs.
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import runpy
 import unittest
 
@@ -81,6 +82,23 @@ class CorrectedUpstreamTTReleaseTests(unittest.TestCase):
             with self.subTest(tampered=tampered[-100:]):
                 with self.assertRaises(ValueError):
                     compare(original.encode("utf-8"), tampered.encode("utf-8"))
+
+    def test_current_producer_manifest_and_historical_agora_run_are_not_conflated(self):
+        root = ROOT
+        manifest = json.loads((root / "agora.materializer.json").read_text(encoding="utf-8"))
+        source = next(x for x in manifest["materializers"][0]["acquisition"] if x["type"] == "git")
+        self.assertEqual(source["ref"], NEW_COMMIT)
+        readme = (root / "README.md").read_text(encoding="utf-8")
+        quick = (root / "docs/researcher-quickstart.md").read_text(encoding="utf-8")
+        guide = (root / "docs/researcher-guide.md").read_text(encoding="utf-8")
+        self.assertIn("Agora #310", readme)
+        self.assertIn("Agora #310", quick)
+        self.assertIn("Agora #310", guide)
+        self.assertIn(NEW_COMMIT, readme)
+        self.assertIn(OLD_COMMIT, readme)
+        self.assertIn("previous", quick)
+        self.assertIn("not yet", readme)
+        self.assertIn("separate", guide)
 
     def test_existing_installed_wheel_smoke_runs_full_four_file_delta(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")

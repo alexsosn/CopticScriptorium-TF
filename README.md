@@ -269,15 +269,25 @@ for limits, lifecycle, and feature-module behavior.
 
 ### Automatic upstream acquisition: verified full-corpus path
 
-The canonical Agora registry now pins the reviewed Coptic materializer release
-(merged [Agora PR #213](https://github.com/alexsosn/Agora/pull/213))
-and its exact source Git acquisition manifest. It uses the production sparse
-paths `/*/*_TT/**` and `/*/*_TT.zip` at immutable upstream
-`CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`.
-The pinned source census verified **565 TT Git blobs** and **220,289,125
-bytes**; it avoids unrelated source formats.
+The **current producer repository manifest** now requests official
+Coptic Scriptorium **v6.3.1** at immutable Git commit
+`6fb51458e7156dd5387c2b2dca207aac1692e4d0`.
+The source release removes malformed `norm_*` wrappers from four original TT
+records; the [source migration audit](https://github.com/alexsosn/CopticScriptorium-TF/issues/214)
+verified **20,011 original word literals unchanged** through clean-wheel TF
+conversion and reload.
 
-**Full registered integration acceptance passed.** Merged
+**Agora's externally registered plugin is independently pinned and has not yet
+been upgraded.** Its canonical registry currently resolves an older immutable
+Coptic materializer whose upstream Git source is
+`CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`.
+The historical source inventory measured **565 TT Git blobs** and
+**220,289,125 bytes** on that earlier revision. The coordinated registered
+v6.3.1 update and complete Context-Fabric check are tracked in
+[Agora #310](https://github.com/alexsosn/Agora/issues/310). Do not present
+older registered output as v6.3.1 without checking its provenance.
+
+**Full registered integration acceptance passed for the earlier source pin.** Merged
 [Agora PR #215](https://github.com/alexsosn/Agora/pull/215)
 (workflow `38063116201`) exercised canonical registered install,
 **automatic remote Git source acquisition without `--source`**,
@@ -286,7 +296,9 @@ and an actual Context-Fabric import/prepare/load/query/unload/remove lifecycle.
 It is a technical, edition-pinned regression — not scholarly certification or
 permission to redistribute the Coptic corpus.
 
-For reproducible automatic acquisition, omit the local source override:
+For acquisition from the **currently registered older** Agora plugin, omit the
+local source override. Verify the registered manifest's requested source Git
+commit before interpreting or combining it with v6.3.1 TF modules:
 
 ```bash
 python scripts/agora_materialize_registered.py \
@@ -323,7 +335,7 @@ Active changes follow research/plan → RED tests → minimal implementation →
 Current release-facing follow-ups are:
 
 - #177 — independent autonomous-agent researcher journey through the installed converter, native TF queries and Agora/Context-Fabric;
-- #118 — reconcile native preservation evidence for all 101 original TT tag kinds, without turning baseline inventory labels into invented semantics;
+- #118 — reconcile native preservation evidence for source tag families across upstream revisions, without treating removed malformed wrappers as present source annotations;
 - #70 / #75 / #92 — continue source-evidence-backed Coptic↔LXX versification and ambiguity research;
 - #109 / #148 — investigate the measured full-corpus memory footprint before making performance claims;
 - #11 — complete the remaining first-usable-release epic acceptance.
