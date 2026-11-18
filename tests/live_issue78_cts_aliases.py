@@ -23,7 +23,7 @@ from copticscriptorium_tf.lxx_module import (
 )
 from tf.fabric import Fabric
 
-COPTIC_REV = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COPTIC_REV = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 # Exact member paths measured by #77's full pinned real metadata work census.
 EXAMPLES = (
     ("bohairic.ot", "01_Genesis_01.tt", "Gen", "candidate"),

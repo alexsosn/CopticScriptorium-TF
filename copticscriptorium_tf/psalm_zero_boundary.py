@@ -14,7 +14,7 @@ from typing import Any, Callable
 from .model import DocumentModel
 from .parser import TAG_RE, ATTR_RE
 
-SOURCE_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+SOURCE_PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 _SOURCE_RECORD = re.compile(r"bohairic\.ot/bohairic\.ot:19_Psalmi_(\d{3})\Z")
 _SOURCE_CTS = re.compile(r"urn:cts:copticLit:ot\.pss\.bohairic_ed:(\d+)\Z")
 _SHA256 = re.compile("[0-9a-f]{64}\\Z")

@@ -15,7 +15,7 @@ additive modules.
 
 ## Pinned parent versions
 
-- Coptic source: `CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5`; source
+- Coptic source: `CopticScriptorium/corpora@6fb51458e7156dd5387c2b2dca207aac1692e4d0`; source
   `source_record_id`, local word ordinal and exact document SHA-256 are
   checked against the loaded Coptic TF corpus before any feature is written.
 - Greek source: `CenterBLC/LXX@f32a98eddf7eb239aa73ab863d70381e416d5076`,

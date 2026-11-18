@@ -14,7 +14,7 @@ from copticscriptorium_tf.nt_modules import (
     NtModuleError, project_nt_modules,
 )
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 REC = "sahidica.mark/sahidica.mark:Mark_02"
 TT = (
     '<meta book="Mark" corpus="sahidica.mark" chapter="2" '

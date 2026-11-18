@@ -9,7 +9,7 @@ import unittest
 from copticscriptorium_tf.nt_reference import resolve_coptic_sbl_references
 from copticscriptorium_tf.parser import parse_tt_record
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 CANON = "sahidica.mark/sahidica.mark:Mark_01"
 TREE = "coptic-treebank/coptic.treebank:Mark_01"
 

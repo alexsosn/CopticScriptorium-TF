@@ -13,12 +13,16 @@ import sys
 
 from tf.fabric import Fabric
 
+# Official v6.3.1 removed exactly 20,011/17,713/20,011/860
+# spurious norm_* markup wrappers across the four corrected original TT
+# sources. The independent old/new literal audit in #214 proves that none
+# of their 20,011 canonical words were removed. Real morph source nodes stay.
 EXPECTED = {
     "morph": 78_265,
-    "norm_func": 20_011,
-    "norm_head": 17_713,
-    "norm_xml:id": 20_011,
-    "norm_new_sent": 860,
+    "norm_func": 0,
+    "norm_head": 0,
+    "norm_xml:id": 0,
+    "norm_new_sent": 0,
 }
 
 
@@ -66,13 +70,16 @@ def main(tf_dir: Path) -> None:
                 "proclus-homilies/proclus.homilies:proclus.23.nativity",
             }:
                 examples[(source_record_id, kind)] += 1
-    assert observed == EXPECTED, (observed, EXPECTED)
-    assert sum(observed.values()) == 136_860
+    # Absent upstream wrapper kinds are proved by the explicit len(nodes) checks
+    # above, but Counter intentionally omits zero-valued keys. Compare only
+    # nonzero observed kinds without losing the explicit per-kind assertions.
+    assert observed == +Counter(EXPECTED), (observed, EXPECTED)
+    assert sum(observed.values()) == 78_265
     assert examples[("AP/apophthegmata.patrum:AP.001.n135.mother", "morph")] > 0
-    assert examples[("proclus-homilies/proclus.homilies:proclus.23.nativity", "norm_func")] > 0
+    assert examples[("proclus-homilies/proclus.homilies:proclus.23.nativity", "norm_func")] == 0
     print(json.dumps({
         "result": "PASS source-exact native TT token wrapper conservation",
-        "pinned_source": "CopticScriptorium/corpora@3ac067f1709a0012daf39ea8da2fac79980176a5",
+        "pinned_source": "CopticScriptorium/corpora@6fb51458e7156dd5387c2b2dca207aac1692e4d0",
         "nodes_by_type": dict(sorted(observed.items())),
         "all_source_ordinals_unique_per_record": True,
         "word_slots": api.F.otype.maxSlot,

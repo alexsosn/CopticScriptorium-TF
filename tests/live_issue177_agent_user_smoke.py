@@ -24,7 +24,7 @@ import unicodedata
 
 from tf.fabric import Fabric
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 UPSTREAM = "CopticScriptorium/corpora"
 THOMAS = "thomas-gospel/thomas.gospel_TT/thomas_gospel.tt"
 PISTIS = "pistis-sophia/pistis.sophia_TT/pistis.sophia_book_1_part1.tt"

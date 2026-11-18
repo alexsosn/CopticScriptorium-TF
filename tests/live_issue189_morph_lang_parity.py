@@ -37,7 +37,7 @@ def original_attrs(fragment: str):
         offset = match.end()
     return observed
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 SAMPLE = {
     "sahidic.ot/sahidic.ot:01_Genesis_01",
     "sahidic.ot/sahidic.ot:01_Genesis_05",

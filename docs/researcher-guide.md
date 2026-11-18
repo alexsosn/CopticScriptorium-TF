@@ -28,7 +28,12 @@ Context-Fabric import/prepare/load/query/unload/remove lifecycle. This is a
 technical integration test, not evidence of independent researcher usability
 or of source data licensing/scholarly equivalence. In ordinary usage,
 **Agora materialization and Context-Fabric import are still two explicit
-steps**, not one automatically linked operation.
+steps**, not one automatically linked operation. **That verified registered
+run used the previous Coptic source pin** `3ac067f1709a0012daf39ea8da2fac79980176a5`.
+The producer's current v6.3.1 manifest is reviewed separately and the
+external registered Agora pin has not yet been advanced. See
+[Agora #310](https://github.com/alexsosn/Agora/issues/310) for the exact
+v6.3.1 registered install and Context-Fabric acceptance gate.
 
 For a small, copyable first corpus query and the local/automatic acquisition
 choices, follow the [researcher quickstart](researcher-quickstart.md).

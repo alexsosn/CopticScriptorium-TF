@@ -20,7 +20,7 @@ from copticscriptorium_tf.nt_reference import (
 )
 from copticscriptorium_tf.parser import parse_tt_record
 
-COPTIC_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COPTIC_PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 SBL_PARENT_PIN = "4dd0207bda66133fdfa9740ff0aae7de61228700"
 SOURCES = (
     ("sahidica.mark", "sahidica.mark", "Mark_02", 28, 24),

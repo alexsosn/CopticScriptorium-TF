@@ -5,7 +5,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/issue177-agent-user-smoke.yml"
 SCRIPT = ROOT / "tests/live_issue177_agent_user_smoke.py"
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 
 
 class InstalledResearcherJourneyContract(unittest.TestCase):

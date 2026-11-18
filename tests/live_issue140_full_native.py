@@ -118,7 +118,7 @@ def main(tf_root: Path, source_root: Path | None = None) -> None:
             raise ValueError("complete edition original TT to native value/count drift")
     print(json.dumps({
         "result": "PASS exact native edition source annotation coverage",
-        "source_revision": "3ac067f1709a0012daf39ea8da2fac79980176a5",
+        "source_revision": "6fb51458e7156dd5387c2b2dca207aac1692e4d0",
         "word_slots": api.F.otype.maxSlot,
         "nodes_by_type": EXPECTED,
         "modes": {"|".join(k): v for k, v in sorted(modes.items())},

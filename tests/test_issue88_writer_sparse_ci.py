@@ -9,7 +9,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/issue15-writer.yml"
 WRITER_SLICE = ROOT / "research/issue-15/writer_slice.py"
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 FILES = (
     "sahidica.mark/sahidica.mark_TT/Mark_01.tt",
     "sahidica.mark/sahidica.mark_TT/Mark_02.tt",

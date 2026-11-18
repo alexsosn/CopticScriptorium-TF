@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from copticscriptorium_tf.parser import TAG_RE, _scan_attrs
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 DIRECT = re.compile(r"^[^/]+/[^/]+_TT/[^/]+\.tt$")
 ZIPPED = re.compile(r"^[^/]+/[^/]+_TT\.zip$")
 

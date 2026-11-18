@@ -14,7 +14,7 @@
         {
           "type": "git",
           "url": "https://github.com/CopticScriptorium/corpora.git",
-          "ref": "3ac067f1709a0012daf39ea8da2fac79980176a5",
+          "ref": "6fb51458e7156dd5387c2b2dca207aac1692e4d0",
           "sparse_patterns": ["/*/*_TT/**", "/*/*_TT.zip"],
           "subpath": "."
         },

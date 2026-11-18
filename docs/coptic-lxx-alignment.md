@@ -7,8 +7,8 @@ word-by-word alignment.
 The prototype attaches source-local Coptic biblical references to
 `CenterBLC/LXX` **1935**, release **v1.0.1**, pinned Git commit
 `f32a98eddf7eb239aa73ab863d70381e416d5076`.
-The Coptic source is `CopticScriptorium/corpora` pinned to
-`3ac067f1709a0012daf39ea8da2fac79980176a5`.
+The current supported Coptic source is `CopticScriptorium/corpora` pinned to
+`6fb51458e7156dd5387c2b2dca207aac1692e4d0` (official v6.3.1). Historical source-case audits below still cite the previous immutable pin.
 
 ## What exists and what has been tested
 

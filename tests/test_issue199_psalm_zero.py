@@ -8,7 +8,7 @@ import unittest
 from copticscriptorium_tf.parser import parse_tt_record
 from copticscriptorium_tf.psalm_zero_boundary import PsalmZeroAudit, inspect_psalm_zero
 
-COPTIC_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COPTIC_PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 
 
 def make_doc(chapter=1, *, corpus="bohairic.ot", work="pss", edition="bohairic_ed",

@@ -8,7 +8,7 @@ import sys
 
 from copticscriptorium_tf.parser import parse_tt_record
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 KINDS = (
     "hi_rend","note","gap_reason","supplied_reason","note_note","gap_unit",
     "supplied_source","gap_quantity","gap_extent","supplied_evidence",

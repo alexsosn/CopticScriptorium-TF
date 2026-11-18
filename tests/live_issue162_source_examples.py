@@ -5,7 +5,7 @@ import re
 import sys
 from copticscriptorium_tf.parser import parse_tt_record
 
-PIN="3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN="6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 KINDS=("pb_coptic_id","p_n","p","p_source","pb_n","lb_nb")
 FILES=(
     "pistis-sophia/pistis.sophia_TT/pistis.sophia_book_4_part3.tt",

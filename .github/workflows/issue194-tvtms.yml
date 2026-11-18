@@ -78,7 +78,7 @@ jobs:
         timeout-minutes: 22
         with:
           repository: CopticScriptorium/corpora
-          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          ref: 6fb51458e7156dd5387c2b2dca207aac1692e4d0
           path: pinned-coptic
           filter: blob:none
           persist-credentials: false
@@ -102,7 +102,7 @@ jobs:
       - name: Verify immutable sources including external TVTMS mapping bytes
         run: |
           test "$(git -C pinned-tvtms rev-parse HEAD)" = "f426b7253623731ce788c8ce7abcd1d8f95c1f70"
-          test "$(git -C pinned-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C pinned-coptic rev-parse HEAD)" = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
           test "$(git -C pinned-lxx rev-parse HEAD)" = "f32a98eddf7eb239aa73ab863d70381e416d5076"
           test "$(git -C pinned-tvtms hash-object data/stepbible-versification/mapping.json)" = "fe3cd19cdef252e7537bb739b8cf4117dcabe927"
           test "$(git -C pinned-step-source rev-parse HEAD)" = "86ab0b75e195d3269c081201f2ff66afa10d5a30"

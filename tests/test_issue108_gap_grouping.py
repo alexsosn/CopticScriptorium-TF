@@ -8,7 +8,7 @@ from __future__ import annotations
 import unittest
 from copticscriptorium_tf.ot_verse_anomalies import CopticOtVerseAnomalyBatch
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 HASH_A, HASH_B = "a" * 64, "b" * 64
 RUTH = (
     '<meta chapter="2">'

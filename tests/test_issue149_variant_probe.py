@@ -10,6 +10,8 @@ import unittest
 from copticscriptorium_tf.ot_variant_probe import (
     EditionProbeError,
     GREEK_VARIANTS,
+    PINNED_COPTIC,
+    HISTORICAL_REPORT_SOURCE_COMMIT,
     probe_pinned_variant_gaps,
 )
 
@@ -19,6 +21,16 @@ FIXTURE = Path(__file__).resolve().parents[1] / "research/issue-149/pinned-ambig
 class PinnedAlternativeGreekEditionTests(unittest.TestCase):
     def setUp(self):
         self.data = json.loads(FIXTURE.read_text(encoding="utf-8"))
+
+    def test_historical_report_provenance_is_not_rewritten_as_new_git_run(self):
+        self.assertNotEqual(PINNED_COPTIC, HISTORICAL_REPORT_SOURCE_COMMIT)
+        self.assertEqual(self.data["coptic_source_commit"], HISTORICAL_REPORT_SOURCE_COMMIT)
+        # A physically unchanged OT source may be reverified at v6.3.1,
+        # but the previous report's run and Git provenance must not be forged.
+        tampered = deepcopy(self.data)
+        tampered["coptic_source_commit"] = PINNED_COPTIC
+        with self.assertRaisesRegex(EditionProbeError, "provenance|revision"):
+            probe_pinned_variant_gaps(tampered, lookup=lambda *_: 1)
 
     def test_full_real_source_report_fixture_has_ten_events_seven_records_and_fifty_skips(self):
         calls = []

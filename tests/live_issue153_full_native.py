@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
 
 from copticscriptorium_tf.sbl_source_census import records
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 EXPECTED = {
     "hi_rend": 5172, "note": 2822, "gap_reason": 1079,
     "supplied_reason": 815, "note_note": 333, "gap_unit": 170,

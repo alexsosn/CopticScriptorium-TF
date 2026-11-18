@@ -11,7 +11,7 @@ from typing import Callable
 
 from .parser import TAG_RE
 
-COPTIC_PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+COPTIC_PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 _HEX_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _VERSE = re.compile(r'(?:^|\s)verse_n\s*=\s*"([^"]*)"')
 _CHAPTER = re.compile(r'(?:^|\s)chapter_n\s*=\s*"([^"]*)"')

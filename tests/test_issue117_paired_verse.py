@@ -10,7 +10,7 @@ import unittest
 from copticscriptorium_tf.parser import parse_tt_record
 from copticscriptorium_tf.nt_reference import resolve_coptic_sbl_references
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 PHYSICAL = "sahidica.1corinthians/sahidica.1corinthians:1Cor_14"
 
 

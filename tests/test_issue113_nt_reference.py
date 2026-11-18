@@ -7,7 +7,7 @@ from copticscriptorium_tf.nt_reference import (
     GREEK_NT_EDITION, resolve_coptic_sbl_references, morphgnt_verse_is_absent,
 )
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 PROVENANCE = "Greek text annotated as sbl_greek and sbl_apparatus are from the SBL Greek New Testament (c)2010."
 
 def make_doc(

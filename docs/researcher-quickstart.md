@@ -33,7 +33,7 @@ copticscriptorium-tf \
   /path/to/CopticScriptorium-corpora \
   /path/to/output-tf \
   --upstream-repository CopticScriptorium/corpora \
-  --upstream-commit 3ac067f1709a0012daf39ea8da2fac79980176a5 \
+  --upstream-commit 6fb51458e7156dd5387c2b2dca207aac1692e4d0 \
   --summary /path/to/conversion-summary.json
 ```
 
@@ -118,9 +118,14 @@ provenance.
 
 ## 5. Optional: acquire the entire pinned source through Agora
 
-If you do not have a local TT tree, the already registered Agora materializer
-can acquire the reviewed Git snapshot automatically. Run these from an
-**Agora** repository checkout with its supported sandbox/runtime:
+If you do not have a local TT tree, Agora's registered materializer can
+acquire a Git snapshot automatically. **The currently registered immutable
+plugin still uses the previous Coptic source revision**, not the v6.3.1 pin
+used in the direct conversion above. The v6.3.1 registration/Context-Fabric
+upgrade is tracked in [Agora #310](https://github.com/alexsosn/Agora/issues/310).
+Check the actual installed plugin manifest and output's `upstream_commit`
+before assuming compatibility with current source-qualified Greek modules.
+Run these commands from an **Agora** checkout with its supported sandbox:
 
 ```bash
 python scripts/agora_install_materializer.py install copticscriptorium-tf \
@@ -136,8 +141,11 @@ python scripts/agora_materialize_registered.py \
 The resulting Text-Fabric files are in `/path/to/agora-output/tf`; substitute
 that path in the browser or Python example above **in an environment where
 the Coptic package and Text-Fabric are installed**. The complete original
-2,628-source-record acquisition and conversion was tested by the registered
-Agora integration in [PR #215](https://github.com/alexsosn/Agora/pull/215).
+2,628-source-record acquisition and conversion was tested **on the previous
+immutable source commit** by the registered
+[Agora PR #215](https://github.com/alexsosn/Agora/pull/215). The newer
+producer v6.3.1 source pin must pass a separate registered-host integration
+before the first researcher-ready release.
 This is a resource-heavy path: pinned historical runs have measured peak
 process **memory** above 7 GiB for TT-only and above 8 GiB with CoNLL-U,
 not counting all concurrent host processes. Budget substantially more memory

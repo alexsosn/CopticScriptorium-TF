@@ -5,7 +5,7 @@ import re
 import sys
 from copticscriptorium_tf.parser import parse_tt_record
 
-PIN="3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN="6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 SAMPLES=(("pistis.sophia_book_1_part1.tt",162),
          ("pistis.sophia_book_1_part2.tt",136),
          ("pistis.sophia_book_1_part3.tt",87))

@@ -17,7 +17,7 @@ from copticscriptorium_tf.lxx_versification import (
     BOHAIRIC_ZECH_CROSSWALK_VERSION, BOHAIRIC_ZECH_CHAPTER_SHA,
 )
 
-SOURCE_COMMIT = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+SOURCE_COMMIT = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 
 
 def source_document(chapter: int, verses: tuple[int, ...], *, witness="bohairic", cts=None,

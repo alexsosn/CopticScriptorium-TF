@@ -9,6 +9,8 @@ on:
       - 'tests/test_issue212_unicode_lemma_journey.py'
       - 'tests/test_issue215_browser_context.py'
       - 'tests/test_issue215_browser_passage_adapter.py'
+      - 'tests/test_issue214_v631_source_audit.py'
+      - 'tests/live_issue214_v631_source_audit.py'
       - 'tests/live_issue177_agent_user_smoke.py'
       - 'research/issue-177/**'
       - 'README.md'
@@ -42,7 +44,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: CopticScriptorium/corpora
-          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          ref: 6fb51458e7156dd5387c2b2dca207aac1692e4d0
           path: real-coptic
           persist-credentials: false
           filter: blob:none
@@ -51,9 +53,39 @@ jobs:
             /thomas-gospel/thomas.gospel_TT/thomas_gospel.tt
             /pistis-sophia/pistis.sophia_TT/pistis.sophia_book_1_part1.tt
 
+      - name: Checkout four original corrected TT files at previous immutable pin
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 3ac067f1709a0012daf39ea8da2fac79980176a5
+          path: original-v630
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /john-constantinople/john.constantinople_TT/penitence.01.tt
+            /john-constantinople/john.constantinople_TT/penitence.02.tt
+            /proclus-homilies/proclus.homilies_TT/proclus.23.nativity.tt
+            /shenoute-those/shenoute.those_TT/shenoute.those.GL269-270.tt
+
+      - name: Checkout four original corrected TT files at immutable v6.3.1
+        uses: actions/checkout@v4
+        with:
+          repository: CopticScriptorium/corpora
+          ref: 6fb51458e7156dd5387c2b2dca207aac1692e4d0
+          path: original-v631
+          persist-credentials: false
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /john-constantinople/john.constantinople_TT/penitence.01.tt
+            /john-constantinople/john.constantinople_TT/penitence.02.tt
+            /proclus-homilies/proclus.homilies_TT/proclus.23.nativity.tt
+            /shenoute-those/shenoute.those_TT/shenoute.those.GL269-270.tt
+
       - name: Verify pinned upstream source and one original file length
         run: |
-          test "$(git -C real-coptic rev-parse HEAD)" = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+          test "$(git -C real-coptic rev-parse HEAD)" = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
           test "$(stat -c%s real-coptic/thomas-gospel/thomas.gospel_TT/thomas_gospel.tt)" = "1474064"
           test -f real-coptic/pistis-sophia/pistis.sophia_TT/pistis.sophia_book_1_part1.tt
 
@@ -78,7 +110,7 @@ jobs:
 
       - name: Run Unicode lemma contract in the clean installed-wheel environment
         run: |
-          "$RUNNER_TEMP/clean/bin/python" -m unittest tests.test_issue212_unicode_lemma_journey tests.test_issue215_browser_context tests.test_issue215_browser_passage_adapter -v
+          "$RUNNER_TEMP/clean/bin/python" -m unittest tests.test_issue212_unicode_lemma_journey tests.test_issue215_browser_context tests.test_issue215_browser_passage_adapter tests.test_issue214_v631_source_audit -v
 
       - name: Verify exact installed-user smoke and negative path
         timeout-minutes: 16
@@ -88,6 +120,15 @@ jobs:
             "$GITHUB_WORKSPACE/real-coptic" \
             "$RUNNER_TEMP/clean/bin" \
             "$RUNNER_TEMP/researcher-smoke"
+
+      - name: Audit all v6.3.1 changed TT originals and convert in a clean wheel
+        timeout-minutes: 12
+        run: |
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/clean/bin/python" "$GITHUB_WORKSPACE/tests/live_issue214_v631_source_audit.py" \
+            "$GITHUB_WORKSPACE/original-v630" \
+            "$GITHUB_WORKSPACE/original-v631" \
+            "$RUNNER_TEMP/v631-released-tt-audit"
 
       - name: Inspect ephemeral scratch use without uploading original/derived text
         if: always()
