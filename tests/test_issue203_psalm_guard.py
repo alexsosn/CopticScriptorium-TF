@@ -16,7 +16,7 @@ def source_doc(chapter: int, *, corpus="bohairic.ot", edition="bohairic_ed",
                source_commit=None):
     return make_doc(
         chapter=chapter, corpus=corpus, edition=edition,
-        source_commit=source_commit or "3ac067f1709a0012daf39ea8da2fac79980176a5",
+        source_commit=source_commit or "6fb51458e7156dd5387c2b2dca207aac1692e4d0",
         body=(
             '<verse_n verse_n="0">' + norm("source-title", 1) +
             '<verse_n verse_n="1">' + norm("source-body", 2) +

@@ -205,7 +205,7 @@ class NativeCopticLxxInverseLookupTests(unittest.TestCase):
             source_record_id="sahidic.ruth/sahidic.ruth:Ruth_02",
             source_path="sahidic.ruth/sahidic.ruth_TT/Ruth_02.tt",
             upstream_repository="CopticScriptorium/corpora",
-            upstream_commit="3ac067f1709a0012daf39ea8da2fac79980176a5",
+            upstream_commit="6fb51458e7156dd5387c2b2dca207aac1692e4d0",
         )
         shared = "CenterBLC/LXX:1935:Ruth:2:1"
         with TemporaryDirectory() as tmp:
@@ -258,7 +258,7 @@ class NativeCopticLxxInverseLookupTests(unittest.TestCase):
             source_record_id="sahidic.ruth/sahidic.ruth:Ruth_02",
             source_path="sahidic.ruth/sahidic.ruth_TT/Ruth_02.tt",
             upstream_repository="CopticScriptorium/corpora",
-            upstream_commit="3ac067f1709a0012daf39ea8da2fac79980176a5",
+            upstream_commit="6fb51458e7156dd5387c2b2dca207aac1692e4d0",
         )
         shared = "CenterBLC/LXX:1935:Ruth:2:1"
         with TemporaryDirectory() as directory:

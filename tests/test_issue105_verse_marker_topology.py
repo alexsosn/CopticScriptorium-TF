@@ -8,7 +8,7 @@ from copticscriptorium_tf.verse_marker_topology import VerseMarkerTopologyAudit
 from copticscriptorium_tf.lxx_coverage import CopticLxxCoverageAudit
 from copticscriptorium_tf.parser import parse_tt_record
 
-PIN = "3ac067f1709a0012daf39ea8da2fac79980176a5"
+PIN = "6fb51458e7156dd5387c2b2dca207aac1692e4d0"
 
 
 def doc(body: str, name: str = "test"):
