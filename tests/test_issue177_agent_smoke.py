@@ -26,6 +26,17 @@ class InstalledResearcherJourneyContract(unittest.TestCase):
         self.assertIn("persist-credentials: false", workflow)
         self.assertNotIn("--source /path/to", workflow)
 
+    def test_modern_python_user_wheel_gate_keeps_existing_minimum(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        metadata = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        self.assertIn("python-version: '3.14'", workflow)
+        self.assertIn("sys.version_info[:2] == (3, 14)", workflow)
+        self.assertIn('version("text-fabric")', workflow)
+        self.assertIn('version("tf-build")', workflow)
+        self.assertIn('requires-python = ">=3.12"', metadata)
+        self.assertIn('python-version: "3.12"',
+                      (ROOT / ".github/workflows/research-tests.yml").read_text(encoding="utf-8"))
+
     def test_real_browser_http_query_journey_is_exercised(self):
         script = SCRIPT.read_text(encoding="utf-8")
         # Real loopback WSGI request/response, rather than only --check.
